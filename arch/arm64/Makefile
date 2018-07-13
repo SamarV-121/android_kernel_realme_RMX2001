@@ -81,7 +81,9 @@ AS		+= -EB
 ifeq ($(ld-name),gold)
 LDFLAGS		+= -EB -maarch64_elf64_be_vec
 else
-LDFLAGS		+= -EB -maarch64linuxb
+# Prefer the baremetal ELF build target, but not all toolchains include
+# it so fall back to the standard linux version if needed.
+LDFLAGS		+= -EB $(call ld-option, -maarch64elfb, -maarch64linuxb)
 endif
 UTS_MACHINE	:= aarch64_be
 else
@@ -91,7 +93,8 @@ AS		+= -EL
 ifeq ($(ld-name),gold)
 LDFLAGS		+= -EL -maarch64_elf64_le_vec
 else
-LDFLAGS		+= -EL -maarch64linux
+# Same as above, prefer ELF but fall back to linux target if needed.
+LDFLAGS		+= -EL $(call ld-option, -maarch64elf, -maarch64linux)
 endif
 UTS_MACHINE	:= aarch64
 endif
