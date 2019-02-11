@@ -816,6 +816,10 @@ else
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
 endif
 
+ifeq ($(ld-name),lld)
+LDFLAGS += -O2
+endif
+
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-const-variable)
 
 ifdef ODM_HQ_EDIT
