@@ -757,6 +757,7 @@ else
 KBUILD_CFLAGS   += -O3
 ifeq ($(cc-name),gcc)
 KBUILD_CFLAGS	+= -mcpu=cortex-a76.cortex-a55 -mtune=cortex-a76.cortex-a55
+KBUILD_CFLAGS	+= --param=max-inline-insns-auto=1000
 endif
 ifeq ($(cc-name),clang)
 KBUILD_CFLAGS   += -O3
