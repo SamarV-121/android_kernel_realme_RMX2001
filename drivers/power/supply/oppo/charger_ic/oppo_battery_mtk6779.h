@@ -28,22 +28,22 @@
 #include <mt-plat/mtk_charger.h>
 #include <mt-plat/mtk_battery.h>
 
-#include "../../../../kernel-4.9/drivers/power/supply/mediatek/misc/mtk_gauge_time_service.h"
+#include "../../mediatek/misc/mtk_gauge_time_service.h"
 #ifdef ODM_HQ_EDIT
 /*wangtao@ODM.HQ.BSP.CHG 2019/10/17 modify kernel error*/
 #include <mt-plat/charger_class.h>
 #else
-#include "../../../../kernel-4.9/drivers/power/supply/mediatek/charger/charger_class.h"
+#include "../../mediatek/charger/charger_class.h"
 #endif
 /* PD */
-#include "../../../../kernel-4.9/drivers/misc/mediatek/typec/tcpc/inc/tcpm.h"
+#include "../../../../misc/mediatek/typec/tcpc/inc/tcpm.h"
 
-#include "../../../../kernel-4.9/drivers/misc/mediatek/typec/tcpc/inc/mtk_direct_charge_vdm.h"
+#include "../../../../misc/mediatek/typec/tcpc/inc/mtk_direct_charge_vdm.h"
 
 struct charger_manager;
-#include "../../../../kernel-4.9/drivers/power/supply/mediatek/charger/mtk_pe_intf.h"
-#include "../../../../kernel-4.9/drivers/power/supply/mediatek/charger/mtk_pe20_intf.h"
-#include "../../../../kernel-4.14/drivers/power/supply/mediatek/charger/mtk_pdc_intf.h"
+#include "../../mediatek/charger/mtk_pe_intf.h"
+#include "../../mediatek/charger/mtk_pe20_intf.h"
+#include "../../mediatek/charger/mtk_pdc_intf.h"
 
 //====================================================================//
 /* mtk_pe40_intf begin */
