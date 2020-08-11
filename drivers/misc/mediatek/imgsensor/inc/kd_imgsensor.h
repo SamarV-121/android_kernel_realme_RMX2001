@@ -560,6 +560,8 @@
 #define SENSOR_DRVNAME_GC02M0_MIPI_MONO         "gc02m0_mipi_mono"
 #define OV02A10_SENSOR_ID                       0x2509
 #define SENSOR_DRVNAME_OV02A10_MIPI_RAW         "ov02a10_mipi_raw"
+#define GC02K0_SENSOR_ID                        0x2385
+#define SENSOR_DRVNAME_GC02K0_MIPI_RAW          "gc02k0_mipi_raw"
 #endif
 
 /******************************************************************************

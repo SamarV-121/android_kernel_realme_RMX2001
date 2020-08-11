@@ -172,6 +172,15 @@ static kal_uint16 awb_golden_table_s5kgm1sp[AWB_GOLDEN_TABLE_SIZE] = {
     154, 186, 186,  66   //3100k
 };
 
+static kal_uint16 awb_golden_addr_gc2385h[AWB_GOLDEN_ADDR_NUM] = {
+    0x0016, 0x0028, 0x003A
+};
+static kal_uint16 awb_golden_table_gc2385h[AWB_GOLDEN_TABLE_SIZE] = {
+    166, 189, 189,  132,  //5100K
+    177, 180, 180,  113,  //4000k
+    204, 185, 184,  95   //3100k
+};
+
 extern int iReadRegI2C(u8 *a_pSendData , u16 a_sizeSendData, u8 * a_pRecvData, u16 a_sizeRecvData, u16 i2cId);
 
 kal_uint8 check_eeprom_awb_golden(kal_uint16 sensor_id, kal_uint8 i2c_addr)
@@ -203,6 +212,10 @@ kal_uint8 check_eeprom_awb_golden(kal_uint16 sensor_id, kal_uint8 i2c_addr)
     case GC2375H_SENSOR_ID:
         awb_golden_addr = awb_golden_addr_gc2375h;
         awb_golden_table = awb_golden_table_gc2375h;
+        break;
+    case GC02K0_SENSOR_ID:
+        awb_golden_addr = awb_golden_addr_gc2385h;
+        awb_golden_table = awb_golden_table_gc2385h;
         break;
     default:
         printk("%s unsupported sensor_id:%d\n", __func__, sensor_id);
