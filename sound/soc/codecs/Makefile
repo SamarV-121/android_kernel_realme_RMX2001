@@ -503,9 +503,3 @@ ifeq ($(CONFIG_SND_SOC_MT6359),y)
   subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
   subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/accdet/mt6359
 endif
-
-#ifdef VENDOR_EDIT
-# hongxiang.jin@PSW.MM.AudioDriver.Machine, 2019/08/26, add TFA9890 ALSA driver
-obj-$(CONFIG_SND_SOC_ALSACODEC_TFA9890) += tfa98xx-v6/
-obj-$(CONFIG_SND_SOC_ALSACODEC_TFA9890) += tfa98xx/
-#endif /* VENDOR_EDIT */
