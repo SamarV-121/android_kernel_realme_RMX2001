@@ -50,7 +50,7 @@ config TOUCHPANEL_ILITEK
 	bool "TP ilitek IC enable or not for OPPO"
 	---help---
 	say Y to enable driver for Touchpanel using ilitek IC
-	
+
 source "drivers/input/touchscreen/oppo_touchscreen/util_interface/Kconfig"
 
 if TOUCHPANEL_NOVA
