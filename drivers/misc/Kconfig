@@ -548,7 +548,6 @@ source "drivers/misc/genwqe/Kconfig"
 source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
 source "drivers/misc/mediatek/Kconfig"
-source "drivers/misc/oppo_motor/Kconfig"
 #sunjingtao@ODM.BSP.System  2019/9/7 add for devinfo
 source "drivers/misc/hqdevinfo/Kconfig"
 endmenu

@@ -69,11 +69,6 @@ obj-$(CONFIG_GET_BOARD_ID) 	+= board_id.o
 obj-$(CONFIG_HQ_DEVINFO_SUPPORT) 	+= hqdevinfo/
 #endif
 
-#ifdef VENDOR_EDIT
-# xing.xiong@BSP.Kernel.Debug, 2018/10/01, Add for motor
-obj-y				+= motor.o
-obj-y				+= oppo_motor/
-#endif
 
 # Mengmeng.Wang@SRC.System, 2018/08/28, Add for oiface
 obj-y				+= schedx.o
