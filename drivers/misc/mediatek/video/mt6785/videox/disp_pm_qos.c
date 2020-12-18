@@ -409,7 +409,7 @@ int disp_pm_qos_set_ovl_bw(unsigned long long in_fps,
 	unsigned int ovl0_fbdc_bw, ovl0_2l_fbdc_bw;
 	unsigned int ovl0_lstf_bw, ovl0_2l_lstf_bw;
 
-	DISPINFO("%s,fps:[in-%d,out-%d]\n",
+	DISPINFO("%s,fps:[in-%llu,out-%llu]\n",
 		__func__, in_fps, out_fps);
 	ret |= __get_cmdq_slots(DISPSYS_SLOT_BASE,
 		DISP_SLOT_IS_DC, &is_dc);

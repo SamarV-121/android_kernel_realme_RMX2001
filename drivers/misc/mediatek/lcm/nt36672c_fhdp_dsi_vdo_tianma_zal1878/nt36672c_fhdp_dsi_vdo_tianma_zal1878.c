@@ -107,7 +107,7 @@ static LCM_UTIL_FUNCS lcm_util;
 static const unsigned char LCD_MODULE_ID = 0x01;
 extern int gesture_flag;
 extern void lcd_queue_load_tp_fw(void);
-extern nvt_tp;
+extern int nvt_tp;
 
 #define LCM_DSI_CMD_MODE    0
 #define FRAME_WIDTH        (1080)

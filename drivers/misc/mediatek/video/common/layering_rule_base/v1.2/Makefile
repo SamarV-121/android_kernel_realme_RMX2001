@@ -13,6 +13,7 @@
 
 obj-y += layering_rule_base.o
 
+ccflags-y += -Wno-error=format
 ccflags-y += \
                                 -I$(srctree)/drivers/misc/mediatek/video/include     \
                                 -I$(srctree)/drivers/misc/mediatek/video/common/IPv1     \

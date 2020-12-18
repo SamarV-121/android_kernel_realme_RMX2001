@@ -1255,7 +1255,7 @@ unsigned int lcm_fps_ctx_get(struct lcm_fps_ctx_t *fps_ctx)
 		__func__,
 		duration_max, duration_min, duration_sum, fps_ctx->num);
 
-	DISPINFO("%s fps = %d", __func__, fps);
+	DISPINFO("%s fps = %llu", __func__, fps);
 
 	mutex_unlock(&fps_ctx->lock);
 	return (unsigned int)fps;

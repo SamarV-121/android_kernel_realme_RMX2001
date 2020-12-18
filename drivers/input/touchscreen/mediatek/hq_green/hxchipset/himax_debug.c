@@ -1,3 +1,4 @@
+
 /*	Himax Android Driver Sample Code for debug nodes
 
 	Copyright (C) 2018 Himax Corporation.
@@ -3017,7 +3018,7 @@ static ssize_t himax_tp_fw_update_write(struct file *file, const char *buff, /*t
 #endif
 			himax_int_enable(1);
 
-			I("file size = %d\n", fw_image->size);
+			I("file size = %zd\n", fw_image->size);
 			i_CTPM_FW = kzalloc(sizeof(char)*fw_image->size, GFP_KERNEL);
 			if(i_CTPM_FW != NULL){
 				memcpy(i_CTPM_FW, fw_image->data, sizeof(char)*fw_image->size);

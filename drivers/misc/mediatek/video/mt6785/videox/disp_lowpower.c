@@ -925,7 +925,7 @@ static void _vdo_mode_enter_idle(void)
 				primary_display_dynfps_get_vfp_info(
 					NULL, &_vfp_for_lp);
 
-			DISPMSG("%s,vfp_for_lp ==0\n",
+			DISPMSG("%s,vfp_for_lp ==0 %d\n",
 				__func__, _vfp_for_lp);
 			/*if _vfp_for_lp == 0 don't decrease fps*/
 			if (_vfp_for_lp) {
