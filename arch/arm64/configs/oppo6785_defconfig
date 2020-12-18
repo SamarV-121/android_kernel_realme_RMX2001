@@ -634,10 +634,10 @@ CONFIG_MTK_SCHED_MONITOR=y
 
 #ifdef VENDOR_EDIT
 #/* Kui.Zhang@PSW.BSP.Kernel.Performance, 2018-11-07, add process reclaim.*/
-CONFIG_PROCESS_RECLAIM=y
+# CONFIG_PROCESS_RECLAIM=y
 #endif
 
 #ifdef VENDOR_EDIT
 # // Bin.XU @ BSP.Kernel.Stability, 2019/11/11, Add for oppo dump
-CONFIG_OPPO_FORCE_DUMP=y
+# CONFIG_OPPO_FORCE_DUMP=y
 #endif
