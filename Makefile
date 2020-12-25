@@ -490,10 +490,16 @@ CFLAGS_MODULE +=   -DHANG_OPPO_ALL
 #ifdef VENDOR_EDIT
 
 ifeq ($(cc-name),gcc)
-KBUILD_CFLAGS	+= $(call cc-disable-warning,maybe-uninitialized,)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, maybe-uninitialized)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, packed-not-aligned)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, psabi)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, restrict)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, stringop-overflow)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, stringop-truncation)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, zero-length-bounds)
 endif
 ifeq ($(cc-name),clang)
-KBUILD_CFLAGS	+= $(call cc-disable-warning,void-pointer-to-enum-cast,)
+KBUILD_CFLAGS	+= $(call cc-disable-warning,void-pointer-to-enum-cast)
 endif
 
 export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
