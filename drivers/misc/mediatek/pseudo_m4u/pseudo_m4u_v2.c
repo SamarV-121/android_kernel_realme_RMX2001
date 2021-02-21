@@ -3171,7 +3171,7 @@ static int __pseudo_dump_iova_reserved_region(struct device *dev,
 	domain = mtk_iommu_get_iova_space(dev,
 				&base, &max, &resv_regions);
 	if (domain < 0) {
-		pr_notice("%s, %d, failed to get iova space\n",
+		pr_debug("%s, %d, failed to get iova space\n",
 			  __func__, __LINE__);
 		return domain;
 	}
@@ -3247,11 +3247,11 @@ void __m4u_dump_pgtable(struct seq_file *s, unsigned int level,
 	M4U_PRINT_SEQ(s,
 		      "======== pseudo_m4u IOVA List ==========\n");
 	if (s)
-		pr_notice("======== pseudo_m4u IOVA List ==========\n");
+		pr_debug("======== pseudo_m4u IOVA List ==========\n");
 	M4U_PRINT_SEQ(s,
 		      " IOVA_start ~ IOVA_end	PA_start ~ PA_end	size(Byte)	port(larb-port)	name	time(ms)	process(pid)\n");
 	if (s)
-		pr_notice(" IOVA_start ~ IOVA_end	PA_start ~ PA_end	size(Byte)	port(larb-port)	name	time(ms)	process(pid)\n");
+		pr_debug(" IOVA_start ~ IOVA_end	PA_start ~ PA_end	size(Byte)	port(larb-port)	name	time(ms)	process(pid)\n");
 	if (lock)
 		mutex_lock(&(client->dataMutex));
 	list_for_each(pListHead, &(client->mvaList)) {
@@ -3272,7 +3272,7 @@ void __m4u_dump_pgtable(struct seq_file *s, unsigned int level,
 			      pList->timestamp,
 			      pList->task_comm, pList->pid);
 		if (s)
-			pr_notice(">>> 0x%lx~0x%lx, 0x%lx~0x%lx, 0x%lx, 0x%x(%d-%d), %s, %llu,  %s(%d)\n",
+			pr_debug(">>> 0x%lx~0x%lx, 0x%lx~0x%lx, 0x%lx, 0x%x(%d-%d), %s, %llu,  %s(%d)\n",
 			      start, end,
 				  p_start, p_end,
 				  pList->size, pList->port,
