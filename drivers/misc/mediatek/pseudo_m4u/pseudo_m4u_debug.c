@@ -470,7 +470,7 @@ static int dma_buf_test_alloc_dealloc(int port, struct sg_table *table,
 	int ret;
 
 	if (!dev) {
-		pr_notice("%s, %d, invalid port:%d\n",
+		pr_debug("%s, %d, invalid port:%d\n",
 			  __func__, __LINE__, port);
 		return -1;
 	}
@@ -480,7 +480,7 @@ static int dma_buf_test_alloc_dealloc(int port, struct sg_table *table,
 			DMA_ATTR_SKIP_CPU_SYNC);
 
 	if (!ret) {
-		pr_notice("%s, %d, failed at mapping sg table, ret:%d\n",
+		pr_debug("%s, %d, failed at mapping sg table, ret:%d\n",
 			  __func__, __LINE__, ret);
 		return -1;
 	}
