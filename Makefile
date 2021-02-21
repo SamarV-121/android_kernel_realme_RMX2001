@@ -490,7 +490,10 @@ CFLAGS_MODULE +=   -DHANG_OPPO_ALL
 #ifdef VENDOR_EDIT
 
 ifeq ($(cc-name),gcc)
-KBUILD_CFLAGS += -Wno-maybe-uninitialized
+KBUILD_CFLAGS	+= $(call cc-disable-warning,maybe-uninitialized,)
+endif
+ifeq ($(cc-name),clang)
+KBUILD_CFLAGS	+= $(call cc-disable-warning,void-pointer-to-enum-cast,)
 endif
 
 export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
