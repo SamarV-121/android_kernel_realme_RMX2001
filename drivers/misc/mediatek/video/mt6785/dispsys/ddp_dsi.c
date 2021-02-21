@@ -2944,14 +2944,14 @@ void DSI_CPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 						dfps_params->PLL_CLOCK != 0)
 						_data_rate =
 							dfps_params->data_rate;
-						_PLL_CLOCK =
+						 _PLL_CLOCK =
 							dfps_params->PLL_CLOCK;
 				} else {
 					if (dfps_params->data_rate_dyn != 0 ||
 						dfps_params->PLL_CLOCK_dyn != 0)
 						_data_rate =
 						dfps_params->data_rate_dyn;
-						_PLL_CLOCK =
+						 _PLL_CLOCK =
 						dfps_params->PLL_CLOCK_dyn;
 
 				}

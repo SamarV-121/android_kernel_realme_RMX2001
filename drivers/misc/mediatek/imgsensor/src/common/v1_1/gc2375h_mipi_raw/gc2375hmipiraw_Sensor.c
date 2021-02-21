@@ -370,7 +370,7 @@ static void set_shutter_frame_length(
           imgsensor.frame_length = shutter + imgsensor_info.margin;
     if (imgsensor.frame_length > imgsensor_info.max_frame_length)
        imgsensor.frame_length = imgsensor_info.max_frame_length;
-       spin_unlock(&imgsensor_drv_lock);
+        spin_unlock(&imgsensor_drv_lock);
        shutter = (shutter < imgsensor_info.min_shutter) ? imgsensor_info.min_shutter : shutter;
        shutter = (shutter > (imgsensor_info.max_frame_length - imgsensor_info.margin)) ? (imgsensor_info.max_frame_length - imgsensor_info.margin) : shutter;
 
@@ -1616,7 +1616,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
         case SENSOR_FEATURE_SET_STREAMING_RESUME:
             if (*feature_data != 0)
                 set_shutter(*feature_data);
-                streaming_control(KAL_TRUE);
+                  streaming_control(KAL_TRUE);
         break;
 
         case SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME:
