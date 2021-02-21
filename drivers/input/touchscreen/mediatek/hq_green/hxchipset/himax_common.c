@@ -455,7 +455,7 @@ static ssize_t proc_limit_area_read(struct file	*file, char	__user *user_buf,	si
 	if (!ts)
 		return count;
 	I("limit_area	is:	%d\n", ts->edge_limit.limit_area);
-	ret	=	snprintf(page, PAGE_SIZE,	"limit_area	=	%d left_x1 = %d	right_x1 = %d	left_x2	=	%d right_x2	=	%d left_y1 = %d	right_y1 = %d	left_y2	=	%d right_y2	=	%d\n",
+	ret	=	snprintf(page, sizeof(page),	"limit_area	=	%d left_x1 = %d	right_x1 = %d	left_x2	=	%d right_x2	=	%d left_y1 = %d	right_y1 = %d	left_y2	=	%d right_y2	=	%d\n",
 					ts->edge_limit.limit_area, ts->edge_limit.left_x1, ts->edge_limit.right_x1,	ts->edge_limit.left_x2,	ts->edge_limit.right_x2,
 					ts->edge_limit.left_y1,	ts->edge_limit.right_y1, ts->edge_limit.left_y2, ts->edge_limit.right_y2);
 	ret	=	simple_read_from_buffer(user_buf,	count, ppos, page, strlen(page));
