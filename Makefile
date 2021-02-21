@@ -829,7 +829,6 @@ KBUILD_CFLAGS += $(MTK_CDEFS)
 endif
 ifdef CONFIG_ODM_HQ_EDIT
 # wangtao@ODM_HQ.BSP.Kernel.Boot,2019/10/24,Add for ODM_HQ_EDIT macro for kernel usage
-$(warning *****CONFIG_ODM_HQ_EDIT is defined****)
 KBUILD_CFLAGS   += -DODM_HQ_EDIT
 KBUILD_CPPFLAGS += -DODM_HQ_EDIT
 CFLAGS_KERNEL   += -DODM_HQ_EDIT
