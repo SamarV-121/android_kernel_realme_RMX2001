@@ -262,7 +262,7 @@ static bool force_change_vvpu_opp[MTK_VPU_CORE];
 static bool force_change_dsp_freq[MTK_VPU_CORE];
 static bool change_freq_first[MTK_VPU_CORE];
 static bool opp_keep_flag;
-static bool sdsp_power_counter;
+static int sdsp_power_counter;
 static wait_queue_head_t waitq_change_vcore;
 static wait_queue_head_t waitq_do_core_executing;
 static uint8_t max_vcore_opp;
