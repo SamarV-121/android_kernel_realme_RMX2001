@@ -501,6 +501,7 @@ endif
 ifeq ($(cc-name),clang)
 KBUILD_CFLAGS	+= $(call cc-disable-warning,void-pointer-to-enum-cast)
 endif
+KBUILD_CFLAGS	+= $(call cc-disable-warning, switch-unreachable)
 
 export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
 export CPP AR NM STRIP OBJCOPY OBJDUMP HOSTLDFLAGS HOST_LOADLIBES
