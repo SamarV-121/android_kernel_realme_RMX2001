@@ -497,6 +497,7 @@ KBUILD_CFLAGS	+= $(call cc-disable-warning, restrict)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, stringop-overflow)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, stringop-truncation)
 KBUILD_CFLAGS	+= $(call cc-disable-warning, zero-length-bounds)
+KBUILD_CFLAGS	+= $(call cc-disable-warning, array-bounds)
 endif
 ifeq ($(cc-name),clang)
 KBUILD_CFLAGS	+= $(call cc-disable-warning,void-pointer-to-enum-cast)
