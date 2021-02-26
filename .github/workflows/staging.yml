@@ -1,0 +1,29 @@
+name: Build STAGING Kernel
+
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+  gcc:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Compile
+      run: |
+        export TELEGRAM_TOKEN=${{ secrets.TELEGRAM_TOKEN }}
+        ./build.sh
+
+  clang:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Compile
+      run: |
+        export TELEGRAM_TOKEN=${{ secrets.TELEGRAM_TOKEN }}
+        ./build.sh clang
