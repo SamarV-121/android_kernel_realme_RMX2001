@@ -59,4 +59,5 @@ if [ -e "$KERNEL_IMAGE" ]; then
 	curl -s "$TELEGRAM_API/sendDocument" -F "reply_to_message_id=$MESSAGE_ID" -F "chat_id=$TELEGRAM_CHAT" -F "document=@$(find *.zip)"
 else
 	curl -s "$TELEGRAM_API/sendDocument" -F "reply_to_message_id=$MESSAGE_ID" -F "chat_id=$TELEGRAM_CHAT" -F "document=@build_$DEVICE.log" -F "caption=Build failed"
+	exit 1
 fi
