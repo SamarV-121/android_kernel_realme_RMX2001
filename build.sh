@@ -5,7 +5,8 @@ nocol="\033[0m"
 
 DEVICE=RMX2001
 KERNEL_DIR="$PWD"
-KERNEL_IMAGE="$KERNEL_DIR/out/arch/arm64/boot/Image.gz-dtb"
+KERNEL_IMAGE="$KERNEL_DIR/out/arch/arm64/boot/Image.gz"
+DTB="$KERNEL_DIR/out/arch/arm64/boot/mtk.dtb"
 AK3_DIR="$HOME/tools/AnyKernel"
 TELEGRAM_API="https://api.telegram.org/bot$TELEGRAM_TOKEN"
 TELEGRAM_CHAT="-1001473502998"
@@ -53,10 +54,11 @@ esac
 
 if [ -e "$KERNEL_IMAGE" ]; then
 	cp -f "$KERNEL_IMAGE" "$AK3_DIR"
+	cp -f "$DTB" "$AK3_DIR/dtb"
 	cd "$AK3_DIR"
 	rm *.zip
 	zip -r "$ZIPNAME" *
-	curl -s "$TELEGRAM_API/sendDocument" -F "reply_to_message_id=$MESSAGE_ID" -F "chat_id=$TELEGRAM_CHAT" -F "document=@$(find *.zip)"
+	curl -s "$TELEGRAM_API/sendDocument" -F "reply_to_message_id=$MESSAGE_ID" -F "chat_id=$TELEGRAM_CHAT" -F "document=@$ZIPNAME"
 else
 	curl -s "$TELEGRAM_API/sendDocument" -F "reply_to_message_id=$MESSAGE_ID" -F "chat_id=$TELEGRAM_CHAT" -F "document=@build_$DEVICE.log" -F "caption=Build failed"
 	exit 1
