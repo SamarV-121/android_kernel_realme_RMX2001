@@ -1,5 +1,6 @@
 #!/bin/bash
 
+set -e
 green="\033[01;32m"
 nocol="\033[0m"
 
@@ -56,7 +57,7 @@ if [ -e "$KERNEL_IMAGE" ]; then
 	cp -f "$KERNEL_IMAGE" "$AK3_DIR"
 	cp -f "$DTB" "$AK3_DIR/dtb"
 	cd "$AK3_DIR"
-	rm *.zip
+	rm -f *.zip
 	zip -r "$ZIPNAME" *
 	curl -s "$TELEGRAM_API/sendDocument" -F "reply_to_message_id=$MESSAGE_ID" -F "chat_id=$TELEGRAM_CHAT" -F "document=@$ZIPNAME"
 else
