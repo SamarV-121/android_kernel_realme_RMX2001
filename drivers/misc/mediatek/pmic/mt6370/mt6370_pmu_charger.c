@@ -32,11 +32,34 @@
 #include <mtk_charger_intf.h>
 #include <mtk_pe20_intf.h>
 
+/* liunianliang@ODM.HQ.BSP.System, for charge,20200228 begin */
+#if defined(ODM_HQ_EDIT) && defined(TARGET_WATERMELON_Q_PROJECT)
+#include "../../../../power/supply/oppo/oppo_charger.h"
+#endif
+
+#include <soc/oppo/oppo_project.h>
+/* liunianliang@ODM.HQ.BSP.System, for charge,20200228 end */
+
 #include "inc/mt6370_pmu_fled.h"
 #include "inc/mt6370_pmu_charger.h"
 #include "inc/mt6370_pmu.h"
 
 #define MT6370_PMU_CHARGER_DRV_VERSION	"1.1.25_MTK"
+
+/* liunianliang@ODM.HQ.BSP.System, for charge,20200228 begin */
+#if defined(ODM_HQ_EDIT) && defined(TARGET_WATERMELON_Q_PROJECT)
+extern int charger_ic_flag;
+extern int mt_power_supply_type_check(void);
+extern bool pmic_chrdet_status(void);
+extern int oppo_battery_meter_get_battery_voltage(void);
+extern int oppo_get_rtc_ui_soc(void);
+extern int oppo_set_rtc_ui_soc(int value);
+extern bool oppo_chg_get_shortc_hw_gpio_status(void);
+static int oppo_enable_otg(struct charger_device *chg_dev, bool en);
+struct mt6370_pmu_charger_data *chip_chg_data;
+static int aicl_delay_count = 180;
+#endif
+/* liunianliang@ODM.HQ.BSP.System, for charge,20200228 end */
 
 static bool dbg_log_en;
 module_param(dbg_log_en, bool, 0644);
@@ -1042,6 +1065,15 @@ dcd_timeout:
 
 	if (inform_psy)
 		mt6370_inform_psy_changed(chg_data);
+
+#if defined(ODM_HQ_EDIT) && defined(TARGET_WATERMELON_Q_PROJECT)
+/* mapenglong@ODM.HQ.BSP.Charge, add for charge,20200408*/
+	/* Reset AICR limit */
+	chg_data->aicr_limit = -1;
+	aicl_delay_count = 180;
+
+	oppo_chg_wake_update_work();
+#endif
 
 	return ret;
 }
@@ -4002,7 +4034,11 @@ static struct charger_ops mt6370_chg_ops = {
 	.enable_chg_type_det = mt6370_enable_chg_type_det,
 
 	/* OTG */
+#if defined(ODM_HQ_EDIT) && defined(TARGET_WATERMELON_Q_PROJECT)
+	.enable_otg = oppo_enable_otg,
+#else
 	.enable_otg = mt6370_enable_otg,
+#endif
 	.set_boost_current_limit = mt6370_set_otg_current_limit,
 	.enable_discharge = mt6370_enable_discharge,
 
@@ -4088,17 +4124,435 @@ static ssize_t shipping_mode_store(struct device *dev,
 
 static const DEVICE_ATTR_WO(shipping_mode);
 
+/* liunianliang@ODM.HQ.BSP.System, for charge,20200228 begin */
+#if defined(ODM_HQ_EDIT) && defined(TARGET_WATERMELON_Q_PROJECT)
+static int oppo_enable_otg(struct charger_device *chg_dev, bool en)
+{
+	int rc = 0;
+	if (en)
+		mt6370_enable_hz(chip_chg_data, false);
+	rc = mt6370_enable_otg(chg_dev, en);
+	oppo_chg_set_otg_online(en);
+
+	return rc;
+}
+
+static int __mt6370_disable_iterm(struct charger_device *chg_dev, bool en)
+{
+	int ret = 0;
+	struct mt6370_pmu_charger_data *chg_data =
+		dev_get_drvdata(&chg_dev->dev);
+
+	ret = (en ? mt6370_pmu_reg_set_bit : mt6370_pmu_reg_clr_bit)
+		(chg_data->chip, MT6370_PMU_REG_CHGCTRL9, 0x08);
+	if (ret < 0)
+		dev_err(chg_data->dev, "%s: set iterm_en fail\n", __func__);
+
+	return ret;
+}
+
+void oppo_mt6370_dump_registers(void)
+{
+	int ret = 0;
+	ret = mt6370_dump_register(chip_chg_data->chg_dev);
+//	return 0;
+}
+
+int oppo_mt6370_kick_wdt(void)
+{
+	int rc = 0;
+
+	rc = mt6370_kick_wdt(chip_chg_data->chg_dev);
+
+    return rc;
+}
+
+static int oppo_mt6370_charging_current_write_fast(int chg_cur)
+{
+	int ret = 0;
+	int charging_current = 0;
+
+	charging_current = chg_cur * 1000;
+
+	mt6370_set_ichg(chip_chg_data->chg_dev, charging_current);
+
+	return ret;
+}
+
+
+int oppo_mt6370_hardware_init(void)
+{
+	int rc = 0;
+
+	rc = mt6370_enable_charging(chip_chg_data->chg_dev, true);
+	//rc = mt6370_enable_power_path(chip_chg_data->chg_dev, true);
+
+	return 0;
+}
+
+static void oppo_mt6370_set_aicl_point(int vbatt)
+{
+	int vbat_aicl = 0;
+
+	vbat_aicl = vbatt * 1000;
+	mt6370_set_mivr(chip_chg_data->chg_dev, vbat_aicl);
+}
+
+static int oppo_mt6370_input_current_limit_write(int value)
+{
+	int input_current = 0;
+	int aicl_point = 4500;
+	int chg_vol = 0;
+	struct mt6370_pmu_charger_data *chg_data =
+		dev_get_drvdata(&chip_chg_data->chg_dev->dev);
+
+	if (value <= 500) {
+		goto aicl_end;
+	}
+
+	if (aicl_delay_count < 180) {
+		aicl_delay_count++;
+		goto aicl_end;
+	}
+
+	aicl_delay_count = 0;
+
+	input_current = 500 * 1000;
+	mt6370_set_aicr(chip_chg_data->chg_dev, input_current);
+	msleep(90);
+	chg_vol = battery_meter_get_charger_voltage();
+	if (chg_vol < aicl_point) {
+		dev_info(chg_data->dev, "%s: 500mA chg_vol=%d, aicl_point=%d\n", __func__, chg_vol, aicl_point);
+		//value = 500;
+		chg_data->aicr_limit = 500;
+		goto aicl_end;
+	} else if (value < 800){
+		goto aicl_end;
+	}
+
+	input_current = 900 * 1000;
+	mt6370_set_aicr(chip_chg_data->chg_dev, input_current);
+	msleep(90);
+	chg_vol = battery_meter_get_charger_voltage();
+	if (chg_vol < aicl_point) {
+		dev_info(chg_data->dev, "%s: 900mA chg_vol=%d, aicl_point=%d\n", __func__, chg_vol, aicl_point);
+		//value = 500;
+		chg_data->aicr_limit = 500;
+		goto aicl_end;
+	} else if (value < 900) {
+		goto aicl_end;
+	}
+
+	input_current = 1200 * 1000;
+	mt6370_set_aicr(chip_chg_data->chg_dev, input_current);
+	msleep(90);
+	chg_vol = battery_meter_get_charger_voltage();
+	if (chg_vol < aicl_point) {
+		dev_info(chg_data->dev, "%s: 1200mA chg_vol=%d, aicl_point=%d\n", __func__, chg_vol, aicl_point);
+		//value = 500;
+		chg_data->aicr_limit = 800;
+		goto aicl_end;
+	} else if (value < 1200) {
+		goto aicl_end;
+	}
+
+	input_current = 1500 * 1000;
+	mt6370_set_aicr(chip_chg_data->chg_dev, input_current);
+	msleep(90);
+	chg_vol = battery_meter_get_charger_voltage();
+	if (chg_vol < aicl_point) {
+		dev_info(chg_data->dev, "%s: 1500mA chg_vol=%d, aicl_point=%d\n", __func__, chg_vol, aicl_point);
+		//value = 1000;
+		chg_data->aicr_limit = 1000;
+		goto aicl_end;
+	} else if (value < 1200) {
+		goto aicl_end;
+	}
+
+	input_current = 2000 * 1000;
+	mt6370_set_aicr(chip_chg_data->chg_dev, input_current);
+	msleep(90);
+	chg_vol = battery_meter_get_charger_voltage();
+	if (chg_vol < aicl_point) {
+		dev_info(chg_data->dev, "%s: 2000mA chg_vol=%d, aicl_point=%d\n", __func__, chg_vol, aicl_point);
+		//value = 1500;
+		chg_data->aicr_limit = 1500;
+		goto aicl_end;
+	}
+
+aicl_end:
+	if ((chg_data->aicr_limit != -1) && (chg_data->aicr_limit < value)) {
+		value = chg_data->aicr_limit;
+	}
+
+	dev_info(chg_data->dev, "%s: vlaue=%d, aicl=%d, chg_vol=%d\n", __func__, value, chg_data->aicr_limit, chg_vol);
+	input_current = value * 1000;
+	mt6370_set_aicr(chip_chg_data->chg_dev, input_current);
+
+	return 0;
+}
+
+int oppo_mt6370_float_voltage_write(int vfloat_mv)
+{
+	int rc = 0;
+	int cv_voltage = 0;
+
+	cv_voltage = vfloat_mv * 1000;
+
+	mt6370_set_cv(chip_chg_data->chg_dev, cv_voltage);
+
+	return rc;
+}
+
+
+static int oppo_mt6370_set_termchg_current(int term_curr)
+{
+	int rc = 0;
+	int term_current = 0;
+
+	term_current = term_curr * 1000;
+	mt6370_set_ieoc(chip_chg_data->chg_dev, term_current);
+
+	return rc;
+}
+
+int oppo_mt6370_enable_charging(void)
+{
+	int rc = 0;
+
+	rc = mt6370_enable_charging(chip_chg_data->chg_dev, true);
+	// rc = mt6370_enable_power_path(chip_chg_data->chg_dev, true);
+
+	return 0;
+}
+
+
+int oppo_mt6370_disable_charging(void)
+{
+	int rc = 0;
+	rc = mt6370_enable_charging(chip_chg_data->chg_dev, false);
+	// rc = mt6370_enable_power_path(chip_chg_data->chg_dev, false);
+
+	return 0;
+}
+
+
+static int oppo_mt6370_check_charging_enable(void)
+{
+	bool rc = 0;
+	mt6370_is_charging_enable(chip_chg_data, &rc);
+	if(rc)
+		return 1;
+	else
+		return 0;
+}
+
+int oppo_mt6370_suspend_charger(void)
+{
+	int rc = 0;
+	mt6370_enable_hz(chip_chg_data, true);
+
+	return rc;
+}
+
+int oppo_mt6370_unsuspend_charger(void)
+{
+	int rc = 0;
+	mt6370_enable_hz(chip_chg_data, false);
+
+	return rc;
+}
+
+int oppo_mt6370_set_rechg_voltage(int recharge_mv)
+{
+	int rc = 0;
+	return rc;
+}
+
+int oppo_mt6370_reset_charger(void)
+{
+	int rc = 0;
+	return rc;
+}
+
+int oppo_mt6370_registers_read_full(void)
+{
+	int rc = 0;
+	return rc;
+}
+
+int oppo_mt6370_otg_enable(void)
+{
+	int rc = 0;
+	mt6370_enable_hz(chip_chg_data, false);
+	rc = mt6370_enable_otg(chip_chg_data->chg_dev, true);
+	oppo_chg_set_otg_online(true);
+
+	return rc;
+}
+
+int oppo_mt6370_otg_disable(void)
+{
+	int rc = 0;
+	rc = mt6370_enable_otg(chip_chg_data->chg_dev, false);
+	oppo_chg_set_otg_online(false);
+
+	return rc;
+}
+
+static int oppo_mt6370_set_chging_term_disable(void)
+{
+	int rc = 0;
+
+	__mt6370_disable_iterm(chip_chg_data->chg_dev, false);
+
+	return rc;
+}
+
+
+static bool oppo_mt6370_check_charger_resume(void)
+{
+	return false;
+}
+
+static int oppo_mt6370_get_chg_current_step(void)
+{
+	return 64;
+}
+
+#ifdef CONFIG_OPPO_RTC_DET_SUPPORT
+static int rtc_reset_check(void)
+{
+	return 0;
+}
+#endif /* CONFIG_OPPO_RTC_DET_SUPPORT */
+
+#ifdef CONFIG_OPPO_SHORT_C_BATT_CHECK
+/* This function is getting the dynamic aicl result/input limited in mA.
+ * If charger was suspended, it must return 0(mA).
+ * It meets the requirements in SDM660 platform.
+ */
+static int oppo_chg_get_dyna_aicl_result(void)
+{
+	return 0;
+	
+}
+#endif /* CONFIG_OPPO_SHORT_C_BATT_CHECK */
+
+enum charger_type oppo_mt6370_chr_type_check()
+{
+	return chip_chg_data->chg_type;
+}
+
+struct oppo_chg_operations  oppo_mt6370_chg_ops = {
+		.dump_registers = oppo_mt6370_dump_registers,
+		.kick_wdt = oppo_mt6370_kick_wdt,
+		.hardware_init = oppo_mt6370_hardware_init,
+		.charging_current_write_fast = oppo_mt6370_charging_current_write_fast,
+		.set_aicl_point = oppo_mt6370_set_aicl_point,
+		.input_current_write = oppo_mt6370_input_current_limit_write,
+		.float_voltage_write = oppo_mt6370_float_voltage_write,
+		.term_current_set = oppo_mt6370_set_termchg_current,
+		.charging_enable = oppo_mt6370_enable_charging,
+		.charging_disable = oppo_mt6370_disable_charging,
+		.get_charging_enable = oppo_mt6370_check_charging_enable,
+		.charger_suspend = oppo_mt6370_suspend_charger,
+		.charger_unsuspend = oppo_mt6370_unsuspend_charger,
+		.set_rechg_vol = oppo_mt6370_set_rechg_voltage,
+		.reset_charger = oppo_mt6370_reset_charger,
+		.read_full = oppo_mt6370_registers_read_full,
+		.otg_enable = oppo_mt6370_otg_enable,
+		.otg_disable = oppo_mt6370_otg_disable,
+		.set_charging_term_disable = oppo_mt6370_set_chging_term_disable,
+		.check_charger_resume = oppo_mt6370_check_charger_resume,
+	#ifdef CONFIG_OPPO_CHARGER_MTK
+		.get_charger_type = mt_power_supply_type_check,
+		//.get_chg_pretype = charger_pretype_get,
+		.get_charger_volt = battery_meter_get_charger_voltage,
+		.check_chrdet_status = (bool (*) (void)) pmic_chrdet_status,
+		.get_instant_vbatt = oppo_battery_meter_get_battery_voltage,
+		.get_boot_mode = (int (*)(void))get_boot_mode,
+		.get_boot_reason = (int (*)(void))get_boot_reason,
+	//	#ifdef CONFIG_MTK_HAFG_20
+		//.get_chargerid_volt = mt_get_chargerid_volt,
+	
+		//.set_chargerid_switch_val = mt_set_chargerid_switch_val ,
+		//.get_chargerid_switch_val  = mt_get_chargerid_switch_val,
+		//.set_usb_shell_ctrl_val = mt_set_usb_shell_ctrl_val,
+		//.get_usb_shell_ctrl_val = mt_get_usb_shell_ctrl_val,
+	//	#endif /* CONFIG_MTK_HAFG_20 */
+	#ifdef CONFIG_MTK_HAFG_20
+		.get_rtc_soc = get_rtc_spare_oppo_fg_value,
+		.set_rtc_soc = set_rtc_spare_oppo_fg_value,
+	/*Qiao.Hu@BSP.BaseDrv.CHG.Basic, 2017/11/29, add for mt6771 charger */
+	#elif defined(CONFIG_OPPO_CHARGER_MTK6771)
+		.get_rtc_soc = oppo_get_rtc_ui_soc,
+		.set_rtc_soc = oppo_set_rtc_ui_soc,
+	#elif defined(CONFIG_OPPO_CHARGER_MTK6763)
+		.get_rtc_soc = get_rtc_spare_oppo_fg_value,
+		.set_rtc_soc = set_rtc_spare_oppo_fg_value,
+	#else /* CONFIG_MTK_HAFG_20 */
+		.get_rtc_soc = oppo_get_rtc_ui_soc,
+		.set_rtc_soc = set_rtc_spare_fg_value,
+	#endif /* CONFIG_MTK_HAFG_20 */
+		.set_power_off = mt_power_off,
+		.usb_connect = mt_usb_connect,
+		.usb_disconnect = mt_usb_disconnect,
+	#else /* CONFIG_OPPO_CHARGER_MTK */
+		.get_charger_type = qpnp_charger_type_get,
+		.get_charger_volt = qpnp_get_prop_charger_voltage_now,
+		.check_chrdet_status = qpnp_lbc_is_usb_chg_plugged_in,
+		.get_instant_vbatt = qpnp_get_prop_battery_voltage_now,
+		.get_boot_mode = get_boot_mode,
+		.get_rtc_soc = qpnp_get_pmic_soc_memory,
+		.set_rtc_soc = qpnp_set_pmic_soc_memory,
+	#endif /* CONFIG_OPPO_CHARGER_MTK */
+		.get_chg_current_step = oppo_mt6370_get_chg_current_step,
+#ifdef CONFIG_OPPO_SHORT_C_BATT_CHECK
+		.get_dyna_aicl_result = oppo_chg_get_dyna_aicl_result,
+#endif
+		.get_shortc_hw_gpio_status = oppo_chg_get_shortc_hw_gpio_status,
+	#ifdef CONFIG_OPPO_RTC_DET_SUPPORT
+		.check_rtc_reset = rtc_reset_check,
+	#endif
+        /*.get_thermal_input_limit = oppo_get_thermal_input_current_limit,
+        .get_thermal_charging_limit = oppo_get_thermal_charging_current_limit,*/
+};
+#endif
+/* liunianliang@ODM.HQ.BSP.System, for charge,20200228 end */
+
 static int mt6370_pmu_charger_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct mt6370_pmu_charger_data *chg_data;
 	bool use_dt = pdev->dev.of_node;
+	/* liunianliang@ODM.HQ.BSP.System, for charge,20200228 begin */
+	#if defined(ODM_HQ_EDIT) && defined(TARGET_WATERMELON_Q_PROJECT)
+	struct oppo_chg_chip *chip = NULL;
+	#endif
+	/* liunianliang@ODM.HQ.BSP.System, for charge,20200228 end */
 
 	pr_info("%s: (%s)\n", __func__, MT6370_PMU_CHARGER_DRV_VERSION);
 
 	chg_data = devm_kzalloc(&pdev->dev, sizeof(*chg_data), GFP_KERNEL);
 	if (!chg_data)
 		return -ENOMEM;
+
+	/* liunianliang@ODM.HQ.BSP.System, for charge,20200228 begin */
+	#if defined(ODM_HQ_EDIT) && defined(TARGET_WATERMELON_Q_PROJECT)
+	chip = devm_kzalloc(&pdev->dev,
+			sizeof(struct oppo_chg_chip), GFP_KERNEL);
+	if (!chip) {
+		chg_err(" kzalloc() failed\n");
+		return -ENOMEM;
+	}
+
+	chip->chg_ops = &oppo_mt6370_chg_ops;
+	charger_ic_flag = 5;
+	printk("%s: charger_ic_flag=%d \n", __func__, charger_ic_flag);
+	chip_chg_data = chg_data;
+	#endif
+	/* liunianliang@ODM.HQ.BSP.System, for charge,20200228 end */
 
 	mutex_init(&chg_data->adc_access_lock);
 	mutex_init(&chg_data->irq_access_lock);
@@ -4141,6 +4595,25 @@ static int mt6370_pmu_charger_probe(struct platform_device *pdev)
 && !defined(CONFIG_TCPC_CLASS)
 	INIT_WORK(&chg_data->chgdet_work, mt6370_chgdet_work_handler);
 #endif /* CONFIG_MT6370_PMU_CHARGER_TYPE_DETECT && !CONFIG_TCPC_CLASS */
+
+/* liunianliang@ODM.HQ.BSP.System, for charge,20200228 end */
+#if defined(ODM_HQ_EDIT) && defined(TARGET_WATERMELON_Q_PROJECT)
+	dev_err(chg_data->dev, "%s: start MT6370_PMU_REG_CHGPUMP\n", __func__);
+	ret = mt6370_pmu_reg_set_bit(chg_data->chip,
+		MT6370_PMU_REG_CHGPUMP, 0xE0);
+	if (ret < 0) {
+		dev_err(chg_data->dev, "%s: xiaoyuan sw init failed\n", __func__);
+		goto err_chg_init_setting;
+	}
+	ret = mt6370_pmu_reg_read(chg_data->chip,MT6370_PMU_REG_CHGPUMP);
+
+	if (ret < 0)
+		dev_err(chg_data->dev, "%s: read reg0x2A failed\n",__func__);
+	else
+		dev_err(chg_data->dev, "%s: reg0x2A = 0x%02X\n",__func__, ret);
+	dev_err(chg_data->dev, "%s: end MT6370_PMU_REG_CHGPUMP\n", __func__);
+#endif
+/* liunianliang@ODM.HQ.BSP.System, for charge,20200228 end */
 
 	/* Do initial setting */
 	ret = mt6370_chg_init_setting(chg_data);

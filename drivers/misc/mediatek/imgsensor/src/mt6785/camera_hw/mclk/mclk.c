@@ -13,6 +13,11 @@
 
 #include "mclk.h"
 
+#ifdef ODM_HQ_EDIT
+/*Chejian@ODM_HQ Cam.Drv 20201112 for sala3*/
+#include <soc/oppo/oppo_project.h>
+#endif
+
 struct MCLK_PINCTRL_NAMES mclk_pinctrl[MCLK_STATE_MAX_NUM] = {
 	{"off"},
 	{"2mA"},
@@ -99,6 +104,11 @@ static enum IMGSENSOR_RETURN __mclk_set_drive_current(
 	enum ISP_DRIVING_CURRENT_ENUM target_current)
 {
 	struct mclk *pinst = (struct mclk *)pinstance;
+#ifdef ODM_HQ_EDIT
+    /*Chejian@ODM_HQ Cam.Drv 20201112 for sala3,we use sub2 pinctrl and mclk for ov02b10, use main3 pinctrl and mclk for ov02b1b*/
+    if(get_Operator_Version() >=90 && get_Operator_Version() <=93 && sensor_idx >=2 && sensor_idx <= 3)
+        sensor_idx++;
+#endif
 
 	/*pr_debug("%s : sensor_idx %d, drive_current %d\n",
 	 *	__func__,
@@ -129,6 +139,11 @@ static enum IMGSENSOR_RETURN mclk_set(
 	enum   IMGSENSOR_RETURN ret = IMGSENSOR_RETURN_SUCCESS;
 	enum MCLK_STATE state_index = MCLK_STATE_DISABLE;
 
+#ifdef ODM_HQ_EDIT
+    /*Chejian@ODM_HQ Cam.Drv 20201112 for sala3,we use sub2 pinctrl and mclk for ov02b10, use main3 pinctrl and mclk for ov02b1b*/
+    if(get_Operator_Version() >=90 && get_Operator_Version() <=93 && sensor_idx >=2 && sensor_idx <= 3)
+        sensor_idx++;
+#endif
 	/*PK_DBG("%s : sensor_idx %d mclk set pinctrl, PinIdx %d, Val %d\n",
 	 *__func__, sensor_idx, pin, pin_state);
 	 */

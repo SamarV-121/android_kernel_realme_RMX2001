@@ -2265,8 +2265,14 @@ static int mt_mic_bias_1_event(struct snd_soc_dapm_widget *w,
 			regmap_write(priv->regmap,
 				     MT6359_AUDENC_ANA_CON16, 0x0160);
 		else
+			#ifndef ODM_HQ_EDIT
+			//fanxiongnan@ODM.HQ.Multimedia.Audio.BSP 2019/12/30 modified for micbias1 voltage setting
 			regmap_write(priv->regmap,
 				     MT6359_AUDENC_ANA_CON16, 0x0060);
+			#else
+			regmap_write(priv->regmap,
+				     MT6359_AUDENC_ANA_CON16, 0x0070);		/* MISBIAS1 = 2P7V */
+			#endif /* ODM_HQ_EDIT */
 
 		/* vow low power select */
 		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON16,

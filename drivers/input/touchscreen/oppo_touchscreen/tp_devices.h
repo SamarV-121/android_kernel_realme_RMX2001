@@ -28,6 +28,7 @@ typedef enum tp_dev{
     TP_DSJM,
     TP_BOE_B8,
     TP_TM,
+    TP_INX,
     TP_INNOLUX,
     TP_HIMAX_DPT,
     TP_AUO,
@@ -35,7 +36,7 @@ typedef enum tp_dev{
     TP_HUAXING,
     TP_HLT,
     TP_DJN,
-    TP_UNKNOWN,
+    TP_UNKNOWN
 }tp_dev;
 
 struct tp_dev_name {

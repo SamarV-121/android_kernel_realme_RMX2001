@@ -22,7 +22,7 @@
 #include <linux/slab.h>
 #include <linux/irq.h>
 #include <linux/miscdevice.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/delay.h>
 #include <linux/input.h>
 #include <linux/workqueue.h>
@@ -57,6 +57,9 @@
 #include <soc/oppo/boot_mode.h>
 #endif
 
+#include <linux/module.h>
+#include <linux/proc_fs.h>
+
 #include "../oppo_charger.h"
 #include "../oppo_gauge.h"
 #include "../oppo_vooc.h"
@@ -64,7 +67,21 @@
 
 #include "oppo_vooc_fw.h"
 
+struct oppo_vooc_operations *oppo_vooc_ops[] = {
+        &oppo_rk826_ops,
+        &oppo_op10_ops,
+        &oppo_stm8s_ops,
+        &oppo_n76e_ops,
+};
+
 int g_hw_version = 0;
+static struct oppo_vooc_chip *the_chip = NULL;
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+extern int is_sala_a_project(void);
+#endif
+
 void oppo_vooc_data_irq_init(struct oppo_vooc_chip *chip);
 
 void init_hw_version(void)
@@ -190,7 +207,16 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
         chip->batt_type_4400mv = of_property_read_bool(node, "qcom,oppo_batt_4400mv");
 	 chip->support_vooc_by_normal_charger_path = of_property_read_bool(node, "qcom,support_vooc_by_normal_charger_path");
 	 
+	 
         rc = of_property_read_u32(node, "qcom,vooc-fw-type", &chip->vooc_fw_type);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_fw_type = 0x20;
+			chip->support_vooc_by_normal_charger_path = true;
+			chg_debug(" salaA vooc_fw_type:%d\n", chip->vooc_fw_type);
+		}
+		#endif
         if (rc) {
                 chip->vooc_fw_type = VOOC_FW_TYPE_INVALID;
         } 
@@ -199,6 +225,13 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
    
 
         chip->vooc_fw_update_newmethod = of_property_read_bool(node, "qcom,vooc_fw_update_newmethod");
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_fw_update_newmethod = false;
+			chg_debug(" salaA vooc_fw_upate:%d\n", chip->vooc_fw_update_newmethod);
+		}
+		#endif
         chg_debug(" vooc_fw_upate:%d\n", chip->vooc_fw_update_newmethod);
 
 		rc = of_property_read_u32(node, "qcom,vooc-low-temp", &chip->vooc_low_temp);
@@ -215,6 +248,58 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
                 chg_debug("qcom,vooc-high-temp is %d\n", chip->vooc_high_temp);
         }
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_high_temp = 440;
+			chg_debug("Lisa qcom,vooc-high-temp is %d\n", chip->vooc_high_temp);
+
+			rc = of_property_read_u32(node, "qcom,vooc-little-cool-temp",
+					&chip->vooc_little_cool_temp);
+			if (rc) {
+				chip->vooc_little_cool_temp = 160;
+			}
+			chg_debug("qcom,vooc-little-cool-temp is %d\n", chip->vooc_little_cool_temp);
+
+			rc = of_property_read_u32(node, "qcom,vooc-cool-temp",
+					&chip->vooc_cool_temp);
+			if (rc) {
+				chip->vooc_cool_temp = 120;
+			}
+			chg_debug("qcom,vooc-cool-temp is %d\n", chip->vooc_cool_temp);
+
+			rc = of_property_read_u32(node, "qcom,vooc-strategy-little-cool-current",
+					&chip->vooc_strategy_little_cool_current);
+			if (rc) {
+				chip->vooc_strategy_little_cool_current	= 0x05;
+			}
+			chg_debug("qcom,vooc-strategy-little-cool-current is %d\n", chip->vooc_strategy_little_cool_current);
+
+			rc = of_property_read_u32(node, "qcom,vooc-strategy-cool_current",
+					&chip->vooc_strategy_cool_current);
+			if (rc) {
+				chip->vooc_strategy_cool_current = 0x02;
+			}
+			chg_debug("qcom,vooc-strategy-cool_current is %d\n", chip->vooc_strategy_cool_current);
+
+
+			rc = of_property_read_u32(node, "qcom,vooc-little-cool-to-normal-temp",
+					&chip->vooc_little_cool_to_normal_temp);
+			if (rc) {
+				chip->vooc_little_cool_to_normal_temp = 180;
+			}
+			chg_debug("qcom,vooc-little-cool-to-normal-temp is %d\n", chip->vooc_little_cool_to_normal_temp);
+
+
+			rc = of_property_read_u32(node, "qcom,vooc-normal-to-little-cool-current",
+					&chip->vooc_normal_to_little_cool_current);
+			if (rc) {
+				chip->vooc_normal_to_little_cool_current = 0x05;
+			}
+			chg_debug("qcom,vooc-normal-to-little-cool-current is %d\n", chip->vooc_normal_to_little_cool_current);
+
+		}
+#endif
 		rc = of_property_read_u32(node, "qcom,vooc-low-soc", &chip->vooc_low_soc);
         if (rc) {
                 chip->vooc_low_soc = 1;
@@ -224,10 +309,16 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 
 		rc = of_property_read_u32(node, "qcom,vooc-high-soc", &chip->vooc_high_soc);
         if (rc) {
-                chip->vooc_high_soc = 85;
-        } else {
-                chg_debug("qcom,vooc-high-soc is %d\n", chip->vooc_high_soc);
+            chip->vooc_high_soc = 85;
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+			if (is_sala_a_project() == 2) {
+				chip->vooc_high_soc = 90;
+			}
+#endif
         }
+	chg_debug("qcom,vooc-high-soc is %d\n", chip->vooc_high_soc);
+
 	chip->vooc_multistep_adjust_current_support = of_property_read_bool(node,
 		"qcom,vooc_multistep_adjust_current_support");
 	chg_debug("qcom,vooc_multistep_adjust_current_supportis %d\n",
@@ -238,6 +329,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_multistep_initial_batt_temp = 305;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_multistep_initial_batt_temp = 310;
+		}
+#endif
 		chg_debug("qcom,vooc_multistep_initial_batt_temp is %d\n",
 			chip->vooc_multistep_initial_batt_temp);
 	}
@@ -256,6 +353,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy1_batt_low_temp1  = chip->vooc_multistep_initial_batt_temp;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy1_batt_low_temp1 = 415;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy1_batt_low_temp1 is %d\n",
 			chip->vooc_strategy1_batt_low_temp1);
 	}
@@ -265,6 +368,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy1_batt_low_temp2 = chip->vooc_multistep_initial_batt_temp;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy1_batt_low_temp2 = 420;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy1_batt_low_temp2 is %d\n",
 			chip->vooc_strategy1_batt_low_temp2);
 	}
@@ -274,15 +383,38 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy1_batt_low_temp0 = chip->vooc_multistep_initial_batt_temp;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy1_batt_low_temp0 = 400;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy1_batt_low_temp0 is %d\n",
 			chip->vooc_strategy1_batt_low_temp0);
 	}
-
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*hongzhenglong@ODM.HQ.BSP.CHG 2020/07/07 add a new temperature judgment for sala*/
+	if(is_sala_a_project() == 1){
+        	rc = of_property_read_u32(node, "qcom,vooc_strategy1_batt_low_temp3",
+                	&chip->vooc_strategy1_batt_low_temp3);
+        	if (rc) {
+                	chip->vooc_strategy1_batt_low_temp3 = 160;
+		}
+		chg_debug("qcom,vooc_strategy1_batt_low_temp3 is %d\n",
+                        	chip->vooc_strategy1_batt_low_temp3);
+	}
+#endif
 	rc = of_property_read_u32(node, "qcom,vooc_strategy1_batt_high_temp0",
 		&chip->vooc_strategy1_batt_high_temp0);
 	if (rc) {
 		chip->vooc_strategy1_batt_high_temp0 = chip->vooc_multistep_initial_batt_temp;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy1_batt_high_temp0 = 425;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy1_batt_high_temp0 is %d\n",
 			chip->vooc_strategy1_batt_high_temp0);
 	}
@@ -292,6 +424,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy1_batt_high_temp1 = chip->vooc_multistep_initial_batt_temp;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy1_batt_high_temp1 = 430;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy1_batt_high_temp1 is %d\n",
 			chip->vooc_strategy1_batt_high_temp1);
 	}
@@ -301,6 +439,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy1_batt_high_temp2 = chip->vooc_multistep_initial_batt_temp;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy1_batt_high_temp2 = 435;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy1_batt_high_temp2 is %d\n",
 			chip->vooc_strategy1_batt_high_temp2);
 	}
@@ -310,6 +454,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy1_high_current0  = chip->vooc_strategy_normal_current;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy1_high_current0 = 0x04;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy1_high_current0 is %d\n",
 			chip->vooc_strategy1_high_current0);
 	}
@@ -319,6 +469,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy1_high_current1  = chip->vooc_strategy_normal_current;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy1_high_current1 = 0x03;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy1_high_current1 is %d\n",
 			chip->vooc_strategy1_high_current1);
 	}
@@ -328,6 +484,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy1_high_current2  = chip->vooc_strategy_normal_current;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy1_high_current2 = 0x02;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy1_high_current2 is %d\n",
 			chip->vooc_strategy1_high_current2);
 	}
@@ -337,6 +499,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy1_low_current2  = chip->vooc_strategy_normal_current;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy1_low_current2 = 0x03;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy1_low_current2 is %d\n",
 			chip->vooc_strategy1_low_current2);
 	}
@@ -346,6 +514,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy1_low_current1  = chip->vooc_strategy_normal_current;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy1_low_current1 = 0x04;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy1_low_current1 is %d\n",
 			chip->vooc_strategy1_low_current1);
 	}
@@ -355,6 +529,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy1_low_current0  = chip->vooc_strategy_normal_current;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy1_low_current0 = 0x04;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy1_low_current0 is %d\n",
 			chip->vooc_strategy1_low_current0);
 	}
@@ -364,6 +544,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy2_batt_up_temp1  = chip->vooc_multistep_initial_batt_temp;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy2_batt_up_temp1 = 375;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy2_batt_up_temp1 is %d\n",
 			chip->vooc_strategy2_batt_up_temp1);
 	}
@@ -373,6 +559,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy2_batt_up_down_temp2  = chip->vooc_multistep_initial_batt_temp;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy2_batt_up_down_temp2 = 380;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy2_batt_up_down_temp2 is %d\n",
 			chip->vooc_strategy2_batt_up_down_temp2);
 	}
@@ -382,6 +574,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy2_batt_up_temp3  = chip->vooc_multistep_initial_batt_temp;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy2_batt_up_temp3 = 390;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy2_batt_up_temp3 is %d\n",
 			chip->vooc_strategy2_batt_up_temp3);
 	}
@@ -391,6 +589,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy2_batt_up_down_temp4  = chip->vooc_multistep_initial_batt_temp;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy2_batt_up_down_temp4 = 400;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy2_batt_up_down_temp4 is %d\n",
 			chip->vooc_strategy2_batt_up_down_temp4);
 	}
@@ -400,6 +604,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy2_batt_up_temp5  = chip->vooc_multistep_initial_batt_temp;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy2_batt_up_temp5 = 410;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy2_batt_up_temp5 is %d\n",
 			chip->vooc_strategy2_batt_up_temp5);
 	}
@@ -409,6 +619,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy2_batt_up_temp6  = chip->vooc_multistep_initial_batt_temp;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy2_batt_up_temp6 = 415;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy2_batt_up_temp6 is %d\n",
 			chip->vooc_strategy2_batt_up_temp6);
 	}
@@ -418,6 +634,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy2_high0_current	= chip->vooc_strategy_normal_current;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy2_high0_current = 0x05;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy2_high0_current is %d\n",
 			chip->vooc_strategy2_high0_current);
 	}
@@ -427,6 +649,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy2_high1_current	= chip->vooc_strategy_normal_current;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy2_high1_current = 0x04;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy2_high1_current is %d\n",
 			chip->vooc_strategy2_high1_current);
 	}
@@ -436,6 +664,12 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy2_high2_current	= chip->vooc_strategy_normal_current;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy2_high2_current = 0x03;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy2_high2_current is %d\n",
 			chip->vooc_strategy2_high2_current);
 	}
@@ -445,14 +679,54 @@ void oppo_vooc_fw_type_dt(struct oppo_vooc_chip *chip)
 	if (rc) {
 		chip->vooc_strategy2_high3_current	= chip->vooc_strategy_normal_current;
 	} else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+		if (is_sala_a_project() == 2) {
+			chip->vooc_strategy2_high3_current = 0x02;
+		}
+#endif
 		chg_debug("qcom,vooc_strategy2_high3_current is %d\n",
 			chip->vooc_strategy2_high3_current);
 	}
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc*/
+	if (is_sala_a_project() == 2) {
+		rc = of_property_read_u32(node, "qcom,vooc_batt_over_high_temp",
+			&chip->vooc_batt_over_high_temp);
+		if (rc) {
+			chip->vooc_batt_over_high_temp = 440;
+		}
+		chg_debug("qcom,vooc_batt_over_high_temp is %d\n",
+			chip->vooc_batt_over_high_temp);
+
+		rc = of_property_read_u32(node, "qcom,vooc_batt_over_low_temp",
+			&chip->vooc_batt_over_low_temp);
+		if (rc) {
+			chip->vooc_batt_over_low_temp = 45;
+		}
+		chg_debug("qcom,vooc_batt_over_low_temp is %d\n",
+			chip->vooc_batt_over_low_temp);
+
+		rc = of_property_read_u32(node, "qcom,vooc_over_high_or_low_current",
+			&chip->vooc_over_high_or_low_current);
+		if (rc) {
+			chip->vooc_over_high_or_low_current = 0x02;
+		}
+		chg_debug("qcom,vooc_over_high_or_low_current is %d\n",
+			chip->vooc_over_high_or_low_current);
+	}
+#endif
 }
 
 /*This is only for P60 P(17197 P)*/
 #ifdef CONFIG_OPPO_CHARGER_MTK6771
 extern int main_hwid5_val;
+#endif
+
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+int g_mcu_hwid_type = -1;
 #endif
 
 int oppo_vooc_mcu_hwid_check(struct oppo_vooc_chip *chip)
@@ -477,6 +751,22 @@ int oppo_vooc_mcu_hwid_check(struct oppo_vooc_chip *chip)
                 return OPPO_VOOC_MCU_HWID_STM8S;
         }
 
+		#ifdef ODM_HQ_EDIT
+		/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+		mcu_hwid_type = g_mcu_hwid_type;
+		chg_err("mcu_hwid_type = %d\n",mcu_hwid_type);
+		if (mcu_hwid_type == 0)
+			return OPPO_VOOC_ASIC_HWID_RK826;
+		else if (mcu_hwid_type == 1)
+			return OPPO_VOOC_ASIC_HWID_OP10;
+		else if (mcu_hwid_type == 2)
+			return OPPO_VOOC_MCU_HWID_STM8S;
+		else if (mcu_hwid_type == 3)
+			return OPPO_VOOC_MCU_HWID_N76E;
+		
+		chg_debug("it is default stm8s\n");
+		return OPPO_VOOC_MCU_HWID_STM8S;
+		#else
         node = chip->dev->of_node;
         /* Parsing gpio swutch1*/
         chip->vooc_gpio.vooc_mcu_id_gpio = of_get_named_gpio(node, "qcom,vooc_mcu_id-gpio", 0);
@@ -522,6 +812,7 @@ int oppo_vooc_mcu_hwid_check(struct oppo_vooc_chip *chip)
         chg_debug("it is  stm8s\n");
 		mcu_hwid_type = OPPO_VOOC_MCU_HWID_STM8S;
         return OPPO_VOOC_MCU_HWID_STM8S;
+		#endif
 }
 
 int oppo_vooc_gpio_dt_init(struct oppo_vooc_chip *chip)
@@ -542,6 +833,21 @@ int oppo_vooc_gpio_dt_init(struct oppo_vooc_chip *chip)
                 }
                 chg_err("chip->vooc_gpio.switch1_gpio =%d\n", chip->vooc_gpio.switch1_gpio);
         }
+		
+		chip->vooc_gpio.switch1_ctr1_gpio = of_get_named_gpio(node, "qcom,charging_switch1_ctr1-gpio", 0);
+	if (chip->vooc_gpio.switch1_ctr1_gpio < 0) {
+		chg_err("chip->vooc_gpio.switch1_ctr1_gpio not specified\n");
+	} else {
+		if (gpio_is_valid(chip->vooc_gpio.switch1_ctr1_gpio)) {
+			rc = gpio_request(chip->vooc_gpio.switch1_ctr1_gpio, "charging-switch1-ctr1-gpio");
+			if (rc) {
+				chg_err("unable to request gpio [%d]\n", chip->vooc_gpio.switch1_ctr1_gpio);
+			} else {
+				gpio_direction_output(chip->vooc_gpio.switch1_ctr1_gpio, 0);
+			}
+		}
+		chg_err("chip->vooc_gpio.switch1_ctr1_gpio =%d\n", chip->vooc_gpio.switch1_ctr1_gpio);
+	}
         /* Parsing gpio swutch2*/
         /*if(get_PCB_Version()== 0)*/
         if (1) {
@@ -660,6 +966,52 @@ void opchg_set_data_sleep(struct oppo_vooc_chip *chip)
         mutex_unlock(&chip->pinctrl_mutex);
 }
 
+void opchg_set_reset_sleep(struct oppo_vooc_chip *chip)
+{
+	if (chip->adapter_update_real == ADAPTER_FW_NEED_UPDATE || chip->btb_temp_over || chip->mcu_update_ing) {
+		chg_debug(" adapter_fw_need_update:%d,btb_temp_over:%d,mcu_update_ing:%d,return\n",
+			chip->adapter_update_real, chip->btb_temp_over, chip->mcu_update_ing);
+		return;
+	}
+	mutex_lock(&chip->pinctrl_mutex);
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	if (is_sala_a_project() == 2) {
+		gpio_direction_output(chip->vooc_gpio.switch1_gpio, 0);	/* in 0*/
+		gpio_direction_output(chip->vooc_gpio.reset_gpio, 0); /* out 0 */
+		usleep_range(1000, 1000);
+		#ifdef CONFIG_OPPO_CHARGER_MTK
+		pinctrl_select_state(chip->vooc_gpio.pinctrl, chip->vooc_gpio.gpio_reset_sleep); /* PULL_down */
+		#else
+		pinctrl_select_state(chip->vooc_gpio.pinctrl, chip->vooc_gpio.gpio_reset_active); /* PULL_up */
+		#endif
+		gpio_set_value(chip->vooc_gpio.reset_gpio, 1);
+		usleep_range(5000, 5000);
+		gpio_direction_output(chip->vooc_gpio.reset_gpio, 0); /* out 0 */
+		usleep_range(1000, 1000);
+	} else {
+	gpio_direction_output(chip->vooc_gpio.reset_gpio, 1); /* out 1 */
+#ifdef CONFIG_OPPO_CHARGER_MTK
+	pinctrl_select_state(chip->vooc_gpio.pinctrl, chip->vooc_gpio.gpio_reset_sleep); /* PULL_down */
+#else
+	pinctrl_select_state(chip->vooc_gpio.pinctrl, chip->vooc_gpio.gpio_reset_active); /* PULL_up */
+#endif
+	gpio_set_value(chip->vooc_gpio.reset_gpio, 0);
+	usleep_range(5000, 5000);
+	}
+#else/*defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)*/
+	gpio_direction_output(chip->vooc_gpio.reset_gpio, 1); /* out 1 */
+#ifdef CONFIG_OPPO_CHARGER_MTK
+	pinctrl_select_state(chip->vooc_gpio.pinctrl, chip->vooc_gpio.gpio_reset_sleep); /* PULL_down */
+#else
+	pinctrl_select_state(chip->vooc_gpio.pinctrl, chip->vooc_gpio.gpio_reset_active); /* PULL_up */
+#endif
+	gpio_set_value(chip->vooc_gpio.reset_gpio, 0);
+	usleep_range(5000, 5000);
+#endif/*defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)*/
+	mutex_unlock(&chip->pinctrl_mutex);
+	chg_debug("%s\n", __func__);
+}
+
 void opchg_set_reset_active(struct oppo_vooc_chip *chip)
 {
         if (chip->adapter_update_real == ADAPTER_FW_NEED_UPDATE || chip->btb_temp_over || chip->mcu_update_ing) {
@@ -669,18 +1021,40 @@ void opchg_set_reset_active(struct oppo_vooc_chip *chip)
         }
 
         mutex_lock(&chip->pinctrl_mutex);
-        gpio_direction_output(chip->vooc_gpio.reset_gpio, 0);    /* out 1 */
-#ifdef CONFIG_OPPO_CHARGER_MTK
-        pinctrl_select_state(chip->vooc_gpio.pinctrl, chip->vooc_gpio.gpio_reset_sleep); /* PULL_down */
-#else
-        pinctrl_select_state(chip->vooc_gpio.pinctrl, chip->vooc_gpio.gpio_reset_active);        /* PULL_up */
-#endif
-        gpio_set_value(chip->vooc_gpio.reset_gpio, 0);
-        usleep_range(5000, 5000);
-        gpio_set_value(chip->vooc_gpio.reset_gpio, 1);
-        usleep_range(10000, 10000);
-        gpio_set_value(chip->vooc_gpio.reset_gpio, 0);
-        usleep_range(5000, 5000);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+		if (is_sala_a_project() == 2) {
+			gpio_direction_output(chip->vooc_gpio.switch1_gpio, 0);	/* in 0*/
+			gpio_direction_output(chip->vooc_gpio.reset_gpio, 1);    /* out 1 */
+	#ifdef CONFIG_OPPO_CHARGER_MTK
+			pinctrl_select_state(chip->vooc_gpio.pinctrl, chip->vooc_gpio.gpio_reset_sleep); /* PULL_down */
+	#else
+			pinctrl_select_state(chip->vooc_gpio.pinctrl, chip->vooc_gpio.gpio_reset_active);        /* PULL_up */
+	#endif
+			gpio_set_value(chip->vooc_gpio.reset_gpio, 1);
+			usleep_range(5000, 5000);
+			gpio_set_value(chip->vooc_gpio.reset_gpio, 0);
+			usleep_range(10000, 10000);
+			gpio_set_value(chip->vooc_gpio.reset_gpio, 1);
+			usleep_range(2500, 2500);
+			if (chip->dpdm_switch_mode == VOOC_CHARGER_MODE) {
+				gpio_direction_output(chip->vooc_gpio.switch1_gpio, 1);	/* in 1*/
+			}
+		} else {
+			gpio_direction_output(chip->vooc_gpio.reset_gpio, 0);    /* out 1 */
+	#ifdef CONFIG_OPPO_CHARGER_MTK
+			pinctrl_select_state(chip->vooc_gpio.pinctrl, chip->vooc_gpio.gpio_reset_sleep); /* PULL_down */
+	#else
+			pinctrl_select_state(chip->vooc_gpio.pinctrl, chip->vooc_gpio.gpio_reset_active);        /* PULL_up */
+	#endif
+			gpio_set_value(chip->vooc_gpio.reset_gpio, 0);
+			usleep_range(5000, 5000);
+			gpio_set_value(chip->vooc_gpio.reset_gpio, 1);
+			usleep_range(10000, 10000);
+			gpio_set_value(chip->vooc_gpio.reset_gpio, 0);
+			usleep_range(5000, 5000);
+		}
+		#endif
         mutex_unlock(&chip->pinctrl_mutex);
         chg_debug("%s\n", __func__);
 }
@@ -813,7 +1187,23 @@ void switch_fast_chg(struct oppo_vooc_chip *chip)
                 }
                 return;
         }
-
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		if(get_project() == 20682 && is_sala_a_project() == 2){
+			if (is_allow_fast_chg_dummy(chip) == true) {
+                if (oppo_vooc_get_adapter_update_status() == ADAPTER_FW_UPDATE_FAIL) {
+                        oppo_vooc_delay_reset_mcu(chip);
+						opchg_set_switch_mode(chip, VOOC_CHARGER_MODE);
+                } else {
+                        if (oppo_vooc_get_fastchg_allow() == false && oppo_vooc_get_fastchg_to_warm() == true) {
+                                chg_err(" fastchg_allow false, to_warm true, don't switch to vooc mode\n");
+                        } else {
+                                opchg_set_clock_sleep(chip);
+                                opchg_set_reset_active(chip);
+								opchg_set_switch_mode(chip, VOOC_CHARGER_MODE);
+                        }
+                }
+			}
+		} else {
         if (is_allow_fast_chg_dummy(chip) == true) {
                 if (oppo_vooc_get_adapter_update_status() == ADAPTER_FW_UPDATE_FAIL) {
                         opchg_set_switch_mode(chip, VOOC_CHARGER_MODE);
@@ -828,6 +1218,23 @@ void switch_fast_chg(struct oppo_vooc_chip *chip)
                         }
                 }
         }
+		}
+		#else
+			if (is_allow_fast_chg_dummy(chip) == true) {
+                if (oppo_vooc_get_adapter_update_status() == ADAPTER_FW_UPDATE_FAIL) {
+						opchg_set_switch_mode(chip, VOOC_CHARGER_MODE);
+                        oppo_vooc_delay_reset_mcu(chip);
+                } else {
+                        if (oppo_vooc_get_fastchg_allow() == false && oppo_vooc_get_fastchg_to_warm() == true) {
+                                chg_err(" fastchg_allow false, to_warm true, don't switch to vooc mode\n");
+                        } else {
+								opchg_set_switch_mode(chip, VOOC_CHARGER_MODE);
+                                opchg_set_clock_sleep(chip);
+                                opchg_set_reset_active(chip);
+                        }
+                }
+			}
+		#endif
         chg_err(" end, allow_fast_chg:%d\n", oppo_vooc_get_fastchg_allow());
 }
 
@@ -912,13 +1319,54 @@ void opchg_reply_mcu_data_4bits
 void opchg_set_switch_fast_charger(struct oppo_vooc_chip *chip)
 {
         gpio_direction_output(chip->vooc_gpio.switch1_gpio, 1);        /* out 1*/
+	if (chip->vooc_gpio.switch1_ctr1_gpio > 0) {//asic rk826
+		gpio_direction_output(chip->vooc_gpio.switch1_ctr1_gpio, 0);        /* out 0*/
+	}
 }
 
+void opchg_set_vooc_chargerid_switch_val(struct oppo_vooc_chip *chip, int value)
+{
+	int level = 0;
+
+	if (value == 1)
+		level = 1;
+	else if (value == 0)
+		level = 0;
+	else
+		return;
+
+	if (chip->vooc_gpio.switch1_ctr1_gpio > 0) {//asic rk826/op10
+		if (level == 1) {
+			gpio_direction_output(chip->vooc_gpio.reset_gpio, 1);
+			gpio_set_value(chip->vooc_gpio.reset_gpio, 1);
+		}
+		gpio_direction_output(chip->vooc_gpio.switch1_ctr1_gpio, level);
+		chg_err("switch1_gpio[%d], switch1_ctr1_gpio[%d]\n",
+			gpio_get_value(chip->vooc_gpio.switch1_gpio),
+			gpio_get_value(chip->vooc_gpio.switch1_ctr1_gpio));
+		if (level == 0) {
+			gpio_direction_output(chip->vooc_gpio.reset_gpio, 0);
+			gpio_set_value(chip->vooc_gpio.reset_gpio, 0);
+		}
+	}
+}
 void opchg_set_switch_normal_charger(struct oppo_vooc_chip *chip)
 {
         if (chip->vooc_gpio.switch1_gpio > 0) {
                 gpio_direction_output(chip->vooc_gpio.switch1_gpio, 0);        /* in 0*/
-        }
+	}
+	if (chip->vooc_gpio.switch1_ctr1_gpio > 0) {//asic rk826
+		gpio_direction_output(chip->vooc_gpio.switch1_ctr1_gpio, 0);/* out 0*/
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		if(is_sala_a_project()==2){
+			//gpio_set_value(chip->vooc_gpio.reset_gpio, 0);
+		}else{
+			gpio_set_value(chip->vooc_gpio.reset_gpio, 0);
+		}
+		#else
+		gpio_set_value(chip->vooc_gpio.reset_gpio, 0);
+		#endif
+	}
 }
 
 void opchg_set_switch_earphone(struct oppo_vooc_chip *chip)
@@ -928,6 +1376,9 @@ void opchg_set_switch_earphone(struct oppo_vooc_chip *chip)
 
 void opchg_set_switch_mode(struct oppo_vooc_chip *chip, int mode)
 {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	int retry = 10;
+#endif
         if (chip->adapter_update_real == ADAPTER_FW_NEED_UPDATE || chip->btb_temp_over) {
                 chg_err("adapter_fw_need_update: %d, btb_temp_over: %d\n",
                         chip->adapter_update_real, chip->btb_temp_over);
@@ -939,9 +1390,26 @@ void opchg_set_switch_mode(struct oppo_vooc_chip *chip, int mode)
         }
         switch (mode) {
         case VOOC_CHARGER_MODE:               /*11*/
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+				if (is_sala_a_project() == 2) {
+					do {
+						if (gpio_get_value(chip->vooc_gpio.reset_gpio) == 1) {
                 opchg_set_switch_fast_charger(chip);
                 chg_err(" vooc mode, switch1_gpio:%d\n", gpio_get_value(chip->vooc_gpio.switch1_gpio));
                 break;
+					}
+					usleep_range(5000,5000);
+					} while((--retry > 0));
+				} else {
+					opchg_set_switch_fast_charger(chip);
+					chg_err(" vooc mode, switch1_gpio:%d\n", gpio_get_value(chip->vooc_gpio.switch1_gpio));
+				}
+				break;
+#else
+			opchg_set_switch_fast_charger(chip);
+			chg_err(" vooc mode, switch1_gpio:%d\n", gpio_get_value(chip->vooc_gpio.switch1_gpio));
+			break;
+#endif
         case HEADPHONE_MODE:                  /*10*/
                 opchg_set_switch_earphone(chip);
                 chg_err(" headphone mode, switch1_gpio:%d\n", gpio_get_value(chip->vooc_gpio.switch1_gpio));
@@ -1060,3 +1528,214 @@ void oppo_vooc_eint_unregister(struct oppo_vooc_chip *chip)
 #endif
 }
 
+static ssize_t vooc_fw_check_read(struct file *filp,
+		char __user *buff, size_t count, loff_t *off)
+{
+	char page[256] = {0};
+	char read_data[32] = {0};
+	int len = 0;
+
+	if (the_chip && the_chip->vooc_fw_check == true) {
+		read_data[0] = '1';
+	} else {
+		read_data[0] = '0';
+	}
+	len = sprintf(page, "%s", read_data);
+	if (len > *off) {
+		len -= *off;
+	} else {
+		len = 0;
+	}
+	if (copy_to_user(buff, page, (len < count ? len : count))) {
+		return -EFAULT;
+	}
+	*off += len < count ? len : count;
+	return (len < count ? len : count);
+}
+
+static const struct file_operations vooc_fw_check_proc_fops = {
+	.read = vooc_fw_check_read,
+	.llseek = noop_llseek,
+};
+
+static int init_proc_vooc_fw_check(void)
+{
+	struct proc_dir_entry *p = NULL;
+
+	p = proc_create("vooc_fw_check", 0444, NULL, &vooc_fw_check_proc_fops);
+	if (!p) {
+		chg_err("proc_create vooc_fw_check_proc_fops fail!\n");
+	}
+	return 0;
+}
+
+static void oppo_vooc_get_mcu_type(struct oppo_vooc_chip *chip)
+{
+	int i = 0;
+
+	opchg_set_clock_active(chip);
+	msleep(10);
+	opchg_set_reset_active(chip);
+	msleep(2500);
+	opchg_set_clock_sleep(chip);
+
+	for (i=0; i<4; i++) {
+		if (oppo_vooc_ops[i]->get_mcu_online(chip)) {
+			pr_err("online %d\n", i);
+			chip->vops = oppo_vooc_ops[i];
+			#ifdef ODM_HQ_EDIT
+			/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+			g_mcu_hwid_type = i;
+			#endif
+			break;
+		}
+	}
+
+	if(chip->vops == NULL){
+		if(is_sala_a_project() == 2){
+			chip->vops = oppo_vooc_ops[0];//rk826
+			g_mcu_hwid_type = 0;
+			}
+		else{
+			chip->vops = oppo_vooc_ops[2];//stm8s
+			g_mcu_hwid_type = 2;
+			}
+	}
+
+	msleep(5);
+	opchg_set_reset_active(chip);
+}
+
+static void oppo_vooc_init_work_func(struct work_struct *work)
+{
+	struct oppo_vooc_chip *chip = container_of(work,
+			struct oppo_vooc_chip, oppo_vooc_init_work.work);
+
+	oppo_vooc_get_mcu_type(chip);
+
+	/*Lisa@ODM.HQ.BSP.CHG, 2020/07/24,prevent go to dump*/
+	if (chip->vops != NULL) {
+		chip->vops->get_firmware(chip);
+	} else
+		pr_err("oppo_vooc_init_work get firmware failed\n");
+
+        chip->fw_mcu_version = 0;
+        opchg_set_clock_sleep(chip);
+        oppo_vooc_delay_reset_mcu_init(chip);
+
+        if(chip->vooc_fw_update_newmethod) {
+                if(oppo_is_rf_ftm_mode()){
+                        oppo_vooc_fw_update_work_init(chip);
+                }
+        } else {
+                oppo_vooc_fw_update_work_init(chip);
+        }
+
+        oppo_vooc_init(chip);
+
+        the_chip = chip;
+        pr_err("oppo_vooc_init_work success,\
+                fw_type = 0x%x, \
+                fw_version = 0x%x, \
+                mcu_version = 0x%x\n",
+                chip->vooc_fw_type,
+                chip->fw_data_version,
+                chip->fw_mcu_version);
+}
+
+static const struct of_device_id match_table[] = {
+	{.compatible = "oppo,vooc_common",},
+	{ },
+};
+
+static int oppo_vooc_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+	const struct of_device_id *id;
+	struct oppo_vooc_chip *chip;
+
+	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
+	if (!chip) {
+		dev_err(&pdev->dev, "Couldn't allocate memory\n");
+		return -ENOMEM;
+	}
+
+	chip->dev = &pdev->dev;
+	chip->pcb_version = g_hw_version;
+	chip->vooc_fw_check = false;
+	mutex_init(&chip->pinctrl_mutex);
+
+	oppo_vooc_gpio_dt_init(chip);
+	oppo_vooc_fw_type_dt(chip);
+
+#if 0
+	chip->vops = &oppo_stm8s_ops;
+
+	chip->vops->get_firmware(chip);
+
+	chip->fw_mcu_version = 0;
+	opchg_set_clock_sleep(chip);
+	oppo_vooc_delay_reset_mcu_init(chip);
+
+	if(chip->vooc_fw_update_newmethod) {
+		if(oppo_is_rf_ftm_mode()){
+			oppo_vooc_fw_update_work_init(chip);
+		}
+	} else {
+		oppo_vooc_fw_update_work_init(chip);
+	}
+
+	oppo_vooc_init(chip);
+
+	platform_set_drvdata(pdev, chip);
+
+	init_proc_vooc_fw_check();
+	the_chip = chip;
+	dev_err(&pdev->dev, "oppo vooc probe success,\
+		fw_type = 0x%x, \
+		fw_version = 0x%x, \
+		mcu_version = 0x%x\n",
+		chip->vooc_fw_type,
+		chip->fw_data_version,
+		chip->fw_mcu_version);
+#endif
+	platform_set_drvdata(pdev, chip);
+	init_proc_vooc_fw_check();
+
+	INIT_DELAYED_WORK(&chip->oppo_vooc_init_work, oppo_vooc_init_work_func);
+	schedule_delayed_work(&chip->oppo_vooc_init_work,
+		round_jiffies_relative(msecs_to_jiffies(50)));
+
+	dev_err(&pdev->dev, "oppo vooc probe success\n");
+	return 0;
+}
+
+static void oppo_vooc_shutdown(struct platform_device *pdev)
+{
+	struct oppo_vooc_chip *chip = platform_get_drvdata(pdev);
+
+	opchg_set_switch_mode(chip, NORMAL_CHARGER_MODE);
+	msleep(10);
+	if (oppo_vooc_get_fastchg_started() == true) {
+		opchg_set_clock_sleep(chip);
+		msleep(10);
+		opchg_set_reset_active(chip);
+	}
+	msleep(80);
+}
+
+static struct platform_driver oppo_vooc_driver = {
+	.driver	= {
+		.name		= "oppo,vooc_common",
+		//.pm		= &oppo_vooc_pm_ops,
+		.of_match_table	= match_table,
+	},
+	.probe		= oppo_vooc_probe,
+	//.remove	= oppo_vooc_remove,
+	.shutdown	= oppo_vooc_shutdown,
+};
+
+module_platform_driver(oppo_vooc_driver);
+
+MODULE_DESCRIPTION("OPPO VOOC FW Driver");
+MODULE_LICENSE("GPL v2");

@@ -16,7 +16,21 @@
 #include "eeprom_i2c_custom_driver.h"
 #include "kd_imgsensor.h"
 
+#ifdef ODM_HQ_EDIT
+/*Houbing.Peng@ODM Cam.Drv 20200306 add Euler OTP*/
+#define OV8856_MAX_EEPROM_SIZE_16K 0x4000
+#endif
+
 struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
+#ifdef ODM_HQ_EDIT
+/* Houbing.Peng@ODM.Camera.Drv 20190910 for OTP Bringup*/
+	{OV12A10_SENSOR_ID, 0xA0, Common_read_region},
+	{S5KGM1SP_SENSOR_ID, 0xA0, Common_read_region},
+	{S5K3P9SP_SENSOR_ID, 0xA8, Common_read_region},
+	{S5K4H7_SENSOR_ID, 0x20, Common_read_region},
+	{OV8856_SENSOR_ID, 0xA2, Common_read_region, OV8856_MAX_EEPROM_SIZE_16K},
+	{GC2375H_SENSOR_ID, 0xA4, Common_read_region},
+#else
 	/*Below is commom sensor */
 	{IMX519_SENSOR_ID, 0xA0, Common_read_region},
 	{S5K2T7SP_SENSOR_ID, 0xA4, Common_read_region},
@@ -31,6 +45,7 @@ struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
 	{IMX386_MONO_SENSOR_ID, 0xA0, Common_read_region},
 	/*B+B. No Cal data for main2 OV8856*/
 	{S5K2P7_SENSOR_ID, 0xA0, Common_read_region},
+#endif
 	/*  ADD before this line */
 	{0, 0, 0}       /*end of list */
 };

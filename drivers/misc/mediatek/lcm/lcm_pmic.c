@@ -25,6 +25,12 @@ typedef enum {
 #endif //CONFIG_SET_LCD_BIAS_ODM_HQ
 #endif //ODM_HQ_EDIT
 
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+#ifdef CONFIG_MACH_MT6771
+extern bool hq_get_is_ilitek_lcd(void);
+#endif
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, end. */
+
 #if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
 static struct regulator *disp_bias_pos;
 static struct regulator *disp_bias_neg;
@@ -89,12 +95,31 @@ int display_bias_enable(void)
 	display_bias_regulator_init();
 
 	/* set voltage with min & max*/
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+#ifdef CONFIG_MACH_MT6771
+	if(false == hq_get_is_ilitek_lcd())
+	    ret = regulator_set_voltage(disp_bias_pos, 6000000, 6000000);
+	else
+	    ret = regulator_set_voltage(disp_bias_pos, 5800000, 5800000);
+#else
 	ret = regulator_set_voltage(disp_bias_pos, 5400000, 5400000);
+#endif
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, end. */
 	if (ret < 0)
 		pr_info("set voltage disp_bias_pos fail, ret = %d\n", ret);
 	retval |= ret;
 
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+#ifdef CONFIG_MACH_MT6771
+	if(false == hq_get_is_ilitek_lcd())
+	    ret = regulator_set_voltage(disp_bias_neg, 6000000, 6000000);
+	else
+	    ret = regulator_set_voltage(disp_bias_neg, 5800000, 5800000);
+#else
 	ret = regulator_set_voltage(disp_bias_neg, 5400000, 5400000);
+#endif
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+
 	if (ret < 0)
 		pr_info("set voltage disp_bias_neg fail, ret = %d\n", ret);
 	retval |= ret;
@@ -207,6 +232,22 @@ void pmi_lcd_bias_set_vspn_en(unsigned int en, unsigned int seq)
     }
 }
 EXPORT_SYMBOL(pmi_lcd_bias_set_vspn_en);
+
+
+int pmi_lcd_bias_vsp_is_enabled(void)
+{
+	return regulator_is_enabled(disp_bias_pos);
+}
+EXPORT_SYMBOL(pmi_lcd_bias_vsp_is_enabled);
+
+
+int pmi_lcd_bias_vsn_is_enabled(void)
+{
+	return regulator_is_enabled(disp_bias_neg);
+}
+EXPORT_SYMBOL(pmi_lcd_bias_vsn_is_enabled);
+
+
 #endif //CONFIG_SET_LCD_BIAS_ODM_HQ
 #endif // ODM_HQ_EDIT
 

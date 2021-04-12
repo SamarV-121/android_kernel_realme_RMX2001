@@ -65,7 +65,10 @@
 #include <soc/oppo/device_info.h>
 #endif
 #include "oppo_vooc_fw.h"
-
+#include <soc/oppo/oppo_project.h>
+#include "../oppo_charger.h"
+#include "../oppo_vooc.h"
+extern unsigned int is_project(OPPO_PROJECT project );
 #ifdef CONFIG_OPPO_CHARGER_MTK
 #define I2C_MASK_FLAG	(0x00ff)
 #define I2C_ENEXT_FLAG (0x0200)
@@ -78,7 +81,12 @@
 #define BYTES_TO_WRITE                               16
 #define FW_CHECK_FAIL                                0
 #define FW_CHECK_SUCCESS                             1
-static struct oppo_vooc_chip *the_chip = NULL;
+struct oppo_stm8s_device {
+	struct i2c_client *client;
+	struct device *dev;
+};
+
+static struct oppo_stm8s_device *stm8s_chip = NULL;
 
 #ifdef CONFIG_OPPO_CHARGER_MTK
 
@@ -213,6 +221,7 @@ static bool stm8s_fw_check_frontline(struct oppo_vooc_chip *chip)
         int rc, i, j, addr;
         int fw_line = 0;
 
+	chip->client = stm8s_chip->client;
         if (!chip->firmware_data) {
                 chg_err("Stm8s_fw_data Null, Return\n");
                 return FW_CHECK_FAIL;
@@ -292,6 +301,7 @@ static bool stm8s_fw_check_lastline(struct oppo_vooc_chip *chip)
         unsigned char data_buf[32] = {0x0};
         int i = 0, rc = 0;
 
+	chip->client = stm8s_chip->client;
         if (!chip->firmware_data) {
                 chg_err("Stm8s_fw_data Null, Return\n");
                 return FW_CHECK_FAIL;
@@ -356,6 +366,7 @@ static int stm8s_fw_write(struct oppo_vooc_chip *chip, const unsigned char *data
         unsigned char addr_buf[2] = {0x88, 0x00};
         int rc;
 
+	chip->client = stm8s_chip->client;
         if (!chip->firmware_data) {
                 chg_err("Stm8s_fw_data Null, Return\n");
                 return -1;
@@ -408,6 +419,7 @@ static int stm8s_fw_update(struct oppo_vooc_chip *chip)
         unsigned int addr = 0x8800;
         int download_again = 0;
 
+	chip->client = stm8s_chip->client;
         if (!chip->firmware_data) {
                 chg_err("Stm8s_fw_data Null, Return\n");
                 return -1;
@@ -490,6 +502,8 @@ static int stm8s_get_fw_verion_from_ic(struct oppo_vooc_chip *chip)
 	int rc = 0;
 	int update_result = 0;
 
+	chip->client = stm8s_chip->client;
+
 //	if (!chip->firmware_data) {
 //		chg_err("Stm8s_fw_data Null, Return\n");
 //		return FW_CHECK_FAIL;
@@ -536,6 +550,7 @@ static void stm8s_fw_check_then_recover(struct oppo_vooc_chip *chip)
 {
         int update_result = 0;
 
+	chip->client = stm8s_chip->client;
         if (!chip->firmware_data) {
                 chg_err("Stm8s_fw_data Null, Return\n");
                 return;
@@ -543,7 +558,7 @@ static void stm8s_fw_check_then_recover(struct oppo_vooc_chip *chip)
                 chg_debug(" begin\n");
         }
 
-        if (oppo_is_power_off_charging(chip) == true || oppo_is_charger_reboot(chip)== true) {
+        if (oppo_is_power_off_charging(chip) == true || oppo_is_charger_reboot(chip)== true || oppo_is_rf_ftm_mode()) {
                 chip->mcu_update_ing = true;
                 update_result = stm8s_fw_update(chip);
                 chip->mcu_update_ing = false;
@@ -552,6 +567,10 @@ static void stm8s_fw_check_then_recover(struct oppo_vooc_chip *chip)
                 chip->mcu_boot_by_gpio = true;
                 msleep(10);
                 opchg_set_reset_active(chip);
+				if (oppo_vooc_get_fastchg_started() == true) {
+					oppo_chg_set_chargerid_switch_val(0);
+					oppo_vooc_switch_mode(NORMAL_CHARGER_MODE);
+				}				
                 chip->mcu_update_ing = true;
                 msleep(2500);
                 chip->mcu_boot_by_gpio = false;
@@ -568,141 +587,35 @@ static void stm8s_fw_check_then_recover(struct oppo_vooc_chip *chip)
         }
 }
 
-struct oppo_vooc_operations oppo_stm8s_ops = {
-                .fw_update = stm8s_fw_update,
-                .fw_check_then_recover = stm8s_fw_check_then_recover,
-                .set_switch_mode = opchg_set_switch_mode,
-                .eint_regist = oppo_vooc_eint_register,
-                .eint_unregist = oppo_vooc_eint_unregister,
-                .set_data_active = opchg_set_data_active,
-                .set_data_sleep = opchg_set_data_sleep,
-                .set_clock_active = opchg_set_clock_active,
-                .set_clock_sleep = opchg_set_clock_sleep,
-                .get_gpio_ap_data = opchg_get_gpio_ap_data,
-                .read_ap_data = opchg_read_ap_data,
-                .reply_mcu_data = opchg_reply_mcu_data,
-	            .reply_mcu_data_4bits = opchg_reply_mcu_data_4bits,
-                .reset_fastchg_after_usbout = reset_fastchg_after_usbout,
-                .switch_fast_chg = switch_fast_chg,
-                .reset_mcu = opchg_set_reset_active,
-                .is_power_off_charging = oppo_is_power_off_charging,
-                .get_reset_gpio_val = oppo_vooc_get_reset_gpio_val,
-                .get_switch_gpio_val = oppo_vooc_get_switch_gpio_val,
-                .get_ap_clk_gpio_val = oppo_vooc_get_ap_clk_gpio_val,
-				.get_fw_version		= stm8s_get_fw_verion_from_ic,
-				.get_clk_gpio_num = opchg_get_clk_gpio_num,
-				.get_data_gpio_num = opchg_get_data_gpio_num,
-};
 
-static void register_vooc_devinfo(void)
+
+static bool stm8s_mcu_is_online(struct oppo_vooc_chip *chip)
 {
-        int ret = 0;
-        char *version;
-        char *manufacture;
+        unsigned char value = 0;
+        int rc = 0;
+        bool is_online = true;
 
-        version = "stm8s";
-        manufacture = "ST";
+	chip->client = stm8s_chip->client;
 
-        ret = register_device_proc("vooc", version, manufacture);
-        if (ret) {
-                chg_err(" fail\n");
-        }
-}
-
-static void stm8s_shutdown(struct i2c_client *client)
-{
-        if (!the_chip) {
-                return;
-        }
-        opchg_set_switch_mode(the_chip, NORMAL_CHARGER_MODE);
-        msleep(10);
-        if (oppo_vooc_get_fastchg_started() == true) {
-                opchg_set_clock_sleep(the_chip);
-                msleep(10);
-                opchg_set_reset_active(the_chip);
-        }
-        msleep(80);
-        return;
-}
-
-static ssize_t vooc_fw_check_read(struct file *filp, char __user *buff, size_t count, loff_t *off)
-{
-        char page[256] = {0};
-        char read_data[32] = {0};
-        int len = 0;
-
-        if (the_chip && the_chip->vooc_fw_check == true) {
-                read_data[0] = '1';
+        rc = oppo_vooc_i2c_read(chip->client, 0x01, 1, &value);
+        if (rc < 0) {
+                chg_err("stm8s read register 0x01 fail, rc = %d\n", rc);
+                is_online = false;
         } else {
-                read_data[0] = '0';
-        }
-        len = sprintf(page, "%s", read_data);
-        if (len > *off) {
-                len -= *off;
-        } else {
-                len = 0;
-        }
-        if (copy_to_user(buff, page, (len < count ? len : count))) {
-                return -EFAULT;
-        }
-        *off += len < count ? len : count;
-        return (len < count ? len : count);
+		if (value == 0x0) {
+			is_online = true;
+        		chg_err("stm8s detected, register 0x01: 0x%x\n", value);
+		}
+	}
+
+        return is_online;
 }
 
-static const struct file_operations vooc_fw_check_proc_fops = {
-        .read = vooc_fw_check_read,
-        .llseek = noop_llseek,
-};
-
-static int init_proc_vooc_fw_check(void)
+int stm8s_get_firmware(struct oppo_vooc_chip *chip)
 {
-        struct proc_dir_entry *p = NULL;
+	if (!chip)
+		return -1;
 
-        p = proc_create("vooc_fw_check", 0444, NULL, &vooc_fw_check_proc_fops);
-        if (!p) {
-                chg_err("proc_create vooc_fw_check_proc_fops fail!\n");
-        }
-        return 0;
-}
-
-static int stm8s_driver_probe(struct i2c_client *client, const struct i2c_device_id *id)
-{
-	struct oppo_vooc_chip *chip;
-
-	chip = devm_kzalloc(&client->dev, sizeof(*chip), GFP_KERNEL);
-	if (!chip) {
-		dev_err(&client->dev, "Couldn't allocate memory\n");
-		return -ENOMEM;
-	}
-
-	chip->client = client;
-	chip->dev = &client->dev;
-	i2c_set_clientdata(client, chip);
-
-#ifdef CONFIG_OPPO_CHARGER_MTK
-#if GTP_SUPPORT_I2C_DMA
-	client->dev.coherent_dma_mask = DMA_BIT_MASK(32);
-	gpDMABuf_va = (u8 *)dma_alloc_coherent(&client->dev, GTP_DMA_MAX_TRANSACTION_LENGTH, &gpDMABuf_pa, GFP_KERNEL);
-	if (!gpDMABuf_va) {
-		chg_err("[Error] Allocate DMA I2C Buffer failed!\n");
-	} else {
-		chg_debug(" ppp dma_alloc_coherent success\n");
-	}
-	memset(gpDMABuf_va, 0, GTP_DMA_MAX_TRANSACTION_LENGTH);
-#endif
-#endif
-	if(get_vooc_mcu_type(chip) != OPPO_VOOC_MCU_HWID_STM8S){
-		chg_err("It is not stm8s\n");
-		return -ENOMEM;
-	}
-
-	chip->pcb_version = g_hw_version;
-	chip->vooc_fw_check = false;
-	mutex_init(&chip->pinctrl_mutex);
-
-/* wenbin.liu@BSP.CHG.Vooc, 2016/10/20 
-**    Modify for vooc batt 4.40   */
-	oppo_vooc_fw_type_dt(chip);
 	if (chip->batt_type_4400mv) {
 		chip->firmware_data = Stm8s_firmware_data_4400mv;
 		chip->fw_data_count = sizeof(Stm8s_firmware_data_4400mv);
@@ -730,9 +643,18 @@ static int stm8s_driver_probe(struct i2c_client *client, const struct i2c_device
 		chip->fw_data_count = sizeof(Stm8s_fw_data_4400_avoid_over_temp_ntc61c);
 		chip->fw_data_version = Stm8s_fw_data_4400_avoid_over_temp_ntc61c[chip->fw_data_count - 4];
 	} else if (chip->vooc_fw_type == VOOC_FW_TYPE_STM8S_4400_VOOC_FFC_09C) {
-		chip->firmware_data = Stm8s_fw_data_4400_vooc_ffc_09c;
-		chip->fw_data_count = sizeof(Stm8s_fw_data_4400_vooc_ffc_09c);
-		chip->fw_data_version = Stm8s_fw_data_4400_vooc_ffc_09c[chip->fw_data_count - 4];
+		//mapenglong@ODM.HQ.BSP.CHG, 2020/05/20, modified for charger
+		if(is_project(20682)){
+			chip->firmware_data = Stm8s_fw_data_4400_vooc_sala_20682;
+			chip->fw_data_count = sizeof(Stm8s_fw_data_4400_vooc_sala_20682);
+			chip->fw_data_version = Stm8s_fw_data_4400_vooc_sala_20682[chip->fw_data_count - 4];
+		}
+		else{
+			chip->firmware_data = Stm8s_fw_data_4400_vooc_ffc_09c;
+			chip->fw_data_count = sizeof(Stm8s_fw_data_4400_vooc_ffc_09c);
+			chip->fw_data_version = Stm8s_fw_data_4400_vooc_ffc_09c[chip->fw_data_count - 4];
+		}
+
 	} else if (chip->vooc_fw_type == VOOC_FW_TYPE_STM8S_4400_VOOC_FFC_15C) {
 		chip->firmware_data = Stm8s_fw_data_4400_vooc_ffc_15c;
 		chip->fw_data_count = sizeof(Stm8s_fw_data_4400_vooc_ffc_15c);
@@ -768,25 +690,88 @@ static int stm8s_driver_probe(struct i2c_client *client, const struct i2c_device
 		chip->fw_data_version = Stm8s_fw_data_4450_ffc_5v6a[chip->fw_data_count - 4];
 	}
 
-	chip->vops = &oppo_stm8s_ops;
-	chip->fw_mcu_version = 0;
-	oppo_vooc_gpio_dt_init(chip);
-	opchg_set_clock_sleep(chip);
-	oppo_vooc_delay_reset_mcu_init(chip);
+	return 0;
+}
 
-	if(chip->vooc_fw_update_newmethod) {
-		if(oppo_is_rf_ftm_mode()){
-			oppo_vooc_fw_update_work_init(chip);
-		}
-	} else {
-		oppo_vooc_fw_update_work_init(chip);
+struct oppo_vooc_operations oppo_stm8s_ops = {
+                .fw_update = stm8s_fw_update,
+                .fw_check_then_recover = (int (*)(struct oppo_vooc_chip *chip))stm8s_fw_check_then_recover,
+                .set_switch_mode = opchg_set_switch_mode,
+                .eint_regist = oppo_vooc_eint_register,
+                .eint_unregist = oppo_vooc_eint_unregister,
+                .set_data_active = opchg_set_data_active,
+                .set_data_sleep = opchg_set_data_sleep,
+                .set_clock_active = opchg_set_clock_active,
+                .set_clock_sleep = opchg_set_clock_sleep,
+                .get_gpio_ap_data = opchg_get_gpio_ap_data,
+                .read_ap_data = opchg_read_ap_data,
+                .reply_mcu_data = opchg_reply_mcu_data,
+	            .reply_mcu_data_4bits = opchg_reply_mcu_data_4bits,
+                .reset_fastchg_after_usbout = reset_fastchg_after_usbout,
+                .switch_fast_chg = switch_fast_chg,
+                .reset_mcu = opchg_set_reset_active,
+                .is_power_off_charging = oppo_is_power_off_charging,
+                .get_reset_gpio_val = oppo_vooc_get_reset_gpio_val,
+                .get_switch_gpio_val = oppo_vooc_get_switch_gpio_val,
+                .get_ap_clk_gpio_val = oppo_vooc_get_ap_clk_gpio_val,
+				.get_fw_version		= stm8s_get_fw_verion_from_ic,
+				.get_clk_gpio_num = opchg_get_clk_gpio_num,
+				.get_data_gpio_num = opchg_get_data_gpio_num,
+	.get_firmware = stm8s_get_firmware,
+	.get_mcu_online = stm8s_mcu_is_online,
+};
+
+static void register_vooc_devinfo(void)
+{
+        int ret = 0;
+        char *version;
+        char *manufacture;
+
+        version = "stm8s";
+        manufacture = "ST";
+
+        ret = register_device_proc("vooc", version, manufacture);
+        if (ret) {
+                chg_err(" fail\n");
+        }
+}
+
+static void stm8s_shutdown(struct i2c_client *client)
+{
+       
+}
+
+static int stm8s_driver_probe(struct i2c_client *client, const struct i2c_device_id *id)
+{
+	struct oppo_stm8s_device *chip;
+
+	chip = devm_kzalloc(&client->dev, sizeof(*chip), GFP_KERNEL);
+	if (!chip) {
+		dev_err(&client->dev, "Couldn't allocate memory\n");
+		return -ENOMEM;
 	}
 
-	oppo_vooc_init(chip);
+	chip->client = client;
+	chip->dev = &client->dev;
+	i2c_set_clientdata(client, chip);
+
+#ifdef CONFIG_OPPO_CHARGER_MTK
+#if GTP_SUPPORT_I2C_DMA
+	client->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+	gpDMABuf_va = (u8 *)dma_alloc_coherent(&client->dev, GTP_DMA_MAX_TRANSACTION_LENGTH, &gpDMABuf_pa, GFP_KERNEL);
+	if (!gpDMABuf_va) {
+		chg_err("[Error] Allocate DMA I2C Buffer failed!\n");
+	} else {
+		chg_debug(" ppp dma_alloc_coherent success\n");
+	}
+	memset(gpDMABuf_va, 0, GTP_DMA_MAX_TRANSACTION_LENGTH);
+#endif
+#endif
+
 	register_vooc_devinfo();
-	init_proc_vooc_fw_check();
-	the_chip = chip;
-	chg_debug("stm8s probe success,fw_type = 0x%x, fw_version = 0x%x, mcu_version = 0x%x\n",chip->vooc_fw_type,chip->fw_data_version,chip->fw_mcu_version);
+	stm8s_chip = chip;
+
+	chg_debug("stm8s probe success\n");
 	return 0;
 }
 
@@ -822,12 +807,22 @@ static int __init stm8s_subsys_init(void)
         int ret = 0;
         chg_debug(" init start\n");
         init_hw_version();
-		
+		#ifdef ODM_HQ_EDIT
+		/* wangtao@ODM.HQ.BSP.System, for charge,20200306 begin */
+		if(is_project(19661) || is_project(20682)) {
+			if (i2c_add_driver(&stm8s_i2c_driver) != 0) {
+					chg_err(" failed to register stm8s i2c driver.\n");
+			} else {
+					chg_debug(" Success to register stm8s i2c driver.\n");
+			}
+		}
+		#else
         if (i2c_add_driver(&stm8s_i2c_driver) != 0) {
                 chg_err(" failed to register stm8s i2c driver.\n");
         } else {
                 chg_debug(" Success to register stm8s i2c driver.\n");
         }
+		#endif
         return ret;
 }
 /*

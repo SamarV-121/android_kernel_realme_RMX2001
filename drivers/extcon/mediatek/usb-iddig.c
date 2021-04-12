@@ -113,6 +113,11 @@ static void iddig_mode_switch(struct work_struct *work)
 		/* Qiao.Hu@BSP.BaseDrv.CHG.Basic, 2017/11/25, modify for otg */
 		otg_is_exist = 1;
 		#endif
+		#ifdef TARGET_WATERMELON_Q_PROJECT
+		/* liunianliang@BSP.System, for USB eye parameter */
+		extern void set_usb_phy_mode(int mode);
+		set_usb_phy_mode(2);
+		#endif
 	} else {
 		#ifdef VENDOR_EDIT
 		/* Qiao.Hu@BSP.BaseDrv.CHG.Basic, 2017/11/25, modify for otg */

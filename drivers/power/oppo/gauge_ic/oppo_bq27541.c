@@ -65,6 +65,10 @@
 
 #endif
 
+#include "oppo_sha1_hmac.h"
+#ifdef OPPO_SHA1_HMAC
+#include <linux/random.h>
+#endif
 #include "../oppo_charger.h"
 #include "../oppo_gauge.h"
 #include "../oppo_vooc.h"

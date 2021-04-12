@@ -95,6 +95,9 @@ static atomic_t g_pwm_en[PWM_TOTAL_MODULE_NUM] = {
 /* Liyan@ODM.HQ.Multimedia.LCM 2019/08/20 modified for 2048 steps backlight */
 static atomic_t g_pwm_max_backlight[PWM_TOTAL_MODULE_NUM] = {
 	ATOMIC_INIT(2047), ATOMIC_INIT(2047) };
+/* Longyajun@ODM.HQ.Multimedia.LCM 2020/04/29 modified for 4095 steps backlight */
+static atomic_t g_pwm_max_backlight_sala[PWM_TOTAL_MODULE_NUM] = {
+	ATOMIC_INIT(4095), ATOMIC_INIT(4095) };
 #else /* ODM_HQ_EDIT */
 static atomic_t g_pwm_max_backlight[PWM_TOTAL_MODULE_NUM] = {
 	ATOMIC_INIT(1023), ATOMIC_INIT(1023) };
@@ -120,6 +123,9 @@ static atomic_t g_pwm_en[PWM_TOTAL_MODULE_NUM] = { ATOMIC_INIT(-1) };
 /* Liyan@ODM.HQ.Multimedia.LCM 2019/08/20 modified for 2048 steps backlight */
 static atomic_t g_pwm_max_backlight[PWM_TOTAL_MODULE_NUM] = {
 	ATOMIC_INIT(2047) };
+/* Longyajun@ODM.HQ.Multimedia.LCM 2020/04/29 modified for 4095 steps backlight */
+static atomic_t g_pwm_max_backlight_sala[PWM_TOTAL_MODULE_NUM] = {
+	ATOMIC_INIT(4095) };
 #else /* ODM_HQ_EDIT */
 static atomic_t g_pwm_max_backlight[PWM_TOTAL_MODULE_NUM] = {
 	ATOMIC_INIT(1023) };
@@ -332,9 +338,16 @@ static int disp_pwm_config_init(enum DISP_MODULE_ENUM module,
 	DISP_REG_MASK(cmdq, reg_base + DISP_PWM_CON_0_OFF, pwm_div << 16,
 	(0x3ff << 16));
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6771)
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver. */
+	/* 2048 levels */
+	DISP_REG_MASK(cmdq, reg_base + DISP_PWM_CON_1_OFF, 2047, 0x7ff);
+	/* We don't init the backlight here until AAL/Android give */
+#else
 	/* 1024 levels */
 	DISP_REG_MASK(cmdq, reg_base + DISP_PWM_CON_1_OFF, 1023, 0x3ff);
 	/* We don't init the backlight here until AAL/Android give */
+#endif
 #endif
 	return 0;
 }
@@ -529,7 +542,14 @@ int disp_pwm_set_max_backlight(enum disp_pwm_id_t id, unsigned int level_1024)
 	}
 
 	index = index_of_pwm(id);
-	atomic_set(&g_pwm_max_backlight[index], level_1024);
+	//#ifdef ODM_HQ_EDIT
+	/* Longyajun@ODM.HQ.Multimedia.LCM 2020/05/06 modified for 4095 steps backlight */
+	if((get_project() == 20682)){
+		atomic_set(&g_pwm_max_backlight_sala[index], level_1024);
+	}else{
+		atomic_set(&g_pwm_max_backlight[index], level_1024);
+	}
+	//endif /*ODM_HQ_EDIT*/
 	PWM_MSG("(id = 0x%x, level = %u)", id, level_1024);
 
 	atomic_set(&g_pwm_is_change_state[index], 1);
@@ -542,8 +562,14 @@ int disp_pwm_get_max_backlight(enum disp_pwm_id_t id)
 {
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	int index = index_of_pwm(id);
-
-	return atomic_read(&g_pwm_max_backlight[index]);
+	//#ifdef ODM_HQ_EDIT
+	/* Longyajun@ODM.HQ.Multimedia.LCM 2020/05/06 modified for 4095 steps backlight */
+	if((get_project() == 20682)){
+		return atomic_read(&g_pwm_max_backlight_sala[index]);
+	}else{
+		return atomic_read(&g_pwm_max_backlight[index]);
+	}
+	//endif /*ODM_HQ_EDIT*/
 #else
 	return 1023;
 #endif
@@ -624,13 +650,23 @@ int disp_pwm_set_backlight_cmdq(enum disp_pwm_id_t id,
 
 		if (level_1024 > 0) {
 			DISP_REG_MASK(cmdq, reg_base + DISP_PWM_CON_1_OFF,
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6771)
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver. */
+				level_1024 << 16, 0x3fff << 16);
+#else
 				level_1024 << 16, 0x1fff << 16);
+#endif
 
 			disp_pwm_set_enabled(cmdq, id, 1);
 		} else {
 			/* Avoid to set 0 */
 			DISP_REG_MASK(cmdq, reg_base + DISP_PWM_CON_1_OFF,
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6771)
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver. */
+				1 << 16, 0x3fff << 16);
+#else
 				1 << 16, 0x1fff << 16);
+#endif
 			/* To save power */
 			disp_pwm_set_enabled(cmdq, id, 0);
 		}

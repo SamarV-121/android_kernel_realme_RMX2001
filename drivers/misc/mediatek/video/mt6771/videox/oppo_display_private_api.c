@@ -491,14 +491,14 @@ unsigned long CABC_mode = 2;
 */
 extern void disp_aal_set_dre_en(int enable);
 
-static ssize_t LCM_CABC_show(struct device *dev,
+static ssize_t cabc_show(struct device *dev,
                 struct device_attribute *attr, char *buf)
 {
     printk("%s CABC_mode=%ld\n", __func__, CABC_mode);
     return sprintf(buf, "%ld\n", CABC_mode);
 }
 
-static ssize_t LCM_CABC_store(struct device *dev,
+static ssize_t cabc_store(struct device *dev,
         struct device_attribute *attr, const char *buf, size_t num)
 {
     int ret = 0;
@@ -521,6 +521,7 @@ static ssize_t LCM_CABC_store(struct device *dev,
     /*
     * modify for oled not need set cabc
     */
+    printk("cabc oppo_display_cabc_support = %d\n",oppo_display_cabc_support);
     if (oppo_display_cabc_support) {
         ret = primary_display_set_cabc_mode((unsigned int)CABC_mode);
     }
@@ -543,7 +544,7 @@ static DEVICE_ATTR(panel_id, S_IRUGO|S_IWUSR, lcm_id_info_show, lcm_id_info_stor
 static DEVICE_ATTR(panel_serial_number, S_IRUGO|S_IWUSR, mdss_get_panel_serial_number, panel_serial_store);
 static DEVICE_ATTR(sau_closebl_node, S_IRUGO|S_IWUSR, silence_show, silence_store);
 static DEVICE_ATTR(oppo_notify_fppress, S_IRUGO|S_IWUSR, NULL, fingerprint_notify_trigger);
-static DEVICE_ATTR(LCM_CABC, S_IRUGO|S_IWUSR, LCM_CABC_show, LCM_CABC_store);
+static DEVICE_ATTR(cabc, S_IRUGO|S_IWUSR, cabc_show, cabc_store);
 
 /*
  * Create a group of attributes so that we can create and destroy them all
@@ -562,7 +563,7 @@ static struct attribute *oppo_display_attrs[] = {
 	&dev_attr_panel_serial_number.attr,
 	&dev_attr_sau_closebl_node.attr,
 	&dev_attr_oppo_notify_fppress.attr,
-	&dev_attr_LCM_CABC.attr,
+	&dev_attr_cabc.attr,
 	NULL,	/* need to NULL terminate the list of attributes */
 };
 

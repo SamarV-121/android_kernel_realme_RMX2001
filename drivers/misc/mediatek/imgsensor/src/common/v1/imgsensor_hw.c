@@ -106,6 +106,8 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 	struct IMGSENSOR_HW_DEVICE       *pdev;
 	int                               pin_cnt = 0;
 
+#ifdef ODM_HQ_EDIT
+/* Lijian@ODM.Camera.Drv 20190912 MTK patch for mipi switch */
 	while (ppwr_seq < ppower_sequence + IMGSENSOR_HW_SENSOR_MAX_NUM &&
 		ppwr_seq->name != NULL) {
 		if (!strcmp(ppwr_seq->name, PLATFORM_POWER_SEQ_NAME)) {
@@ -119,6 +121,15 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 	}
 
 	if (ppwr_seq->name == NULL)
+#else
+	while (ppwr_seq->name != NULL &&
+		ppwr_seq < ppower_sequence + IMGSENSOR_HW_SENSOR_MAX_NUM &&
+		strcmp(ppwr_seq->name, pcurr_idx)) {
+		ppwr_seq++;
+	}
+
+	if (ppwr_seq->name == NULL)
+#endif
 		return IMGSENSOR_RETURN_ERROR;
 
 	ppwr_info = ppwr_seq->pwr_info;
@@ -186,6 +197,8 @@ enum IMGSENSOR_RETURN imgsensor_hw_power(
 	enum IMGSENSOR_SENSOR_IDX sensor_idx = psensor->inst.sensor_idx;
 	char str_index[LENGTH_FOR_SNPRINTF];
 
+#ifndef ODM_HQ_EDIT
+/* Lijian@ODM.Camera.Drv 20190827 for snesor bringup */
 	pr_info(
 		"sensor_idx %d, power %d curr_sensor_name %s, enable list %s\n",
 		sensor_idx,
@@ -194,11 +207,22 @@ enum IMGSENSOR_RETURN imgsensor_hw_power(
 		phw->enable_sensor_by_index[sensor_idx] == NULL
 		? "NULL"
 		: phw->enable_sensor_by_index[sensor_idx]);
-
+#endif
 	if (phw->enable_sensor_by_index[sensor_idx] &&
 	!strstr(phw->enable_sensor_by_index[sensor_idx], curr_sensor_name))
 		return IMGSENSOR_RETURN_ERROR;
 
+#ifdef ODM_HQ_EDIT
+/* Lijian@ODM.Camera.Drv 20190827 for snesor bringup */
+	printk(
+		"sensor_idx %d, power %d curr_sensor_name %s, enable list %s\n",
+		sensor_idx,
+		pwr_status,
+		curr_sensor_name,
+		phw->enable_sensor_by_index[sensor_idx] == NULL
+		? "NULL"
+		: phw->enable_sensor_by_index[sensor_idx]);
+#endif
 
 	snprintf(str_index, sizeof(str_index), "%d", sensor_idx);
 	imgsensor_hw_power_sequence(

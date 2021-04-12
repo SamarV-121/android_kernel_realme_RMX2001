@@ -100,6 +100,7 @@ enum OPPO_PROJECT {
     OPPO_18531 = 18531,
     OPPO_18161 = 18161,
     OPPO_18561 = 18561,
+    OPPO_18601 = 18601,
     OPPO_18611 = 18611,
     OPPO_19091 = 19091,
     OPPO_19391 = 19391,
@@ -108,6 +109,8 @@ enum OPPO_PROJECT {
     OPPO_19747 = 19747,
     OPPO_19661 = 19661,
     OPPO_19761 = 19761,
+    OPPO_20671 = 20671,
+    OPPO_20682 = 20682,
 };
 
 enum OPPO_OPERATOR {
@@ -204,25 +207,52 @@ enum OPPO_OPERATOR {
     OPERATOR_19661_All_WORLD		         = 105,
     OPERATOR_19661_VIETNAM_8X128G             = 106,  
 /* 19661 add for sarter */
-	OPERATOR_19661_ASIA_SIMPLE_SARTER	 =111,	
-	OPERATOR_19661_All_BAND_SARTER			  = 112,
-	OPERATOR_19661_VIETNAM_8X128G_SARTER			 = 113,
+    OPERATOR_19661_ASIA_SIMPLE_SARTER	 =111,	
+    OPERATOR_19661_All_BAND_SARTER			  = 112,
+    OPERATOR_19661_VIETNAM_8X128G_SARTER			 = 113,
+	OPERATOR_19661_All_BAND_NFC_SARTER             = 114,
 
+/* 20671 */
+    OPERATOR_20671_ASIA_SIMPLE               = 115,
+    OPERATOR_20671_All_WORLD		         = 116,
+    OPERATOR_20671_All_BAND                   = 117,
+    OPERATOR_20671_VIETNAM_All_BAND                   = 118,
+    OPERATOR_20671_A_ASIA_SIMPLE               = 120,
+    OPERATOR_20671_A_All_WORLD		         = 121,
+    OPERATOR_20671_A_All_BAND                   = 122,
+    OPERATOR_20671_A_VIETNAM_All_BAND                   = 123,
+	//EulerB G85
+    OPERATOR_20671_B_ASIA_SIMPLE             = 119,
+	//EulerC G70
+    OPERATOR_20671_C_ASIA_SIMPLE             = 124,
+    OPERATOR_20671_C_All_WORLD		         = 125,
+    OPERATOR_20671_C_All_BAND                = 126,
+    OPERATOR_20671_C_VIETNAM_All_BAND        = 127,
 
-/* 19741 */
-    OPERATOR_19741_All_BAND                   = 111,
-    OPERATOR_19741_ASIA_SIMPLE             	 = 112,
-    OPERATOR_19741_RUSSIA             	 = 113,
-    OPERATOR_19741_ASIA_SIMPLE_INDIA         = 114,
-    OPERATOR_19741_VIETNAM_3X32G		 = 115,
-    OPERATOR_19741_VIETNAM_3X64G              = 116,
-/* 19747 */
-    OPERATOR_19747_ASIA_SIMPLE                = 121,
-    OPERATOR_19747_RUSSIA             	 = 122,
-    OPERATOR_19747_All_BAND             	 = 123,
-    OPERATOR_19747_VIETNAM_3X64G              = 124,
-    OPERATOR_19747_VIETNAM_4X128G		  = 125,
-    OPERATOR_19747_TELECOM                     = 126, 	
+/* 18601 */
+    OPERATOR_18601_REALME_INDIA                      = 130,
+    OPERATOR_18601_REALME_ALL_BAND                   = 131,
+    OPERATOR_18601_REALME_ALL_BAND_VIETNAM          = 132,
+    OPERATOR_18601_REALME_INDIA_P70                  = 133,
+    OPERATOR_18601_REALME_ALL_BAND_P70               = 134,
+    OPERATOR_18601_REALME_ALL_BAND_VIETNAM_P70      = 135,
+    OPERATOR_18601_REALME_ALL_BAND_VIETNAM_3X64      = 136,
+    OPERATOR_18601_REALME_INDIA_MELON                = 137,
+	
+/* 20682 add for sala */	
+	OPERATOR_20682_ASIA_SIMPLE               = 140,
+	OPERATOR_20682_All_BAND                   = 141,
+	OPERATOR_20682_All_BAND_VIETNAM             		= 142,
+	OPERATOR_20682_SALA_A_ASIA_SIMPLE               = 143,
+	OPERATOR_20682_SALA_A_All_BAND                   = 144,
+	OPERATOR_20682_SALA_A_All_BAND_VIETNAM           		= 145,
+	OPERATOR_20682_SALA_All_BAND_NFC           		= 146,
+	OPERATOR_20682_SALA_A_INTERNATIONAL           		= 147,
+	OPERATOR_20682_SALA_LITE_INTERNATIONAL           		= 148,
+	OPERATOR_20682_SALA_THAILAND           		= 149,
+	OPERATOR_20682_SALA_ASIA_SIMPLE_THERR_CAMERA           		= 90,
+	OPERATOR_20682_SALA_INTERNATIONAL_NFC_THERR_CAMERA           		= 92,
+	OPERATOR_20682_SALA_LITE_VODAFONE           		= 94,
 };
 
 enum OPPO_ENG_VERSION {
@@ -271,5 +301,5 @@ unsigned int get_Modem_Version(void);
 unsigned int get_Operator_Version(void);
 unsigned int get_eng_version(void);
 unsigned int is_confidential(void);
-
+int is_sala_three_camera(void);
 #endif

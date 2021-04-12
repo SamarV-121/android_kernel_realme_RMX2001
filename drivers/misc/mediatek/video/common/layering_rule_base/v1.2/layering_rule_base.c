@@ -471,8 +471,7 @@ static void dump_disp_info(struct disp_layer_info *disp_info,
 			l_rule_info->layer_tb_idx, l_rule_info->bound_tb_idx,
 			HRT_GET_DC_FLAG(disp_info->hrt_num),
 			roll_gpu_for_idle);
-		DISPMSG("HRT cfg_id=%d\n",
-			disp_info->active_config_id[0]);
+
 		for (i = 0; i < 2; i++) {
 			if (disp_info->layer_num[i] <= 0)
 				continue;
@@ -483,8 +482,6 @@ static void dump_disp_info(struct disp_layer_info *disp_info,
 				disp_info->gles_head[i],
 				disp_info->gles_tail[i],
 				disp_info->hrt_idx);
-			DISPMSG("HRT cfg_id=%d\n",
-				disp_info->active_config_id[0]);
 
 			for (j = 0; j < disp_info->layer_num[i]; j++) {
 				layer_info = &disp_info->input_config[i][j];
@@ -515,8 +512,7 @@ static void dump_disp_info(struct disp_layer_info *disp_info,
 			l_rule_info->bound_tb_idx,
 			HRT_GET_DC_FLAG(disp_info->hrt_num),
 			roll_gpu_for_idle);
-		DISPMSG("HRT cfg_id=%d\n",
-			disp_info->active_config_id[0]);
+
 		for (i = 0; i < 2; i++) {
 			if (disp_info->layer_num[i] <= 0)
 				continue;
@@ -527,8 +523,6 @@ static void dump_disp_info(struct disp_layer_info *disp_info,
 				disp_info->gles_head[i],
 				disp_info->gles_tail[i],
 				disp_info->hrt_idx);
-			DISPMSG("HRT cfg_id=%d\n",
-				disp_info->active_config_id[0]);
 
 			for (j = 0; j < disp_info->layer_num[i]; j++) {
 				layer_info = &disp_info->input_config[i][j];

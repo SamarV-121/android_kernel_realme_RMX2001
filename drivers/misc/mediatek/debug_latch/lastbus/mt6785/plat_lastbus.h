@@ -14,4 +14,6 @@
 #ifndef __PLAT_LAST_BUS_H__
 #define __PLAT_LAST_BUS_H__
 
+int lastbus_timeout_dump(void);
+
 #endif

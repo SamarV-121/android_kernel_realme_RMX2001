@@ -7256,6 +7256,7 @@ void ddp_dsi_dynfps_chg_fps(
 
 		} else if (chg_index & DYNFPS_DSI_VFP) {
 			DDPMSG("%s, change VFP\n", __func__);
+			DDPMSG("%s, mipi_clk_change_sta %d\n", __func__,mipi_clk_change_sta);
 			if (!mipi_clk_change_sta)
 				_dsi_context[i].vfp =
 				dfps_params_new->vertical_frontporch;

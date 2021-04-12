@@ -21,7 +21,7 @@
 #define R_FG_VALUE	5				/* mOhm */
 #define EMBEDDED_SEL 0
 #define PMIC_SHUTDOWN_CURRENT 20	/* 0.01 mA */
-#define FG_METER_RESISTANCE	100
+#define FG_METER_RESISTANCE	75
 #define CAR_TUNE_VALUE	100 /*1.00 */
 #define NO_BAT_TEMP_COMPENSATE 0
 /* NO_BAT_TEMP_COMPENSATE 1 = don't need bat_temper compensate, */
@@ -33,7 +33,7 @@
 /* enable that uisoc = 1 and wait xmins then shutdown */
 #define SHUTDOWN_GAUGE1_XMINS 1
 /* define Xmins to shutdown*/
-#define SHUTDOWN_1_TIME	5
+#define SHUTDOWN_1_TIME	30
 
 #define SHUTDOWN_GAUGE1_VBAT_EN 0
 #define SHUTDOWN_GAUGE1_VBAT 34000
@@ -63,7 +63,7 @@
 /* ADC resistor  */
 #define R_BAT_SENSE	4
 #define R_I_SENSE	4
-#ifdef VENDOR_EDIT
+#if defined(VENDOR_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 /* Jianchao.Shi@PSW.BSP.CHG.Basic, 2018/10/15, sjc Modify for charging */
 #define R_CHARGER_1	300
 #else
@@ -75,7 +75,7 @@
 #define QMAX_SEL 1
 #define IBOOT_SEL 0
 #define SHUTDOWN_SYSTEM_IBOOT 15000	/* 0.1mA */
-#define PMIC_MIN_VOL 33500
+#define PMIC_MIN_VOL 34000
 
 /*ui_soc related */
 #define DIFFERENCE_FULL_CV 1000 /*0.01%*/
@@ -105,7 +105,7 @@
 #define CALI_CAR_TUNE_AVG_NUM	60
 
 /* Aging Compensation 1*/
-#ifndef VENDOR_EDIT
+#if !defined(VENDOR_EDIT) || defined(TARGET_WATERMELON_Q_PROJECT)
 /* Yichun.Chen  PSW.BSP.CHG  2019-07-23  for aging issue */
 #define AGING_FACTOR_MIN 10
 #define AGING_FACTOR_DIFF 90
@@ -165,9 +165,9 @@
 #define EXT_HWOCV_SWOCV_LT_TEMP		5
 
 /* fgc & fgv threshold */
-#define DIFFERENCE_FGC_FGV_TH1 300
-#define DIFFERENCE_FGC_FGV_TH2 500
-#define DIFFERENCE_FGC_FGV_TH3 300
+#define DIFFERENCE_FGC_FGV_TH1 500
+#define DIFFERENCE_FGC_FGV_TH2 1000
+#define DIFFERENCE_FGC_FGV_TH3 800
 #define DIFFERENCE_FGC_FGV_TH_SOC1 7000
 #define DIFFERENCE_FGC_FGV_TH_SOC2 3000
 #define NAFG_TIME_SETTING 10
@@ -184,7 +184,7 @@
 #define DIFF_IAVG_TH 3000
 
 /* ZCV INTR */
-#define ZCV_SUSPEND_TIME 3
+#define ZCV_SUSPEND_TIME 6
 #define SLEEP_CURRENT_AVG 200 /*0.1mA*/
 #define ZCV_CAR_GAP_PERCENTAGE 5
 
@@ -256,7 +256,7 @@
 
 /* using voltage to limit uisoc in 1% case */
 /* UI_LOW_LIMIT_VTH0=36000 means 3.6v */
-#define UI_LOW_LIMIT_EN 0
+#define UI_LOW_LIMIT_EN 1
 
 #define UI_LOW_LIMIT_SOC0 200
 #define UI_LOW_LIMIT_VTH0 34500
@@ -273,7 +273,7 @@
 #define UI_LOW_LIMIT_SOC4 200
 #define UI_LOW_LIMIT_VTH4 34500
 
-#define UI_LOW_LIMIT_TIME 99999
+#define UI_LOW_LIMIT_TIME 0
 
 #define MOVING_BATTEMP_EN 1
 #define MOVING_BATTEMP_THR 20

@@ -2961,6 +2961,10 @@ static void mtkfb_shutdown(struct platform_device *pdev)
 		msleep(2 * 100000 / lcd_fps);	/* Delay 2 frames. */
 
 	if (primary_display_is_sleepd()) {
+		#ifdef ODM_HQ_EDIT
+		/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver */
+		display_bias_disable();
+		#endif
 		MTKFB_LOG("mtkfb has been power off\n");
 		return;
 	}
@@ -2972,7 +2976,10 @@ static void mtkfb_shutdown(struct platform_device *pdev)
 
 	primary_display_set_power_mode(FB_SUSPEND);
 	primary_display_suspend();
-
+	#ifdef ODM_HQ_EDIT
+	/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver. */
+	display_bias_disable();
+	#endif
 	#ifdef VENDOR_EDIT
 	 /* YongPeng.Yi@PSW.MM.Display.LCD.Stability, 2018/10/09,  add for aod feature */
 	mutex_unlock(&fb_pow_mod_lock);
@@ -3133,6 +3140,8 @@ int mtkfb_pm_restore_noirq(struct device *device)
 
 static const struct of_device_id mtkfb_of_ids[] = {
 	{.compatible = "mediatek,MTKFB",},
+	{.compatible = "mediatek,mtkfb",},
+
 	{}
 };
 

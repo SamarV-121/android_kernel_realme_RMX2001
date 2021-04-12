@@ -396,36 +396,7 @@ static ssize_t show_name(struct device *device,
 
 	return snprintf(buf, PAGE_SIZE, "%s\n", fb_info->fix.id);
 }
-#ifdef ODM_WT_EDIT
-extern char Lcm_name1[256];
-static ssize_t show_panel_name(struct device *device,
-			 struct device_attribute *attr, char *buf)
-{
 
-	return snprintf(buf, PAGE_SIZE, "%s\n", Lcm_name1);
-}
-
-#endif
-
-//Hao.liang@ODM_WT.MM.Display.Lcd, 2019/10/11 Add cabc read & write interface,
-#define SYSFS_SET_LCM_CABC_MODE _IOW('O', 29, unsigned int)
-#define SYSFS_GET_LCM_CABC_MODE _IOW('O', 30, unsigned int)
-extern int fb_lcm_cabc_op(struct fb_info *info, unsigned int cmd, unsigned long arg);
-
-static ssize_t store_lcm_cabc(struct device *device,
-				struct device_attribute *attr,
-				const char *buf, size_t count)
-{
-	struct fb_info *fb_info = dev_get_drvdata(device);
-	int data, err;
-
-	if (!fb_info)
-		return -ENODEV;
-
-	err = kstrtoint(buf, 10, &data);
-	if (err)
-		return err;
-}
 static ssize_t store_fbstate(struct device *device,
 			     struct device_attribute *attr,
 			     const char *buf, size_t count)

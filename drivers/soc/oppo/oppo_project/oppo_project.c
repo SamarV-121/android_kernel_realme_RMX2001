@@ -154,6 +154,14 @@ unsigned int get_eng_version(void)
 	return 0;
 }
 
+int is_sala_three_camera(void)
+{
+	if((get_Operator_Version() == OPERATOR_20682_SALA_ASIA_SIMPLE_THERR_CAMERA) || (get_Operator_Version() == OPERATOR_20682_SALA_INTERNATIONAL_NFC_THERR_CAMERA))
+		return 1;
+	else
+		return 0;
+}
+
 unsigned int is_confidential(void)
 {
 	if(format)
@@ -170,7 +178,16 @@ static int __init update_feature(void)
     pr_err("update_feature, Operator Version [%d]", get_Operator_Version());
     set_fs(KERNEL_DS);
     if (oppoVersion) {
-        if (get_Operator_Version() == OPERATOR_19661_RUSSIA) {
+        //punan@ODM_HQ.Connectivity.NFC, 2020/04/26, Add sala NFC support
+        if ((get_Operator_Version() == OPERATOR_19661_RUSSIA) ||
+           (get_Operator_Version() == OPERATOR_19661_All_BAND_NFC_SARTER) ||
+           (get_Operator_Version() == OPERATOR_20671_All_WORLD) ||
+           (get_Operator_Version() == OPERATOR_20671_A_All_WORLD) ||
+           (get_Operator_Version() == OPERATOR_20671_C_All_WORLD) ||
+           (get_Operator_Version() == OPERATOR_20682_SALA_All_BAND_NFC) ||
+           (get_Operator_Version() == OPERATOR_20682_SALA_LITE_INTERNATIONAL) ||
+           (get_Operator_Version() == OPERATOR_20682_SALA_LITE_VODAFONE) ||
+           (get_Operator_Version() == OPERATOR_20682_SALA_INTERNATIONAL_NFC_THERR_CAMERA)) {
             proc_symlink(nfc_feature, oppoVersion, feature_src);
         }
     }

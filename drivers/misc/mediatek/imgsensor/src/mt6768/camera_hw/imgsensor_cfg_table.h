@@ -21,7 +21,7 @@
 
 
 #define IMGSENSOR_HW_POWER_INFO_MAX	12
-#define IMGSENSOR_HW_SENSOR_MAX_NUM	8
+#define IMGSENSOR_HW_SENSOR_MAX_NUM	12
 
 enum IMGSENSOR_HW_PIN {
 	IMGSENSOR_HW_PIN_NONE = 0,
@@ -36,6 +36,10 @@ enum IMGSENSOR_HW_PIN {
 	IMGSENSOR_HW_PIN_MIPI_SWITCH_SEL,
 #endif
 	IMGSENSOR_HW_PIN_MCLK,
+#ifdef ODM_HQ_EDIT
+/* Lijian@ODM.Camera.Drv 20190827 for snesor bringup */
+	IMGSENSOR_HW_PIN_DVDDSEL,
+#endif
 	IMGSENSOR_HW_PIN_MAX_NUM,
 	IMGSENSOR_HW_PIN_UNDEF = -1
 };
@@ -66,7 +70,12 @@ enum IMGSENSOR_HW_PIN_STATE {
 #define	AFVDD  IMGSENSOR_HW_PIN_AFVDD
 #define	VDD_None  IMGSENSOR_HW_PIN_NONE
 
-	/* For backward compatible */
+#ifdef ODM_HQ_EDIT
+/* Lijian@ODM.Camera.Drv 20190827 for snesor bringup */
+#define	DVDDSEL  IMGSENSOR_HW_PIN_DVDDSEL
+#endif
+
+/* For backward compatible */
 #define	SensorMCLK  IMGSENSOR_HW_PIN_MCLK
 
 

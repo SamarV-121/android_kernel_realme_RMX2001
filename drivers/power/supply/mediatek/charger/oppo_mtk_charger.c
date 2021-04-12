@@ -74,15 +74,15 @@
 #include "mtk_charger_intf.h"
 #include "mtk_charger_init.h"
 
+#ifdef ODM_HQ_EDIT
+/*Shouli.Wang@ODM_WT.BSP.CHG 2019/11/11, add for typec_cc_orientation node*/
+#include <tcpm.h>
+#endif
+
 #if defined(VENDOR_EDIT) && defined(CONFIG_OPPO_CHARGER_MT6370_TYPEC)
 /* Jianchao.Shi@BSP.CHG.Basic, 2019/06/10, sjc Add for charging */
 #include "../../oppo/oppo_charger.h"
-#ifdef ODM_HQ_EDIT
-/*wangtao@ODM.HQ.BSP.CHG 2019/10/17 modify kernel error*/
 #include "../../../misc/mediatek/typec/tcpc/inc/tcpci.h"
-#else
-#include "../../../misc/mediatek/usb_c/tcpc/inc/tcpci.h"
-#endif
 extern int charger_ic_flag;
 extern int mt6370_check_charging_enable(void);
 extern int mt6370_suspend_charger(bool suspend);
@@ -112,6 +112,10 @@ static struct charger_manager *pinfo;
 static struct list_head consumer_head = LIST_HEAD_INIT(consumer_head);
 static DEFINE_MUTEX(consumer_mutex);
 
+#ifdef ODM_HQ_EDIT
+//Mingyao.Xie@ODM_WT.BSP.Storage.Usb, 2018/08/07, Modify for USB
+extern void musb_ctrl_host(bool on_off);
+#endif /*ODM_HQ_EDIT*/
 
 bool is_power_path_supported(void)
 {
@@ -237,6 +241,10 @@ void charger_log_flash(const char *fmt, ...)
 
 void _wake_up_charger(struct charger_manager *info)
 {
+#ifdef ODM_HQ_EDIT
+/* Junbo.Guo@ODM_WT.BSP.CHG.Basic, 20191109,Add for release charger wakelock */
+	return;
+#else
 #if defined(VENDOR_EDIT) && defined(CONFIG_OPPO_CHARGER_MT6370_TYPEC)
 /* Jianchao.Shi@BSP.CHG.Basic, 2019/06/10, sjc Modify for charging */
 	return;
@@ -253,6 +261,7 @@ void _wake_up_charger(struct charger_manager *info)
 	info->charger_thread_timeout = true;
 	wake_up(&info->wait_que);
 #endif /* VENDOR_EDIT && CONFIG_OPPO_CHARGER_MT6370_TYPEC */
+#endif/* ODM_HQ_EDIT */
 }
 
 /* charger_manager ops  */
@@ -424,6 +433,10 @@ int charger_manager_enable_charging(struct charger_consumer *consumer,
 /* Jianchao.Shi@BSP.CHG.Basic, 2019/06/10, sjc Modify for charging */
 	return -EBUSY;
 #endif
+#ifdef ODM_HQ_EDIT
+	/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/4,forbidden use*/
+		return -EBUSY;
+#endif /*ODM_HQ_EDIT*/
 
 	mutex_lock(&info->charger_lock);
 	ret = _charger_manager_enable_charging(consumer, idx, en);
@@ -440,7 +453,10 @@ int charger_manager_set_input_current_limit(struct charger_consumer *consumer,
 /* Jianchao.Shi@BSP.CHG.Basic, 2019/06/10, sjc Modify for charging */
 	return -EBUSY;
 #endif
-
+#ifdef ODM_HQ_EDIT
+/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/4,forbidden use*/
+	return -EBUSY;
+#endif /*ODM_HQ_EDIT*/
 	if (info != NULL) {
 		struct charger_data *pdata;
 
@@ -480,6 +496,10 @@ int charger_manager_set_charging_current_limit(
 /* Jianchao.Shi@BSP.CHG.Basic, 2019/06/10, sjc Modify for charging */
 	return -EBUSY;
 #endif
+#ifdef ODM_HQ_EDIT
+	/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/4,forbidden use*/
+		return -EBUSY;
+#endif /*ODM_HQ_EDIT*/
 
 	if (info != NULL) {
 		struct charger_data *pdata;
@@ -510,6 +530,10 @@ int charger_manager_get_charger_temperature(struct charger_consumer *consumer,
 /* Jianchao.Shi@BSP.CHG.Basic, 2019/06/10, sjc Modify for charging */
 	return -EBUSY;
 #endif
+#ifdef ODM_HQ_EDIT
+	/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/4,forbidden use*/
+		return -EBUSY;
+#endif /*ODM_HQ_EDIT*/
 
 	if (info != NULL) {
 		struct charger_data *pdata;
@@ -1248,11 +1272,20 @@ int charger_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 /* Jianchao.Shi@BSP.CHG.Basic, 2019/07/25, sjc Modify for charging */
 void oppo_wake_up_usbtemp_thread(void);
 #endif
+#ifdef ODM_HQ_EDIT
+/*Shouli.Wang@ODM_WT.BSP.CHG 2019/12/05, add for wake usbtemp thread*/
+void oppo_wake_up_usbtemp_thread(void);
+#endif /*ODM_HQ_EDIT*/
 void mtk_charger_int_handler(void)
 {
 #if defined(VENDOR_EDIT) && defined(CONFIG_OPPO_CHARGER_MT6370_TYPEC)
 /* Jianchao.Shi@BSP.CHG.Basic, 2019/06/10, sjc Modify for charging */
 	chr_err("mtk_charger_int_handler\n");
+	if (mt_get_charger_type() != CHARGER_UNKNOWN)
+		oppo_wake_up_usbtemp_thread();
+#elif defined(VENDOR_EDIT) && defined(CONFIG_MACH_MT6768)
+/* zhangchao@ODM.HQ.Charger 2020/03/18 modified for wake usbtemp thread */
+	chr_err("mtk_charger_int_handler 01\n");
 	if (mt_get_charger_type() != CHARGER_UNKNOWN)
 		oppo_wake_up_usbtemp_thread();
 #else
@@ -1272,9 +1305,13 @@ void mtk_charger_int_handler(void)
 		chr_err("cable_out_cnt=%d\n", pinfo->cable_out_cnt);
 		mutex_unlock(&pinfo->cable_out_lock);
 		charger_manager_notifier(pinfo, CHARGER_NOTIFY_STOP_CHARGING);
-	} else
+	} else{
+#ifdef ODM_HQ_EDIT
+/*Shouli.Wang@ODM_WT.BSP.CHG 2019/12/05, add for wake usbtemp thread*/
+		oppo_wake_up_usbtemp_thread();
+#endif /*ODM_HQ_EDIT*/
 		charger_manager_notifier(pinfo, CHARGER_NOTIFY_START_CHARGING);
-
+	}
 	chr_err("wake_up_charger\n");
 	_wake_up_charger(pinfo);
 #endif /* VENDOR_EDIT && !CONFIG_OPPO_CHARGER_MT6370_TYPEC */
@@ -1838,6 +1875,8 @@ static int charger_routine_thread(void *arg)
 }
 #endif /* VENDOR_EDIT && !CONFIG_OPPO_CHARGER_MT6370_TYPEC */
 
+#ifdef ODM_HQ_EDIT
+/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/4,for quick charge*/
 static int mtk_charger_parse_dt(struct charger_manager *info,
 				struct device *dev)
 {
@@ -2572,6 +2611,742 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 	return 0;
 }
 
+#else
+static int mtk_charger_parse_dt(struct charger_manager *info,
+				struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+#if defined(VENDOR_EDIT) && !defined(CONFIG_OPPO_CHARGER_MT6370_TYPEC)
+/* Jianchao.Shi@BSP.CHG.Basic, 2019/06/10, sjc Modify for charging */
+	u32 val;
+#endif /* VENDOR_EDIT && !CONFIG_OPPO_CHARGER_MT6370_TYPEC */
+
+	chr_err("%s: starts\n", __func__);
+
+	if (!np) {
+		chr_err("%s: no device node\n", __func__);
+		return -EINVAL;
+	}
+
+#if defined(VENDOR_EDIT) && !defined(CONFIG_OPPO_CHARGER_MT6370_TYPEC)
+/* Jianchao.Shi@BSP.CHG.Basic, 2019/06/10, sjc Modify for charging */
+	if (of_property_read_string(np, "algorithm_name",
+		&info->algorithm_name) < 0) {
+		chr_err("%s: no algorithm_name name\n", __func__);
+		info->algorithm_name = "SwitchCharging";
+	}
+
+	if (strcmp(info->algorithm_name, "SwitchCharging") == 0) {
+		chr_err("found SwitchCharging\n");
+		mtk_switch_charging_init(info);
+	}
+#ifdef CONFIG_MTK_DUAL_CHARGER_SUPPORT
+	if (strcmp(info->algorithm_name, "DualSwitchCharging") == 0) {
+		pr_debug("found DualSwitchCharging\n");
+		mtk_dual_switch_charging_init(info);
+	}
+#endif
+
+	info->disable_charger = of_property_read_bool(np, "disable_charger");
+	info->enable_sw_safety_timer =
+			of_property_read_bool(np, "enable_sw_safety_timer");
+	info->sw_safety_timer_setting = info->enable_sw_safety_timer;
+	info->enable_sw_jeita = of_property_read_bool(np, "enable_sw_jeita");
+	info->enable_pe_plus = of_property_read_bool(np, "enable_pe_plus");
+	info->enable_pe_2 = of_property_read_bool(np, "enable_pe_2");
+	info->enable_pe_4 = of_property_read_bool(np, "enable_pe_4");
+#endif /* VENDOR_EDIT && !CONFIG_OPPO_CHARGER_MT6370_TYPEC */
+
+	info->enable_type_c = of_property_read_bool(np, "enable_type_c");
+	info->enable_dynamic_mivr =
+			of_property_read_bool(np, "enable_dynamic_mivr");
+	info->disable_pd_dual = of_property_read_bool(np, "disable_pd_dual");
+
+#if defined(VENDOR_EDIT) && !defined(CONFIG_OPPO_CHARGER_MT6370_TYPEC)
+/* Jianchao.Shi@BSP.CHG.Basic, 2019/06/10, sjc Modify for charging */
+	info->enable_hv_charging = true;
+
+	/* common */
+	if (of_property_read_u32(np, "battery_cv", &val) >= 0)
+		info->data.battery_cv = val;
+	else {
+		chr_err("use default BATTERY_CV:%d\n", BATTERY_CV);
+		info->data.battery_cv = BATTERY_CV;
+	}
+
+	if (of_property_read_u32(np, "max_charger_voltage", &val) >= 0)
+		info->data.max_charger_voltage = val;
+	else {
+		chr_err("use default V_CHARGER_MAX:%d\n", V_CHARGER_MAX);
+		info->data.max_charger_voltage = V_CHARGER_MAX;
+	}
+	info->data.max_charger_voltage_setting = info->data.max_charger_voltage;
+
+	if (of_property_read_u32(np, "min_charger_voltage", &val) >= 0)
+		info->data.min_charger_voltage = val;
+	else {
+		chr_err("use default V_CHARGER_MIN:%d\n", V_CHARGER_MIN);
+		info->data.min_charger_voltage = V_CHARGER_MIN;
+	}
+
+	/* dynamic mivr */
+	if (of_property_read_u32(np, "min_charger_voltage_1", &val) >= 0)
+		info->data.min_charger_voltage_1 = val;
+	else {
+		chr_err("use default V_CHARGER_MIN_1:%d\n", V_CHARGER_MIN_1);
+		info->data.min_charger_voltage_1 = V_CHARGER_MIN_1;
+	}
+
+	if (of_property_read_u32(np, "min_charger_voltage_2", &val) >= 0)
+		info->data.min_charger_voltage_2 = val;
+	else {
+		chr_err("use default V_CHARGER_MIN_2:%d\n", V_CHARGER_MIN_2);
+		info->data.min_charger_voltage_2 = V_CHARGER_MIN_2;
+	}
+
+	if (of_property_read_u32(np, "max_dmivr_charger_current", &val) >= 0)
+		info->data.max_dmivr_charger_current = val;
+	else {
+		chr_err("use default MAX_DMIVR_CHARGER_CURRENT:%d\n",
+			MAX_DMIVR_CHARGER_CURRENT);
+		info->data.max_dmivr_charger_current =
+					MAX_DMIVR_CHARGER_CURRENT;
+	}
+
+	/* charging current */
+	if (of_property_read_u32(np, "usb_charger_current_suspend", &val) >= 0)
+		info->data.usb_charger_current_suspend = val;
+	else {
+		chr_err("use default USB_CHARGER_CURRENT_SUSPEND:%d\n",
+			USB_CHARGER_CURRENT_SUSPEND);
+		info->data.usb_charger_current_suspend =
+						USB_CHARGER_CURRENT_SUSPEND;
+	}
+
+	if (of_property_read_u32(np, "usb_charger_current_unconfigured", &val)
+		>= 0) {
+		info->data.usb_charger_current_unconfigured = val;
+	} else {
+		chr_err("use default USB_CHARGER_CURRENT_UNCONFIGURED:%d\n",
+			USB_CHARGER_CURRENT_UNCONFIGURED);
+		info->data.usb_charger_current_unconfigured =
+					USB_CHARGER_CURRENT_UNCONFIGURED;
+	}
+
+	if (of_property_read_u32(np, "usb_charger_current_configured", &val)
+		>= 0) {
+		info->data.usb_charger_current_configured = val;
+	} else {
+		chr_err("use default USB_CHARGER_CURRENT_CONFIGURED:%d\n",
+			USB_CHARGER_CURRENT_CONFIGURED);
+		info->data.usb_charger_current_configured =
+					USB_CHARGER_CURRENT_CONFIGURED;
+	}
+
+	if (of_property_read_u32(np, "usb_charger_current", &val) >= 0) {
+		info->data.usb_charger_current = val;
+	} else {
+		chr_err("use default USB_CHARGER_CURRENT:%d\n",
+			USB_CHARGER_CURRENT);
+		info->data.usb_charger_current = USB_CHARGER_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "ac_charger_current", &val) >= 0) {
+		info->data.ac_charger_current = val;
+	} else {
+		chr_err("use default AC_CHARGER_CURRENT:%d\n",
+			AC_CHARGER_CURRENT);
+		info->data.ac_charger_current = AC_CHARGER_CURRENT;
+	}
+
+	info->data.pd_charger_current = 3000000;
+
+	if (of_property_read_u32(np, "ac_charger_input_current", &val) >= 0)
+		info->data.ac_charger_input_current = val;
+	else {
+		chr_err("use default AC_CHARGER_INPUT_CURRENT:%d\n",
+			AC_CHARGER_INPUT_CURRENT);
+		info->data.ac_charger_input_current = AC_CHARGER_INPUT_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "non_std_ac_charger_current", &val) >= 0)
+		info->data.non_std_ac_charger_current = val;
+	else {
+		chr_err("use default NON_STD_AC_CHARGER_CURRENT:%d\n",
+			NON_STD_AC_CHARGER_CURRENT);
+		info->data.non_std_ac_charger_current =
+					NON_STD_AC_CHARGER_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "charging_host_charger_current", &val)
+		>= 0) {
+		info->data.charging_host_charger_current = val;
+	} else {
+		chr_err("use default CHARGING_HOST_CHARGER_CURRENT:%d\n",
+			CHARGING_HOST_CHARGER_CURRENT);
+		info->data.charging_host_charger_current =
+					CHARGING_HOST_CHARGER_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "apple_1_0a_charger_current", &val) >= 0)
+		info->data.apple_1_0a_charger_current = val;
+	else {
+		chr_err("use default APPLE_1_0A_CHARGER_CURRENT:%d\n",
+			APPLE_1_0A_CHARGER_CURRENT);
+		info->data.apple_1_0a_charger_current =
+					APPLE_1_0A_CHARGER_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "apple_2_1a_charger_current", &val) >= 0)
+		info->data.apple_2_1a_charger_current = val;
+	else {
+		chr_err("use default APPLE_2_1A_CHARGER_CURRENT:%d\n",
+			APPLE_2_1A_CHARGER_CURRENT);
+		info->data.apple_2_1a_charger_current =
+					APPLE_2_1A_CHARGER_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "ta_ac_charger_current", &val) >= 0)
+		info->data.ta_ac_charger_current = val;
+	else {
+		chr_err("use default TA_AC_CHARGING_CURRENT:%d\n",
+			TA_AC_CHARGING_CURRENT);
+		info->data.ta_ac_charger_current =
+					TA_AC_CHARGING_CURRENT;
+	}
+
+	/* sw jeita */
+	if (of_property_read_u32(np, "jeita_temp_above_t4_cv", &val) >= 0)
+		info->data.jeita_temp_above_t4_cv = val;
+	else {
+		chr_err("use default JEITA_TEMP_ABOVE_T4_CV:%d\n",
+			JEITA_TEMP_ABOVE_T4_CV);
+		info->data.jeita_temp_above_t4_cv = JEITA_TEMP_ABOVE_T4_CV;
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_t3_to_t4_cv", &val) >= 0)
+		info->data.jeita_temp_t3_to_t4_cv = val;
+	else {
+		chr_err("use default JEITA_TEMP_T3_TO_T4_CV:%d\n",
+			JEITA_TEMP_T3_TO_T4_CV);
+		info->data.jeita_temp_t3_to_t4_cv = JEITA_TEMP_T3_TO_T4_CV;
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_t2_to_t3_cv", &val) >= 0)
+		info->data.jeita_temp_t2_to_t3_cv = val;
+	else {
+		chr_err("use default JEITA_TEMP_T2_TO_T3_CV:%d\n",
+			JEITA_TEMP_T2_TO_T3_CV);
+		info->data.jeita_temp_t2_to_t3_cv = JEITA_TEMP_T2_TO_T3_CV;
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_t1_to_t2_cv", &val) >= 0)
+		info->data.jeita_temp_t1_to_t2_cv = val;
+	else {
+		chr_err("use default JEITA_TEMP_T1_TO_T2_CV:%d\n",
+			JEITA_TEMP_T1_TO_T2_CV);
+		info->data.jeita_temp_t1_to_t2_cv = JEITA_TEMP_T1_TO_T2_CV;
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_t0_to_t1_cv", &val) >= 0)
+		info->data.jeita_temp_t0_to_t1_cv = val;
+	else {
+		chr_err("use default JEITA_TEMP_T0_TO_T1_CV:%d\n",
+			JEITA_TEMP_T0_TO_T1_CV);
+		info->data.jeita_temp_t0_to_t1_cv = JEITA_TEMP_T0_TO_T1_CV;
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_below_t0_cv", &val) >= 0)
+		info->data.jeita_temp_below_t0_cv = val;
+	else {
+		chr_err("use default JEITA_TEMP_BELOW_T0_CV:%d\n",
+			JEITA_TEMP_BELOW_T0_CV);
+		info->data.jeita_temp_below_t0_cv = JEITA_TEMP_BELOW_T0_CV;
+	}
+
+	if (of_property_read_u32(np, "temp_t4_thres", &val) >= 0)
+		info->data.temp_t4_thres = val;
+	else {
+		chr_err("use default TEMP_T4_THRES:%d\n",
+			TEMP_T4_THRES);
+		info->data.temp_t4_thres = TEMP_T4_THRES;
+	}
+
+	if (of_property_read_u32(np, "temp_t4_thres_minus_x_degree", &val) >= 0)
+		info->data.temp_t4_thres_minus_x_degree = val;
+	else {
+		chr_err("use default TEMP_T4_THRES_MINUS_X_DEGREE:%d\n",
+			TEMP_T4_THRES_MINUS_X_DEGREE);
+		info->data.temp_t4_thres_minus_x_degree =
+					TEMP_T4_THRES_MINUS_X_DEGREE;
+	}
+
+	if (of_property_read_u32(np, "temp_t3_thres", &val) >= 0)
+		info->data.temp_t3_thres = val;
+	else {
+		chr_err("use default TEMP_T3_THRES:%d\n",
+			TEMP_T3_THRES);
+		info->data.temp_t3_thres = TEMP_T3_THRES;
+	}
+
+	if (of_property_read_u32(np, "temp_t3_thres_minus_x_degree", &val) >= 0)
+		info->data.temp_t3_thres_minus_x_degree = val;
+	else {
+		chr_err("use default TEMP_T3_THRES_MINUS_X_DEGREE:%d\n",
+			TEMP_T3_THRES_MINUS_X_DEGREE);
+		info->data.temp_t3_thres_minus_x_degree =
+					TEMP_T3_THRES_MINUS_X_DEGREE;
+	}
+
+	if (of_property_read_u32(np, "temp_t2_thres", &val) >= 0)
+		info->data.temp_t2_thres = val;
+	else {
+		chr_err("use default TEMP_T2_THRES:%d\n",
+			TEMP_T2_THRES);
+		info->data.temp_t2_thres = TEMP_T2_THRES;
+	}
+
+	if (of_property_read_u32(np, "temp_t2_thres_plus_x_degree", &val) >= 0)
+		info->data.temp_t2_thres_plus_x_degree = val;
+	else {
+		chr_err("use default TEMP_T2_THRES_PLUS_X_DEGREE:%d\n",
+			TEMP_T2_THRES_PLUS_X_DEGREE);
+		info->data.temp_t2_thres_plus_x_degree =
+					TEMP_T2_THRES_PLUS_X_DEGREE;
+	}
+
+	if (of_property_read_u32(np, "temp_t1_thres", &val) >= 0)
+		info->data.temp_t1_thres = val;
+	else {
+		chr_err("use default TEMP_T1_THRES:%d\n",
+			TEMP_T1_THRES);
+		info->data.temp_t1_thres = TEMP_T1_THRES;
+	}
+
+	if (of_property_read_u32(np, "temp_t1_thres_plus_x_degree", &val) >= 0)
+		info->data.temp_t1_thres_plus_x_degree = val;
+	else {
+		chr_err("use default TEMP_T1_THRES_PLUS_X_DEGREE:%d\n",
+			TEMP_T1_THRES_PLUS_X_DEGREE);
+		info->data.temp_t1_thres_plus_x_degree =
+					TEMP_T1_THRES_PLUS_X_DEGREE;
+	}
+
+	if (of_property_read_u32(np, "temp_t0_thres", &val) >= 0)
+		info->data.temp_t0_thres = val;
+	else {
+		chr_err("use default TEMP_T0_THRES:%d\n",
+			TEMP_T0_THRES);
+		info->data.temp_t0_thres = TEMP_T0_THRES;
+	}
+
+	if (of_property_read_u32(np, "temp_t0_thres_plus_x_degree", &val) >= 0)
+		info->data.temp_t0_thres_plus_x_degree = val;
+	else {
+		chr_err("use default TEMP_T0_THRES_PLUS_X_DEGREE:%d\n",
+			TEMP_T0_THRES_PLUS_X_DEGREE);
+		info->data.temp_t0_thres_plus_x_degree =
+					TEMP_T0_THRES_PLUS_X_DEGREE;
+	}
+
+	if (of_property_read_u32(np, "temp_neg_10_thres", &val) >= 0)
+		info->data.temp_neg_10_thres = val;
+	else {
+		chr_err("use default TEMP_NEG_10_THRES:%d\n",
+			TEMP_NEG_10_THRES);
+		info->data.temp_neg_10_thres = TEMP_NEG_10_THRES;
+	}
+
+	/* battery temperature protection */
+	info->thermal.sm = BAT_TEMP_NORMAL;
+	info->thermal.enable_min_charge_temp =
+		of_property_read_bool(np, "enable_min_charge_temp");
+
+	if (of_property_read_u32(np, "min_charge_temp", &val) >= 0)
+		info->thermal.min_charge_temp = val;
+	else {
+		chr_err("use default MIN_CHARGE_TEMP:%d\n",
+			MIN_CHARGE_TEMP);
+		info->thermal.min_charge_temp = MIN_CHARGE_TEMP;
+	}
+
+	if (of_property_read_u32(np, "min_charge_temp_plus_x_degree", &val)
+	    >= 0) {
+		info->thermal.min_charge_temp_plus_x_degree = val;
+	} else {
+		chr_err("use default MIN_CHARGE_TEMP_PLUS_X_DEGREE:%d\n",
+			MIN_CHARGE_TEMP_PLUS_X_DEGREE);
+		info->thermal.min_charge_temp_plus_x_degree =
+					MIN_CHARGE_TEMP_PLUS_X_DEGREE;
+	}
+
+	if (of_property_read_u32(np, "max_charge_temp", &val) >= 0)
+		info->thermal.max_charge_temp = val;
+	else {
+		chr_err("use default MAX_CHARGE_TEMP:%d\n",
+			MAX_CHARGE_TEMP);
+		info->thermal.max_charge_temp = MAX_CHARGE_TEMP;
+	}
+
+	if (of_property_read_u32(np, "max_charge_temp_minus_x_degree", &val)
+	    >= 0) {
+		info->thermal.max_charge_temp_minus_x_degree = val;
+	} else {
+		chr_err("use default MAX_CHARGE_TEMP_MINUS_X_DEGREE:%d\n",
+			MAX_CHARGE_TEMP_MINUS_X_DEGREE);
+		info->thermal.max_charge_temp_minus_x_degree =
+					MAX_CHARGE_TEMP_MINUS_X_DEGREE;
+	}
+
+	/* PE */
+	info->data.ta_12v_support = of_property_read_bool(np, "ta_12v_support");
+	info->data.ta_9v_support = of_property_read_bool(np, "ta_9v_support");
+
+	if (of_property_read_u32(np, "pe_ichg_level_threshold", &val) >= 0)
+		info->data.pe_ichg_level_threshold = val;
+	else {
+		chr_err("use default PE_ICHG_LEAVE_THRESHOLD:%d\n",
+			PE_ICHG_LEAVE_THRESHOLD);
+		info->data.pe_ichg_level_threshold = PE_ICHG_LEAVE_THRESHOLD;
+	}
+
+	if (of_property_read_u32(np, "ta_ac_12v_input_current", &val) >= 0)
+		info->data.ta_ac_12v_input_current = val;
+	else {
+		chr_err("use default TA_AC_12V_INPUT_CURRENT:%d\n",
+			TA_AC_12V_INPUT_CURRENT);
+		info->data.ta_ac_12v_input_current = TA_AC_12V_INPUT_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "ta_ac_9v_input_current", &val) >= 0)
+		info->data.ta_ac_9v_input_current = val;
+	else {
+		chr_err("use default TA_AC_9V_INPUT_CURRENT:%d\n",
+			TA_AC_9V_INPUT_CURRENT);
+		info->data.ta_ac_9v_input_current = TA_AC_9V_INPUT_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "ta_ac_7v_input_current", &val) >= 0)
+		info->data.ta_ac_7v_input_current = val;
+	else {
+		chr_err("use default TA_AC_7V_INPUT_CURRENT:%d\n",
+			TA_AC_7V_INPUT_CURRENT);
+		info->data.ta_ac_7v_input_current = TA_AC_7V_INPUT_CURRENT;
+	}
+
+	/* PE 2.0 */
+	if (of_property_read_u32(np, "pe20_ichg_level_threshold", &val) >= 0)
+		info->data.pe20_ichg_level_threshold = val;
+	else {
+		chr_err("use default PE20_ICHG_LEAVE_THRESHOLD:%d\n",
+			PE20_ICHG_LEAVE_THRESHOLD);
+		info->data.pe20_ichg_level_threshold =
+						PE20_ICHG_LEAVE_THRESHOLD;
+	}
+
+	if (of_property_read_u32(np, "ta_start_battery_soc", &val) >= 0)
+		info->data.ta_start_battery_soc = val;
+	else {
+		chr_err("use default TA_START_BATTERY_SOC:%d\n",
+			TA_START_BATTERY_SOC);
+		info->data.ta_start_battery_soc = TA_START_BATTERY_SOC;
+	}
+
+	if (of_property_read_u32(np, "ta_stop_battery_soc", &val) >= 0)
+		info->data.ta_stop_battery_soc = val;
+	else {
+		chr_err("use default TA_STOP_BATTERY_SOC:%d\n",
+			TA_STOP_BATTERY_SOC);
+		info->data.ta_stop_battery_soc = TA_STOP_BATTERY_SOC;
+	}
+
+	/* PE 4.0 */
+	if (of_property_read_u32(np, "high_temp_to_leave_pe40", &val) >= 0) {
+		info->data.high_temp_to_leave_pe40 = val;
+	} else {
+		chr_err("use default high_temp_to_leave_pe40:%d\n",
+			HIGH_TEMP_TO_LEAVE_PE40);
+		info->data.high_temp_to_leave_pe40 = HIGH_TEMP_TO_LEAVE_PE40;
+	}
+
+	if (of_property_read_u32(np, "high_temp_to_enter_pe40", &val) >= 0) {
+		info->data.high_temp_to_enter_pe40 = val;
+	} else {
+		chr_err("use default high_temp_to_enter_pe40:%d\n",
+			HIGH_TEMP_TO_ENTER_PE40);
+		info->data.high_temp_to_enter_pe40 = HIGH_TEMP_TO_ENTER_PE40;
+	}
+
+	if (of_property_read_u32(np, "low_temp_to_leave_pe40", &val) >= 0) {
+		info->data.low_temp_to_leave_pe40 = val;
+	} else {
+		chr_err("use default low_temp_to_leave_pe40:%d\n",
+			LOW_TEMP_TO_LEAVE_PE40);
+		info->data.low_temp_to_leave_pe40 = LOW_TEMP_TO_LEAVE_PE40;
+	}
+
+	if (of_property_read_u32(np, "low_temp_to_enter_pe40", &val) >= 0) {
+		info->data.low_temp_to_enter_pe40 = val;
+	} else {
+		chr_err("use default low_temp_to_enter_pe40:%d\n",
+			LOW_TEMP_TO_ENTER_PE40);
+		info->data.low_temp_to_enter_pe40 = LOW_TEMP_TO_ENTER_PE40;
+	}
+
+	/* PE 4.0 single */
+	if (of_property_read_u32(np,
+		"pe40_single_charger_input_current", &val) >= 0) {
+		info->data.pe40_single_charger_input_current = val;
+	} else {
+		chr_err("use default pe40_single_charger_input_current:%d\n",
+			3000);
+		info->data.pe40_single_charger_input_current = 3000;
+	}
+
+	if (of_property_read_u32(np, "pe40_single_charger_current", &val)
+	    >= 0) {
+		info->data.pe40_single_charger_current = val;
+	} else {
+		chr_err("use default pe40_single_charger_current:%d\n", 3000);
+		info->data.pe40_single_charger_current = 3000;
+	}
+
+	/* PE 4.0 dual */
+	if (of_property_read_u32(np, "pe40_dual_charger_input_current", &val)
+	    >= 0) {
+		info->data.pe40_dual_charger_input_current = val;
+	} else {
+		chr_err("use default pe40_dual_charger_input_current:%d\n",
+			3000);
+		info->data.pe40_dual_charger_input_current = 3000;
+	}
+
+	if (of_property_read_u32(np, "pe40_dual_charger_chg1_current", &val)
+	    >= 0) {
+		info->data.pe40_dual_charger_chg1_current = val;
+	} else {
+		chr_err("use default pe40_dual_charger_chg1_current:%d\n",
+			2000);
+		info->data.pe40_dual_charger_chg1_current = 2000;
+	}
+
+	if (of_property_read_u32(np, "pe40_dual_charger_chg2_current", &val)
+	    >= 0) {
+		info->data.pe40_dual_charger_chg2_current = val;
+	} else {
+		chr_err("use default pe40_dual_charger_chg2_current:%d\n",
+			2000);
+		info->data.pe40_dual_charger_chg2_current = 2000;
+	}
+
+	if (of_property_read_u32(np, "dual_polling_ieoc", &val) >= 0)
+		info->data.dual_polling_ieoc = val;
+	else {
+		chr_err("use default dual_polling_ieoc :%d\n", 750000);
+		info->data.dual_polling_ieoc = 750000;
+	}
+
+	if (of_property_read_u32(np, "pe40_stop_battery_soc", &val) >= 0)
+		info->data.pe40_stop_battery_soc = val;
+	else {
+		chr_err("use default pe40_stop_battery_soc:%d\n", 80);
+		info->data.pe40_stop_battery_soc = 80;
+	}
+
+	if (of_property_read_u32(np, "pe40_max_vbus", &val) >= 0)
+		info->data.pe40_max_vbus = val;
+	else {
+		chr_err("use default pe40_max_vbus:%d\n", PE40_MAX_VBUS);
+		info->data.pe40_max_vbus = PE40_MAX_VBUS;
+	}
+
+	if (of_property_read_u32(np, "pe40_max_ibus", &val) >= 0)
+		info->data.pe40_max_ibus = val;
+	else {
+		chr_err("use default pe40_max_ibus:%d\n", PE40_MAX_IBUS);
+		info->data.pe40_max_ibus = PE40_MAX_IBUS;
+	}
+
+	/* PE 4.0 cable impedance (mohm) */
+	if (of_property_read_u32(np, "pe40_r_cable_1a_lower", &val) >= 0)
+		info->data.pe40_r_cable_1a_lower = val;
+	else {
+		chr_err("use default pe40_r_cable_1a_lower:%d\n", 530);
+		info->data.pe40_r_cable_1a_lower = 530;
+	}
+
+	if (of_property_read_u32(np, "pe40_r_cable_2a_lower", &val) >= 0)
+		info->data.pe40_r_cable_2a_lower = val;
+	else {
+		chr_err("use default pe40_r_cable_2a_lower:%d\n", 390);
+		info->data.pe40_r_cable_2a_lower = 390;
+	}
+
+	if (of_property_read_u32(np, "pe40_r_cable_3a_lower", &val) >= 0)
+		info->data.pe40_r_cable_3a_lower = val;
+	else {
+		chr_err("use default pe40_r_cable_3a_lower:%d\n", 252);
+		info->data.pe40_r_cable_3a_lower = 252;
+	}
+
+	/* PD */
+	if (of_property_read_u32(np, "pd_vbus_upper_bound", &val) >= 0) {
+		info->data.pd_vbus_upper_bound = val;
+	} else {
+		chr_err("use default pd_vbus_upper_bound:%d\n",
+			PD_VBUS_UPPER_BOUND);
+		info->data.pd_vbus_upper_bound = PD_VBUS_UPPER_BOUND;
+	}
+
+	if (of_property_read_u32(np, "pd_vbus_low_bound", &val) >= 0) {
+		info->data.pd_vbus_low_bound = val;
+	} else {
+		chr_err("use default pd_vbus_low_bound:%d\n",
+			PD_VBUS_LOW_BOUND);
+		info->data.pd_vbus_low_bound = PD_VBUS_LOW_BOUND;
+	}
+
+	if (of_property_read_u32(np, "pd_ichg_level_threshold", &val) >= 0)
+		info->data.pd_ichg_level_threshold = val;
+	else {
+		chr_err("use default pd_ichg_level_threshold:%d\n",
+			PD_ICHG_LEAVE_THRESHOLD);
+		info->data.pd_ichg_level_threshold = PD_ICHG_LEAVE_THRESHOLD;
+	}
+
+	if (of_property_read_u32(np, "pd_stop_battery_soc", &val) >= 0)
+		info->data.pd_stop_battery_soc = val;
+	else {
+		chr_err("use default pd_stop_battery_soc:%d\n",
+			PD_STOP_BATTERY_SOC);
+		info->data.pd_stop_battery_soc = PD_STOP_BATTERY_SOC;
+	}
+
+	if (of_property_read_u32(np, "vsys_watt", &val) >= 0) {
+		info->data.vsys_watt = val;
+	} else {
+		chr_err("use default vsys_watt:%d\n",
+			VSYS_WATT);
+		info->data.vsys_watt = VSYS_WATT;
+	}
+
+	if (of_property_read_u32(np, "ibus_err", &val) >= 0) {
+		info->data.ibus_err = val;
+	} else {
+		chr_err("use default ibus_err:%d\n",
+			IBUS_ERR);
+		info->data.ibus_err = IBUS_ERR;
+	}
+
+	/* dual charger */
+	if (of_property_read_u32(np, "chg1_ta_ac_charger_current", &val) >= 0)
+		info->data.chg1_ta_ac_charger_current = val;
+	else {
+		chr_err("use default TA_AC_MASTER_CHARGING_CURRENT:%d\n",
+			TA_AC_MASTER_CHARGING_CURRENT);
+		info->data.chg1_ta_ac_charger_current =
+						TA_AC_MASTER_CHARGING_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "chg2_ta_ac_charger_current", &val) >= 0)
+		info->data.chg2_ta_ac_charger_current = val;
+	else {
+		chr_err("use default TA_AC_SLAVE_CHARGING_CURRENT:%d\n",
+			TA_AC_SLAVE_CHARGING_CURRENT);
+		info->data.chg2_ta_ac_charger_current =
+						TA_AC_SLAVE_CHARGING_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "slave_mivr_diff", &val) >= 0)
+		info->data.slave_mivr_diff = val;
+	else {
+		chr_err("use default SLAVE_MIVR_DIFF:%d\n", SLAVE_MIVR_DIFF);
+		info->data.slave_mivr_diff = SLAVE_MIVR_DIFF;
+	}
+
+	/* slave charger */
+	if (of_property_read_u32(np, "chg2_eff", &val) >= 0)
+		info->data.chg2_eff = val;
+	else {
+		chr_err("use default CHG2_EFF:%d\n", CHG2_EFF);
+		info->data.chg2_eff = CHG2_EFF;
+	}
+
+	info->data.parallel_vbus = of_property_read_bool(np, "parallel_vbus");
+
+	/* cable measurement impedance */
+	if (of_property_read_u32(np, "cable_imp_threshold", &val) >= 0)
+		info->data.cable_imp_threshold = val;
+	else {
+		chr_err("use default CABLE_IMP_THRESHOLD:%d\n",
+			CABLE_IMP_THRESHOLD);
+		info->data.cable_imp_threshold = CABLE_IMP_THRESHOLD;
+	}
+
+	if (of_property_read_u32(np, "vbat_cable_imp_threshold", &val) >= 0)
+		info->data.vbat_cable_imp_threshold = val;
+	else {
+		chr_err("use default VBAT_CABLE_IMP_THRESHOLD:%d\n",
+			VBAT_CABLE_IMP_THRESHOLD);
+		info->data.vbat_cable_imp_threshold = VBAT_CABLE_IMP_THRESHOLD;
+	}
+
+	/* BIF */
+	if (of_property_read_u32(np, "bif_threshold1", &val) >= 0)
+		info->data.bif_threshold1 = val;
+	else {
+		chr_err("use default BIF_THRESHOLD1:%d\n",
+			BIF_THRESHOLD1);
+		info->data.bif_threshold1 = BIF_THRESHOLD1;
+	}
+
+	if (of_property_read_u32(np, "bif_threshold2", &val) >= 0)
+		info->data.bif_threshold2 = val;
+	else {
+		chr_err("use default BIF_THRESHOLD2:%d\n",
+			BIF_THRESHOLD2);
+		info->data.bif_threshold2 = BIF_THRESHOLD2;
+	}
+
+	if (of_property_read_u32(np, "bif_cv_under_threshold2", &val) >= 0)
+		info->data.bif_cv_under_threshold2 = val;
+	else {
+		chr_err("use default BIF_CV_UNDER_THRESHOLD2:%d\n",
+			BIF_CV_UNDER_THRESHOLD2);
+		info->data.bif_cv_under_threshold2 = BIF_CV_UNDER_THRESHOLD2;
+	}
+#endif /* VENDOR_EDIT && !CONFIG_OPPO_CHARGER_MT6370_TYPEC */
+
+	info->data.power_path_support =
+				of_property_read_bool(np, "power_path_support");
+	chr_debug("%s: power_path_support: %d\n",
+		__func__, info->data.power_path_support);
+
+#if defined(VENDOR_EDIT) && !defined(CONFIG_OPPO_CHARGER_MT6370_TYPEC)
+/* Jianchao.Shi@BSP.CHG.Basic, 2019/06/10, sjc Modify for charging */
+	if (of_property_read_u32(np, "max_charging_time", &val) >= 0)
+		info->data.max_charging_time = val;
+	else {
+		chr_err("use default MAX_CHARGING_TIME:%d\n",
+			MAX_CHARGING_TIME);
+		info->data.max_charging_time = MAX_CHARGING_TIME;
+	}
+
+	if (of_property_read_u32(np, "bc12_charger", &val) >= 0)
+		info->data.bc12_charger = val;
+	else {
+		chr_err("use default BC12_CHARGER:%d\n",
+			DEFAULT_BC12_CHARGER);
+		info->data.bc12_charger = DEFAULT_BC12_CHARGER;
+	}
+
+	chr_err("algorithm name:%s\n", info->algorithm_name);
+#endif /* VENDOR_EDIT && !CONFIG_OPPO_CHARGER_MT6370_TYPEC */
+
+	return 0;
+}
+#endif /*ODM_HQ_EDIT*/
+
 #if defined(VENDOR_EDIT) && !defined(CONFIG_OPPO_CHARGER_MT6370_TYPEC)
 /* Jianchao.Shi@BSP.CHG.Basic, 2019/06/10, sjc Modify for charging */
 static ssize_t show_Pump_Express(struct device *dev,
@@ -2644,7 +3419,7 @@ static ssize_t store_input_current(struct device *dev,
 static DEVICE_ATTR(input_current, 0664, show_input_current,
 		store_input_current);
 
-#if defined(VENDOR_EDIT) && !defined(CONFIG_OPPO_CHARGER_MT6370_TYPEC)
+#if defined(VENDOR_EDIT)
 /* Jianchao.Shi@BSP.CHG.Basic, 2019/06/10, sjc Modify for charging */
 static ssize_t show_chg1_current(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -3243,7 +4018,6 @@ static int oppo_mt6370_charging_current_write_fast(int chg_curr)
 {
 	int rc = 0;
 	struct charger_device *chg = NULL;
-
 	if (!pinfo->chg1_dev) {
 		printk(KERN_ERR "[OPPO_CHG][%s]: oppo_chip not ready!\n", __func__);
 		return 0;
@@ -3253,7 +4027,7 @@ static int oppo_mt6370_charging_current_write_fast(int chg_curr)
 	if (rc < 0) {
 		chg_debug("set fast charge current:%d fail\n", chg_curr);
 	} else {
-		//chg_debug("set fast charge current:%d\n", chg_curr);
+		chg_debug("set fast charge current:%d\n", chg_curr);
 	}
 
 	return 0;
@@ -3770,6 +4544,31 @@ close_time:
 //====================================================================//
 #endif /* VENDOR_EDIT && CONFIG_OPPO_CHARGER_MT6370_TYPEC */
 
+#ifdef ODM_HQ_EDIT
+/*Shouli.Wang@ODM_WT.BSP.CHG 2019/11/11, add for typec_cc_orientation node*/
+int oppo_get_typec_cc_orientation(void)
+{
+	int typec_cc_orientation = 0;
+	static struct tcpc_device *tcpc_dev = NULL;
+
+	if (tcpc_dev == NULL)
+		tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
+
+	if (tcpc_dev != NULL) {
+		if (tcpm_inquire_typec_attach_state(tcpc_dev) != TYPEC_UNATTACHED) {
+			typec_cc_orientation = (int)tcpm_inquire_cc_polarity(tcpc_dev) + 1;
+		} else {
+			typec_cc_orientation = 0;
+		}
+		if (typec_cc_orientation != 0)
+			printk(KERN_ERR "[OPPO_CHG][%s]: cc[%d]\n", __func__, typec_cc_orientation);
+	} else {
+		typec_cc_orientation = 0;
+	}
+	return typec_cc_orientation;
+}
+EXPORT_SYMBOL(oppo_get_typec_cc_orientation);
+#endif /*ODM_HQ_EDIT*/
 
 #if defined(VENDOR_EDIT) && defined(CONFIG_OPPO_CHARGER_MT6370_TYPEC)
 /* Jianchao.Shi@BSP.CHG.Basic, 2019/06/15, sjc Add for OTG switch */
@@ -3804,6 +4603,17 @@ EXPORT_SYMBOL(oppo_get_typec_cc_orientation);
 //====================================================================//
 #endif /* VENDOR_EDIT && CONFIG_OPPO_CHARGER_MT6370_TYPEC */
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6768)
+//Mingyao.Xie@ODM_WT.BSP.Storage.otg, 2019/10/15, Modify for monet otg_switch
+void oppo_set_otg_switch_status(bool value)
+{
+	if (pinfo != NULL ) {
+		printk(KERN_ERR "[OPPO_CHG][%s]: otg switch[%d]\n", __func__, value);
+		musb_ctrl_host(value);
+	}
+}
+EXPORT_SYMBOL(oppo_set_otg_switch_status);
+#endif /*ODM_HQ_EDIT*/
 
 //====================================================================//
 #if defined(VENDOR_EDIT) && defined(CONFIG_OPPO_CHARGER_MT6370_TYPEC)
@@ -3893,6 +4703,125 @@ struct oppo_chg_operations  mt6370_chg_ops = {
 //====================================================================//
 #endif /* VENDOR_EDIT && CONFIG_OPPO_CHARGER_MT6370_TYPEC */
 
+#ifdef ODM_HQ_EDIT
+/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/4,for charger type detection*/
+static int mtk_charger_probe(struct platform_device *pdev)
+{
+	struct charger_manager *info = NULL;
+	struct list_head *pos;
+	struct list_head *phead = &consumer_head;
+	struct charger_consumer *ptr;
+	int ret;
+
+	chr_err("%s: starts\n", __func__);
+
+	info = devm_kzalloc(&pdev->dev, sizeof(*info), GFP_KERNEL);
+	if (!info)
+		return -ENOMEM;
+
+	pinfo = info;
+
+	platform_set_drvdata(pdev, info);
+	info->pdev = pdev;
+
+	info->chg1_dev = get_charger_by_name("primary_chg");
+	if (info->chg1_dev) {
+		chr_err("found primary charger [%s]\n",
+			info->chg1_dev->props.alias_name);
+	} else {
+		chr_err("can't find primary charger!\n");
+	}
+
+	mtk_charger_parse_dt(info, &pdev->dev);
+
+	mutex_init(&info->charger_lock);
+	mutex_init(&info->charger_pd_lock);
+	mutex_init(&info->cable_out_lock);
+	atomic_set(&info->enable_kpoc_shdn, 1);
+	wakeup_source_init(&info->charger_wakelock, "charger suspend wakelock");
+	spin_lock_init(&info->slock);
+
+	/* init thread */
+	init_waitqueue_head(&info->wait_que);
+	info->polling_interval = CHARGING_INTERVAL;
+	info->enable_dynamic_cv = true;
+
+	info->chg1_data.thermal_charging_current_limit = -1;
+	info->chg1_data.thermal_input_current_limit = -1;
+	info->chg1_data.input_current_limit_by_aicl = -1;
+	info->chg2_data.thermal_charging_current_limit = -1;
+	info->chg2_data.thermal_input_current_limit = -1;
+
+	info->sw_jeita.error_recovery_flag = true;
+
+	mtk_charger_init_timer(info);
+
+	if(0)
+	kthread_run(charger_routine_thread, info, "charger_thread");
+
+	if (info->chg1_dev != NULL && info->do_event != NULL) {
+		info->chg1_nb.notifier_call = info->do_event;
+		register_charger_device_notifier(info->chg1_dev,
+						&info->chg1_nb);
+		charger_dev_set_drvdata(info->chg1_dev, info);
+	}
+
+	srcu_init_notifier_head(&info->evt_nh);
+	ret = mtk_charger_setup_files(pdev);
+	if (ret)
+		chr_err("Error creating sysfs interface\n");
+
+	info->pd_adapter = get_adapter_by_name("pd_adapter");
+	if (info->pd_adapter)
+		chr_err("Found PD adapter [%s]\n",
+			info->pd_adapter->props.alias_name);
+	else
+		chr_err("*** Error : can't find PD adapter ***\n");
+
+	if (mtk_pe_init(info) < 0)
+		info->enable_pe_plus = false;
+
+	if (mtk_pe20_init(info) < 0)
+		info->enable_pe_2 = false;
+
+	if (mtk_pe40_init(info) == false)
+		info->enable_pe_4 = false;
+
+#ifdef ODM_HQ_EDIT
+	/*Shouli.Wang@ODM_WT.BSP.CHG 2019/10/28, add for hvdcp charge*/
+	//mtk_hvdcp_v20_init(info);//wangtao remove
+#endif /*ODM_HQ_EDIT*/
+	mtk_pdc_init(info);
+
+	charger_ftm_init();
+	mtk_charger_get_atm_mode(info);
+
+#ifdef CONFIG_MTK_CHARGER_UNLIMITED
+	info->usb_unlimited = true;
+	info->enable_sw_safety_timer = false;
+	charger_dev_enable_safety_timer(info->chg1_dev, false);
+#endif
+
+	charger_debug_init();
+
+	mutex_lock(&consumer_mutex);
+	list_for_each(pos, phead) {
+		ptr = container_of(pos, struct charger_consumer, list);
+		ptr->cm = info;
+		if (ptr->pnb != NULL) {
+			srcu_notifier_chain_register(&info->evt_nh, ptr->pnb);
+			ptr->pnb = NULL;
+		}
+	}
+	mutex_unlock(&consumer_mutex);
+	info->chg1_consumer =
+		charger_manager_get_by_name(&pdev->dev, "charger_port1");
+	info->init_done = true;
+	_wake_up_charger(info);
+	
+	return 0;
+}
+#else
 
 static int mtk_charger_probe(struct platform_device *pdev)
 {
@@ -3915,6 +4844,11 @@ static int mtk_charger_probe(struct platform_device *pdev)
 
 	chr_err("%s: starts\n", __func__);
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6771)
+/* Wangchao@ODM.HQ.Charger 2020/3/6 modified for bring up charging */
+	charger_ic_flag = 5;
+#endif
+
 	info = devm_kzalloc(&pdev->dev, sizeof(*info), GFP_KERNEL);
 	if (!info)
 		return -ENOMEM;
@@ -3935,6 +4869,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	}
 	charger_ic_flag = 4;
 #endif /* VENDOR_EDIT && CONFIG_OPPO_CHARGER_MT6370_TYPEC */
+	chr_err("%s: charger_ic_flag = d%\n", __func__,charger_ic_flag);
 
 	mtk_charger_parse_dt(info, &pdev->dev);
 
@@ -4034,6 +4969,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 
 	return 0;
 }
+#endif /*ODM_HQ_EDIT*/
 
 static int mtk_charger_remove(struct platform_device *dev)
 {

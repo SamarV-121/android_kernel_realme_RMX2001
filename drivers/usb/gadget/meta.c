@@ -1276,7 +1276,7 @@ void enable_meta_vcom(int mode)
 		device_desc.idVendor = 0x0e8d;
 		device_desc.idProduct = 0x2007;
 #else
-		device_desc.idVendor = 0x22D9;
+		device_desc.idVendor = 0x22d9;
 		device_desc.idProduct = 0x0006;
 #endif /* VENDOR_EDIT */	
 		device_desc.bDeviceClass = 0x02;

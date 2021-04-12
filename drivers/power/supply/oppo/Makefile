@@ -17,4 +17,6 @@ obj-y	+= oppo_short.o
 #zhangchao@ODM.HQ.Charger 2019/12/06 modified for USB_NTC
 obj-y	+= oppo_usb_ntc1.o
 obj-y	+= oppo_usb_ntc2.o
+obj-y	+= oppo_flashlight_ntc.o
+obj-y	+= oppo_charger_ntc.o
 #endif

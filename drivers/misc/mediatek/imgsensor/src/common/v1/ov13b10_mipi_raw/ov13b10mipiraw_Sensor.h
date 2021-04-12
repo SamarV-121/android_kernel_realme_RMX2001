@@ -93,6 +93,7 @@ struct imgsensor_struct {
 	kal_uint8  ihdr_en;
 	kal_uint8  pdaf_mode;
 	kal_uint8 i2c_write_id;
+	kal_uint8 current_ae_effective_frame;
 };
 
 /* SENSOR PRIVATE STRUCT FOR CONSTANT*/

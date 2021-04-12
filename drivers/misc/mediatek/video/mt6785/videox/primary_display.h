@@ -304,16 +304,6 @@ struct display_primary_path_context {
 #endif
 };
 
-#define LCM_FPS_ARRAY_SIZE	32
-struct lcm_fps_ctx_t {
-	int is_inited;
-	struct mutex lock;
-	unsigned int dsi_mode;
-	unsigned int head_idx;
-	unsigned int num;
-	unsigned long long last_ns;
-	unsigned long long array[LCM_FPS_ARRAY_SIZE];
-};
 
 static inline char *lcm_power_state_to_string(enum lcm_power_state ps)
 {
@@ -586,9 +576,4 @@ bool primary_display_need_update_hrt_fps(
 
 /**************function for DynFPS end************************/
 #endif
-extern struct lcm_fps_ctx_t lcm_fps_ctx;
-int lcm_fps_ctx_init(struct lcm_fps_ctx_t *fps_ctx);
-int lcm_fps_ctx_reset(struct lcm_fps_ctx_t *fps_ctx);
-int lcm_fps_ctx_update(struct lcm_fps_ctx_t *fps_ctx,
-		unsigned long long cur_ns);
 #endif

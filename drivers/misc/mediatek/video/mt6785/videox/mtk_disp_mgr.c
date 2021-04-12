@@ -1499,7 +1499,7 @@ void trigger_repaint(int type)
 		list_add_tail(&repaint_job->link, &repaint_job_queue);
 		mutex_unlock(&repaint_queue_lock);
 
-		DISPMSG("[REPAINT] insert repaint_job in queue, type:%d\n",
+		DISPINFO("[REPAINT] insert repaint_job in queue, type:%d\n",
 				type);
 		wake_up_interruptible(&repaint_wq);
 	}
@@ -1513,7 +1513,7 @@ int _ioctl_wait_self_refresh_trigger(unsigned long arg)
 	struct repaint_job_t *repaint_job;
 
 	/* reset status & wake-up threads which wait for repainting */
-	DISPMSG("[REPAINT] HWC waits for repaint\n");
+	DISPINFO("[REPAINT] HWC waits for repaint\n");
 
 	/*  wait for repaint */
 	ret = wait_event_interruptible(repaint_wq,

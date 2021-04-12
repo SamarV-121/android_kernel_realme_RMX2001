@@ -44,7 +44,10 @@
 
 #include "nvt_drivers_nt36672c_noflash.h"
 #include "../../../../../misc/mediatek/lcm/inc/lcm_drv.h"
-
+#ifdef ODM_HQ_EDIT
+/*longyajun@ODM.HQ.LCD 2020/07/13 modified lcd*/
+#include <soc/oppo/oppo_project.h>
+#endif
 
 /*******Part0:LOG TAG Declear********************/
 
@@ -83,6 +86,7 @@ static int nvt_get_chip_info(void *chip_data);
 
 static struct chip_data_nt36672c *g_chip_info = NULL;
 static size_t fw_need_write_size = 0;
+extern call_phone;
 
 /***************************** start of id map table******************************************/
 static const struct nvt_ts_mem_map NT36675_memory_map = {
@@ -379,6 +383,7 @@ static int8_t nvt_ts_check_chip_ver_trim(struct chip_data_nt36672c *chip_info)
             }
 
             if (found_nvt_chip) {
+		tpd_load_status = 1;
                 TPD_INFO("This is NVT touch IC\n");
                 chip_info->trim_id_table.mmap = trim_id_table[list].mmap;
                 chip_info->trim_id_table.carrier_system = trim_id_table[list].carrier_system;
@@ -1980,6 +1985,12 @@ static int nvt_reset(void *chip_data)
         release_firmware(chip_info->g_fw);
     }
     */
+    TPD_INFO("call_phone = %d\n",call_phone);
+    if (call_phone == 1) {
+                nvt_cmd_store(chip_info, EVENTBUFFER_PHONE_CALL_ON);
+    } else {
+                nvt_cmd_store(chip_info, EVENTBUFFER_PHONE_CALL_OFF);
+    }
 #ifdef CONFIG_OPPO_TP_APK
     if(chip_info->debug_mode_sta) {
         if(ts->apk_op && ts->apk_op->apk_debug_set) {
@@ -2030,6 +2041,8 @@ static __maybe_unused int nvt_enable_debug_gesture_coordinate_mode(struct chip_d
 
 extern struct LCM_DRIVER nt36672c_fhdp_dsi_vdo_tianma_zal1878_lcm_drv;
 extern struct LCM_DRIVER nt36672c_fhdp_dsi_vdo_jdi_zal1878_lcm_drv;
+extern struct LCM_DRIVER nt36672c_fhdp_dsi_vdo_tianma_zal1852_lcm_drv;
+extern struct LCM_DRIVER nt36672c_fhdp_dsi_vdo_jdi_zal1852_lcm_drv;
 
 static int nvt_enable_black_gesture(struct chip_data_nt36672c *chip_info, bool enable)
 {
@@ -2068,11 +2081,18 @@ static int nvt_enable_black_gesture(struct chip_data_nt36672c *chip_info, bool e
         ret = nvt_cmd_store(chip_info, CMD_OPEN_BLACK_GESTURE);
 		if (0 == ret) {
         	if (strstr(saved_command_line, "nt36672c_tianma")) {
-					TPD_INFO("%s: tianma bias power on\n", __func__);
-                	nt36672c_fhdp_dsi_vdo_tianma_zal1878_lcm_drv.init_power();
+				TPD_INFO("%s: tianma bias power on\n", __func__);
+				/*longyajun@ODM.HQ.LCD 2020/07/13 modified lcd*/
+				if ((get_project() == 20682))
+					nt36672c_fhdp_dsi_vdo_tianma_zal1852_lcm_drv.init_power();
+				else
+					nt36672c_fhdp_dsi_vdo_tianma_zal1878_lcm_drv.init_power();
        		} else if (strstr(saved_command_line, "nt36672c_jdi")) {
-       				TPD_INFO("%s: jdi bias power on\n", __func__);
-            	    nt36672c_fhdp_dsi_vdo_jdi_zal1878_lcm_drv.init_power();
+       			TPD_INFO("%s: jdi bias power on\n", __func__);
+				if ((get_project() == 20682))
+					nt36672c_fhdp_dsi_vdo_jdi_zal1852_lcm_drv.init_power();
+				else
+					nt36672c_fhdp_dsi_vdo_jdi_zal1878_lcm_drv.init_power();
         	} else {
         		TPD_INFO("%s: lcd not found\n", __func__);
         	}
@@ -2133,6 +2153,21 @@ static int nvt_enable_game_mode(struct chip_data_nt36672c *chip_info, bool enabl
         ret = nvt_cmd_store(chip_info, EVENTBUFFER_GAME_ON);
     } else {
         ret = nvt_cmd_store(chip_info, EVENTBUFFER_GAME_OFF);
+    }
+
+    return ret;
+}
+
+static int nvt_enable_call_phone_mode(struct chip_data_nt36672c *chip_info, bool enable)
+{
+    int8_t ret = -1;
+
+    TPD_INFO("%s:enable = %d, chip_info->is_sleep_writed = %d\n", __func__, enable, chip_info->is_sleep_writed);
+
+    if (enable) {
+        ret = nvt_cmd_store(chip_info, EVENTBUFFER_PHONE_CALL_ON);
+    } else {
+        ret = nvt_cmd_store(chip_info, EVENTBUFFER_PHONE_CALL_OFF);
     }
 
     return ret;
@@ -2280,6 +2315,13 @@ static int nvt_mode_switch(void *chip_data, work_mode mode, bool flag)
         ret = nvt_enable_game_mode(chip_info, flag);
         if (ret < 0) {
             TPD_INFO("%s: enable charge mode : %d failed\n", __func__, flag);
+        }
+        break;
+
+    case MODE_CALL_PHONE:
+        ret = nvt_enable_call_phone_mode(chip_info, flag);
+        if (ret < 0) {
+            TPD_INFO("%s: enable call phone mode : %d failed\n", __func__, flag);
         }
         break;
 
@@ -5423,7 +5465,7 @@ static int nvt_tp_probe(struct spi_device *client)
 
     chip_info->probe_done = 1;
     TPD_INFO("%s, probe normal end\n", __func__);
-	nvt_tp = 1;
+    nvt_tp = 1;
     return 0;
 
 err_register_driver:
@@ -5525,18 +5567,8 @@ static struct spi_driver tp_spi_driver = {
 
 static int32_t __init nvt_driver_init(void)
 {
-	int ret = -1;
     TPD_INFO("%s is called\n", __func__);
 	
-    ret = gpio_get_value(359);
-    TPD_INFO("ret: %d\n", ret);
-    if(ret == 0) {
-            TPD_INFO("this is CPHY NT36672C LCD\n");
-    }
-    else {
-            TPD_INFO("ret = %d, this is not CPHY NT36672C LCD\n", ret);
-            return 0;
-    }
     if (!tp_judge_ic_match(TPD_DEVICE))
             return -1;
 	get_oem_verified_boot_state();

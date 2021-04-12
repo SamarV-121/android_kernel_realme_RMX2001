@@ -8,6 +8,27 @@ ccflags-$(CONFIG_MACH_MT6785) += -I$(srctree)/drivers/misc/mediatek/include/ -I$
 	-I$(srctree)/drivers/misc/mediatek/video/include/ \
 	-I$(srctree)/drivers/misc/mediatek/apusys/mdla/2.0/ \
 	-I$(srctree)/drivers/misc/mediatek/base/power/include/gpufreq_v1/mt6785/
+
+ccflags-$(CONFIG_MACH_MT6768) += -I$(srctree)/drivers/misc/mediatek/include/ -I$(srctree)/drivers/misc/mediatek/base/power/include/	\
+	-I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include -I$(srctree)/drivers/misc/mediatek/sched/	\
+	-I$(srctree)/drivers/misc/mediatek/base/power/mcdi/mt6768/ -I$(srctree)/drivers/misc/mediatek/base/power/mt6768/        \
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6768/include/	\
+	-I$(srctree)/drivers/misc/mediatek/vpu/3.0/	\
+	-I$(srctree)/drivers/misc/mediatek/vpu/mt6768/	\
+	-I$(srctree)/drivers/misc/mediatek/video/include/ \
+	-I$(srctree)/drivers/misc/mediatek/apusys/mdla/2.0/ \
+	-I$(srctree)/drivers/misc/mediatek/base/power/include/gpufreq_v1/mt6768/
+
+ccflags-$(CONFIG_MACH_MT6771) += -I$(srctree)/drivers/misc/mediatek/include/ -I$(srctree)/drivers/misc/mediatek/base/power/include/	\
+	-I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include -I$(srctree)/drivers/misc/mediatek/sched/	\
+	-I$(srctree)/drivers/misc/mediatek/base/power/mcdi/mt6771/ -I$(srctree)/drivers/misc/mediatek/base/power/mt6771/        \
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6771/include/	\
+	-I$(srctree)/drivers/misc/mediatek/vpu/3.0/	\
+	-I$(srctree)/drivers/misc/mediatek/vpu/mt6771/	\
+	-I$(srctree)/drivers/misc/mediatek/video/include/ \
+	-I$(srctree)/drivers/misc/mediatek/apusys/mdla/2.0/ \
+	-I$(srctree)/drivers/misc/mediatek/base/power/include/gpufreq_v1/mt6771/
+
 ifdef CONFIG_ARCH_QCOM
 hypnus_ops-y := hypnus_msm_op.o
 else

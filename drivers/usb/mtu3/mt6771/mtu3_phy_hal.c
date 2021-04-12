@@ -20,7 +20,12 @@
 #include "mtu3.h"
 #include "mtu3_priv.h"
 
+#ifdef TARGET_WATERMELON_Q_PROJECT
+/* liunianliang@BSP.System, for USB eye parameter */
+struct phy *mtk_phy;
+#else
 static struct phy *mtk_phy;
+#endif
 
 #if !defined(CONFIG_USB_MU3D_DRV)
 void Charger_Detect_Init(void)

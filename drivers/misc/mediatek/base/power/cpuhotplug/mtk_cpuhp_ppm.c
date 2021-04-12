@@ -139,16 +139,16 @@ void ppm_notifier(void)
 {
 	cpumask_copy(&ppm_online_cpus, cpu_online_mask);
 
-	/* register PPM callback */
-	mt_ppm_register_client(PPM_CLIENT_HOTPLUG, &ppm_limit_callback);
-
 	/* create a kthread to serve the requests from PPM */
 	ppm_kthread = kthread_create(ppm_thread_fn, NULL, "cpuhp-ppm");
 	if (IS_ERR(ppm_kthread)) {
-		pr_notice("error creating ppm kthread (%ld)\n",
+		printk(KERN_EMERG "error creating ppm kthread (%ld)\n",
 		       PTR_ERR(ppm_kthread));
 		return;
 	}
+
+	/* register PPM callback */
+	mt_ppm_register_client(PPM_CLIENT_HOTPLUG, &ppm_limit_callback);
 
 	hps_ws = wakeup_source_register("hps");
 	if (!hps_ws)

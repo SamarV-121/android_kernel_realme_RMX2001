@@ -102,6 +102,8 @@ static void ext_lcd_bias_set_vspn(unsigned int en, unsigned int seq, unsigned in
             mdelay(1);
             ext_lcd_bias_write_byte(LCD_BIAS_VPOS_ADDR, level);
             ext_lcd_bias_write_byte(LCD_BIAS_VNEG_ADDR, level);
+            /*longyajun@ODM.Multimedia.LCD 2020/05/24 add for avdd MTP 5.5V */
+            ext_lcd_bias_write_byte(LCD_BIAS_APPS_MTP_ADDR, 128);
             mdelay(5);
             mt_set_gpio_out(GPIO_LCD_BIAS_ENN_PIN, GPIO_OUT_ONE);
         } else {

@@ -25,6 +25,11 @@ struct GPIO_PINCTRL gpio_pinctrl_list_cam[GPIO_CTRL_STATE_MAX_NUM_CAM] = {
 	{"vcamd_off"},
 	{"vcamio_on"},
 	{"vcamio_off"},
+#ifdef ODM_HQ_EDIT
+/* Lijian@ODM.Camera.Drv 20190827 for snesor bringup */
+	{"vcamd_sel_high"},
+	{"vcamd_sel_low"},
+#endif
 };
 
 #ifdef MIPI_SWITCH

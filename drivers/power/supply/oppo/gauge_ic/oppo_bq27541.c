@@ -70,6 +70,11 @@
 #include "../oppo_vooc.h"
 #include "oppo_bq27541.h"
 
+#ifdef CONFIG_MACH_MT6785
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+extern int is_sala_a_project(void);
+#endif
+
 static struct chip_bq27541 *gauge_ic = NULL;
 static DEFINE_MUTEX(bq27541_i2c_access);
 
@@ -366,7 +371,12 @@ static int bq27541_get_battery_mvolts(void)
                         return gauge_ic->batt_vol_pre;
                 }
 				
+				#ifdef CONFIG_MACH_MT6785
+				/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+				if(gauge_ic->batt_bq28z610 && (is_sala_a_project() == 2)) {
+				#else
 				if(gauge_ic->batt_bq28z610) {
+				#endif
 					bq28z610_get_2cell_voltage();
 					gauge_ic->max_vol_pre = gauge_ic->batt_cell_max_vol;
         			gauge_ic->min_vol_pre = gauge_ic->batt_cell_min_vol;
@@ -381,12 +391,11 @@ static int bq27541_get_battery_mvolts(void)
 					gauge_ic->max_vol_pre = gauge_ic->batt_cell_max_vol;
         			gauge_ic->min_vol_pre = gauge_ic->batt_cell_min_vol;
         			return volt;
-        		}					
+        		}
         		
         } else {
                 return gauge_ic->batt_vol_pre;
         }
-
 }
 
 static int bq27541_get_battery_mvolts_2cell_max(void)
@@ -543,11 +552,40 @@ static int bq27541_get_average_current(void)
         return -curr;
 }
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+static bool bq27541_get_battery_hmac(void)
+{
 
+	if (!gauge_ic) {
+		return true;
+	}
+	if(gauge_ic->batt_bq28z610) {
+		return true;
+	} else {
+		return true;
+	}
+}
+#endif
 static bool bq27541_get_battery_authenticate(void)
 {
         static bool get_temp = false;
-
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	if(get_project() == 20682 && is_sala_a_project() == 2){
+		if (!gauge_ic) {
+			return true;
+		}
+		if (gauge_ic->temp_pre == 0 && get_temp == false) {
+			bq27541_get_battery_temperature();
+			msleep(10);
+			bq27541_get_battery_temperature();
+		}
+		get_temp = true;
+		if (gauge_ic->temp_pre == (-400 - ZERO_DEGREE_CELSIUS_IN_TENTH_KELVIN)) {
+			return false;
+		} else {
+			return true;
+		}
+	} else {
         if (!gauge_ic) {
                 return true;
         }
@@ -570,6 +608,30 @@ static bool bq27541_get_battery_authenticate(void)
 	                return true;
 	        }
 		}
+	}
+#else
+        if (!gauge_ic) {
+                return true;
+        }
+		if(gauge_ic->batt_bq28z610)
+		{
+            return true;
+		}
+		else
+		{
+	        if (gauge_ic->temp_pre == 0 && get_temp == false) {
+	                bq27541_get_battery_temperature();
+	                msleep(10);
+	                bq27541_get_battery_temperature();
+	        }
+	        get_temp = true;
+	        if (gauge_ic->temp_pre == (-400 - ZERO_DEGREE_CELSIUS_IN_TENTH_KELVIN)) {
+	                return false;
+	        } else {
+	                return true;
+	        }
+		}
+#endif
 }
 
 static int bq27541_get_prev_battery_mvolts(void)
@@ -670,6 +732,9 @@ static struct oppo_gauge_operations bq27541_gauge_ops = {
         .get_battery_cc                     = bq27541_get_battery_cc,
         .get_battery_soh                    = bq27541_get_battery_soh,
         .get_battery_authenticate        	= bq27541_get_battery_authenticate,
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		.get_battery_hmac = bq27541_get_battery_hmac,
+		#endif
         .set_battery_full                   = bq27541_set_battery_full,
 	    .get_prev_battery_mvolts    		= bq27541_get_prev_battery_mvolts,
 	    .get_prev_battery_temperature 		= bq27541_get_prev_battery_temperature,
@@ -1593,8 +1658,6 @@ static int bq28z610_get_2cell_voltage(void)
 
     return 0;
 }
-
-
 /*static int bq28z610_get_2cell_balance_time(void)
 {
     u8 balance_time[BQ28Z610_MAC_CELL_BALANCE_TIME_SIZE] = {0,0,0,0};

@@ -218,7 +218,8 @@ u16 rtc_spare_reg[RTC_SPAR_NUM][3] = {
 #endif /* VENDOR_EDIT */
 	#ifdef VENDOR_EDIT
 	/* Qiao.Hu@EXP.BSP.BaseDrv.CHG.Basic, 2017/08/02, Add for charger memory electricity */
-	{RTC_AL_DOW, 0xff, 8},//battery electricity
+/* zhaojunhai@ODM.HQ.BSP.CHG 2020/02/05 modify for [Nemo]2680425 */
+	//{RTC_AL_DOW, 0xff, 8},//battery electricity
 	#endif /* VENDOR_EDIT */
 #ifdef VENDOR_EDIT
 /* Fuchun.Liao@BSP.CHG.Basic 2018/02/12 modify for factory mode */
@@ -812,6 +813,8 @@ void oppo_rtc_mark_safe(void)
 	spin_unlock_irqrestore(&rtc_misc->lock, flags);
 }
 
+/* zhaojunhai@ODM.HQ.BSP.CHG 2020/02/05 modify for [Nemo]2680425 */
+#if 0
 /* Fuchun.Liao@BSP.CHG.Basic 2018/08/08 modify for sensor i2c workaround*/
 void oppo_rtc_mark_sensor_cause_panic(void)
 {
@@ -843,6 +846,7 @@ void oppo_clear_rtc_sensor_cause_panic(void)
 	mtk_rtc_set_spare_register(RTC_SENSOR_CAUSE_PANIC, 0x0);
 	spin_unlock_irqrestore(&rtc_misc->lock, flags);
 }
+#endif
 
 u16  is_kernel_panic_reboot(void)
 {

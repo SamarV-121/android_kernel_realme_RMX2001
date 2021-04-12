@@ -47,7 +47,8 @@ struct alsps_factory_fops {
 	int (*als_enable_calibration)(void);
 	int (*als_clear_cali)(void);
 	int (*als_set_cali)(int32_t offset);
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 /* zuoqiquan@ODM_HQ.Sensors.SCP.BSP, 2019/10/29,modify sensor code for huaqin */
 int (*als_get_cali)(int32_t *offset);
 #else
@@ -61,7 +62,8 @@ int (*als_get_cali)(int32_t *offset);
 	int (*ps_get_raw_data)(int32_t *data);
 	int (*ps_enable_calibration)(void);
 	int (*ps_clear_cali)(void);
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 /* zuoqiquan@ODM_HQ.Sensors.SCP.BSP, 2019/10/29,modify sensor code for huaqin */
 int (*ps_set_cali)(int32_t offset);
 int (*ps_get_cali)(int32_t *offset);

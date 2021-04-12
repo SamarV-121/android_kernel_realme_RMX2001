@@ -21,6 +21,8 @@ enum {
     ALSPS_STK3335,
     ALSPS_UNION_TSL2540_STK3331,
     ALSPS_MULT_APDS9925_STK3332,
+/* zhoujunwei@ODM.BSP.Sensor  2020/03/18 sync sensor devinfo */
+    ALSPS_UNION_TSL2591_STK3332,
     ALSPS_STK3331,
     ALSPS_STK2232,
 #ifdef ODM_HQ_EDIT
@@ -41,6 +43,8 @@ enum {
     GSENSOR_BMA253,
     GSENSOR_LIS2DOC,
     GSENSOR_ICM40607,
+    GSENSOR_MC3419P,
+    GSENSOR_BMI220,
 #endif /*ODM_HQ_EDIT*/
 };
 
@@ -54,6 +58,7 @@ enum {
 /* zuoqiquan@ODM.BSP.Sensor  2019/11/1 sync oppo sensor code */
     MAG_AF6133E,
     MAG_AF6133,//add af6133
+    MAG_AKM09918,
 #endif /*ODM_HQ_EDIT*/
 };
 
@@ -65,6 +70,7 @@ enum {
 #ifdef ODM_HQ_EDIT
 /* zuoqiquan@ODM.BSP.Sensor  2019/11/1 sync oppo sensor code */
     GYRO_ICM40607,
+    GYRO_BMI220,
 #endif /*ODM_HQ_EDIT*/
 };
 

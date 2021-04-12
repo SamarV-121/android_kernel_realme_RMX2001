@@ -821,7 +821,8 @@ static int gyrohub_set_cali(uint8_t *data, uint8_t count)
 	obj->dynamic_cali[0] = buf[0];
 	obj->dynamic_cali[1] = buf[1];
 	obj->dynamic_cali[2] = buf[2];
-#ifdef ODM_HQ_EDIT
+/* liunianliang@ODM_HQ.BSP.System, 2020/04/20, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 /* zuoqiquan@ODM_HQ.Sensors.SCP.BSP, 2019/11/28,fix gyro calibration data lost after reboot */
 	printk("gyrohub_set_cali %d %d %d %d %d %d \n",buf[0],buf[1],buf[2],buf[3],buf[4],buf[5]);
 

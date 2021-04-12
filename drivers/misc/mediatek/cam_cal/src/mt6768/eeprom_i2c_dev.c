@@ -17,7 +17,12 @@ static enum EEPROM_I2C_DEV_IDX gi2c_dev_sel[IMGSENSOR_SENSOR_IDX_MAX_NUM] = {
 	I2C_DEV_IDX_2, /* sub */
 	I2C_DEV_IDX_3, /* main2 */
 	I2C_DEV_IDX_1, /* sub2 */
+#ifdef ODM_HQ_EDIT
+/*Houbing.Peng@ODM Cam.Drv 20200306 add Euler OTP*/
+	I2C_DEV_IDX_1, /* main3 */
+#else
 	I2C_DEV_IDX_3, /* main3 */
+#endif
 };
 
 enum EEPROM_I2C_DEV_IDX get_i2c_dev_sel(enum IMGSENSOR_SENSOR_IDX idx)

@@ -16,7 +16,9 @@
 
 #define PREFIX "[imgsensor]"
 
+#ifndef pr_fmt
 #define pr_fmt(fmt) PREFIX "[%s] " fmt, __func__
+#endif
 
 #include "kd_camera_feature.h"
 #include "kd_imgsensor_define.h"
@@ -31,6 +33,12 @@
 #define IMGSENSOR_LEGACY_COMPAT
 #define IMGSENSOR_TOSTRING(value)           #value
 #define IMGSENSOR_STRINGIZE(stringizedName) IMGSENSOR_TOSTRING(stringizedName)
+
+#ifdef ODM_HQ_EDIT
+/* Lijian@ODM.Camera.Drv 20190827 for snesor bringup */
+#define MIPI_SWITCH
+#endif
+
 
 enum IMGSENSOR_ARCH {
 	IMGSENSOR_ARCH_V1 = 0,

@@ -51,6 +51,13 @@
 
 #include <asm/arch_timer.h>
 
+#ifdef ODM_HQ_EDIT
+//Benshan.Cheng@BSP.TP add for euler lcd bring up
+#ifdef CONFIG_SET_LCD_BIAS_ODM_HQ
+#include "../../../lcd_bias/lcd_bias.h"
+#endif //CONFIG_SET_LCD_BIAS_ODM_HQ
+#endif
+
 /*****************************************************************************/
 enum MIPITX_PAD_VALUE {
 	PAD_D2P_V = 0,
@@ -570,10 +577,11 @@ void DSI_enter_ULPS(enum DISP_MODULE_ENUM module)
 
 		DSI_OUTREGBIT(NULL, struct DSI_PHY_LD0CON_REG,
 			DSI_REG[i]->DSI_PHY_LD0CON, Lx_ULPM_AS_L0, 1);
-		DSI_OUTREGBIT(NULL, struct DSI_PHY_LD0CON_REG,
-			DSI_REG[i]->DSI_PHY_LD0CON, L0_ULPM_EN, 1);
 		DSI_OUTREGBIT(NULL, struct DSI_PHY_LCCON_REG,
 			DSI_REG[i]->DSI_PHY_LCCON, LC_ULPM_EN, 1);
+		udelay(1);
+		DSI_OUTREGBIT(NULL, struct DSI_PHY_LD0CON_REG,
+			DSI_REG[i]->DSI_PHY_LD0CON, L0_ULPM_EN, 1);
 
 		waitq = &(_dsi_context[i].sleep_in_done_wq);
 		ret = wait_event_timeout(waitq->wq,
@@ -587,9 +595,6 @@ void DSI_enter_ULPS(enum DISP_MODULE_ENUM module)
 
 		DSI_OUTREGBIT(NULL, struct DSI_INT_ENABLE_REG,
 			DSI_REG[i]->DSI_INTEN, SLEEPIN_ULPS_INT_EN, 0);
-		/* clear lane_num when enter ulps */
-		DSI_OUTREGBIT(NULL, struct DSI_TXRX_CTRL_REG,
-			DSI_REG[i]->DSI_TXRX_CTRL, LANE_NUM, 0);
 	}
 }
 
@@ -620,11 +625,6 @@ void DSI_exit_ULPS(enum DISP_MODULE_ENUM module)
 			DSI_REG[i]->DSI_PHY_LD0CON, Lx_ULPM_AS_L0, 1);
 		DSI_OUTREGBIT(NULL, struct DSI_INT_ENABLE_REG,
 			DSI_REG[i]->DSI_INTEN, SLEEPOUT_DONE, 1);
-		DSI_OUTREGBIT(NULL, struct DSI_MODE_CTRL_REG,
-			DSI_REG[i]->DSI_MODE_CTRL, SLEEP_MODE, 1);
-		DSI_OUTREGBIT(NULL, struct DSI_TIME_CON0_REG,
-			DSI_REG[i]->DSI_TIME_CON0, UPLS_WAKEUP_PRD,
-			wake_up_prd);
 
 		switch (_dsi_context[i].dsi_params.LANE_NUM) {
 		case LCM_ONE_LANE:
@@ -646,6 +646,11 @@ void DSI_exit_ULPS(enum DISP_MODULE_ENUM module)
 		DSI_OUTREGBIT(NULL, struct DSI_TXRX_CTRL_REG,
 			DSI_REG[i]->DSI_TXRX_CTRL, LANE_NUM, lane_num_bitvalue);
 
+		DSI_OUTREGBIT(NULL, struct DSI_MODE_CTRL_REG,
+			DSI_REG[i]->DSI_MODE_CTRL, SLEEP_MODE, 1);
+		DSI_OUTREGBIT(NULL, struct DSI_TIME_CON0_REG,
+			DSI_REG[i]->DSI_TIME_CON0, UPLS_WAKEUP_PRD,
+			wake_up_prd);
 		DSI_OUTREGBIT(NULL, struct DSI_START_REG,
 			DSI_REG[i]->DSI_START, SLEEPOUT_START, 0);
 		DSI_OUTREGBIT(NULL, struct DSI_START_REG,
@@ -1616,10 +1621,20 @@ int mipi_clk_change(int msg, int en)
 	_primary_path_lock(__func__);
 
 	if (en) {
+#ifdef ODM_HQ_EDIT
+/* Liyan@ODM.HQ.Multimedia.LCM 2020/03/19 modified for mipi clk change */
+		if (!strcmp(mtkfb_lcm_name, "ili9881h_boe")) {
+			def_data_rate = 720;
+			def_dsi_hbp = 0x2C; /* adaptive HBP value 18 */
+		} else if (!strcmp(mtkfb_lcm_name, "nt36525b_inx")) {
+			def_data_rate = 750;
+			def_dsi_hbp = 0xB6; /* adaptive HBP value 60 */
+#else
 		if (!strcmp(mtkfb_lcm_name,
 		"nt35521_hd_dsi_vdo_truly_rt5081_drv")) {
 			def_data_rate = 460;
 			def_dsi_hbp = 0xD2; /* adaptive HBP value */
+#endif
 		} else {
 			DISPERR("%s,lcm(%s) not support change mipi clock\n",
 				__func__, mtkfb_lcm_name);
@@ -1901,10 +1916,18 @@ void DSI_PHY_TIMCONFIG(enum DISP_MODULE_ENUM module,
 		NS_TO_CYCLE(0x190, cycle_time) :
 		dsi_params->CLK_ZERO;
 
+#ifdef ODM_HQ_EDIT
+/* Liyan@ODM.HQ.Multimedia.LCM 2020/03/25 modified for mipi clk-prepare timing */
+	timcon3.CLK_HS_PRPR =
+		(dsi_params->CLK_HS_PRPR == 0) ?
+		NS_TO_CYCLE(0x50, cycle_time) :
+		dsi_params->CLK_HS_PRPR;
+#else
 	timcon3.CLK_HS_PRPR =
 		(dsi_params->CLK_HS_PRPR == 0) ?
 		NS_TO_CYCLE(0x40, cycle_time) :
 		dsi_params->CLK_HS_PRPR;
+#endif
 
 	if (timcon3.CLK_HS_PRPR < 1)
 		timcon3.CLK_HS_PRPR = 1;
@@ -4151,6 +4174,16 @@ unsigned int DSI_dcs_read_lcm_reg_v3_wrapper_DSIDUAL(char *out,
 			out, cmds, len);
 }
 
+#ifdef ODM_HQ_EDIT
+/* Benshan.Cheng@ODM.Multimedia.LCD  2019/08/27 add for LCD bias setting */
+#ifdef CONFIG_SET_LCD_BIAS_ODM_HQ
+static void lcm_set_lcd_bias_en(unsigned int en, unsigned int seq, unsigned int value)
+{
+        lcd_bias_set_vspn(en, seq, value);
+}
+#endif //CONFIG_SET_LCD_BIAS_ODM_HQ
+#endif //ODM_HQ_EDIT
+
 /* remove later */
 long lcd_enp_bias_setting(unsigned int value)
 {
@@ -4289,6 +4322,12 @@ int ddp_dsi_set_lcm_utils(enum DISP_MODULE_ENUM module,
 	utils->set_gpio_pull_enable =
 		(int (*)(unsigned int, unsigned char))mt_set_gpio_pull_enable;
 #else
+#ifdef ODM_HQ_EDIT
+/* Benshan.Cheng@ODM.Multimedia.LCD  2019/08/27 add for LCD bias setting */
+#ifdef CONFIG_SET_LCD_BIAS_ODM_HQ
+			utils->set_lcd_bias_en = lcm_set_lcd_bias_en;
+#endif //CONFIG_SET_LCD_BIAS_ODM_HQ
+#endif //ODM_HQ_EDIT
 	utils->set_gpio_lcd_enp_bias = lcd_enp_bias_setting;
 #endif
 #endif

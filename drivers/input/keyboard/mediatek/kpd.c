@@ -78,7 +78,11 @@ static int aee_kpd_enable = 0;
 static void kpd_aee_handler(u32 keycode, u16 pressed);
 static inline void kpd_update_aee_state(void);
 
-	
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.Charger 2020/03/09 modified for HW reset distinguish 1878 1879 and 1877*/
+int g_cphy_dphy_gpio_value = -1;
+#endif
+
 static void kpd_volumeup_task_process(unsigned long data)
 {
 	pr_err("%s vol_up_val: %d\n", __func__, vol_key_info.vol_up_val);
@@ -830,6 +834,11 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 	/* Bin.Li@EXP.BSP.bootloader.bootflow, 2017/05/15, Add for keypad volume up and volume down */		
 	struct device *dev = &pdev->dev;
 	struct vol_info *kpd_oppo;
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.Charger 2020/03/09 modified for HW reset distinguish 1878 1879 and 1877*/
+	struct device_node *node = pdev->dev.of_node;
+	int rc = 0;
+#endif
 
 	kpd_oppo = devm_kzalloc(dev, sizeof(*kpd_oppo), GFP_KERNEL);
 	#endif /*VENDOR_EDIT*/
@@ -917,6 +926,25 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 #endif
 	/* register IRQ and EINT */
 	kpd_set_debounce(kpd_dts_data.kpd_key_debounce);
+
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.Charger 2020/03/09 modified for HW reset distinguish 1878 1879 and 1877*/
+	kpd_dts_data.cphy_dphy_gpio =
+			of_get_named_gpio(node, "cphy_dphy-gpio", 0);
+	if (kpd_dts_data.cphy_dphy_gpio <= 0) {
+		printk("Couldn't read cphy_dphy-gpio:%d\n",kpd_dts_data.cphy_dphy_gpio);
+	}
+	if (gpio_is_valid(kpd_dts_data.cphy_dphy_gpio)) {
+		rc = gpio_request(kpd_dts_data.cphy_dphy_gpio, "cphy_dphy-gpio");
+		if (rc) {
+			printk("unable to request cphy_dphy-gpio:%d\n", kpd_dts_data.cphy_dphy_gpio);
+		} else {
+			g_cphy_dphy_gpio_value = gpio_get_value(kpd_dts_data.cphy_dphy_gpio);
+			printk("cphy_dphy-gpio status is:%d\n", g_cphy_dphy_gpio_value);
+		}
+	}
+#endif
+	
 #ifdef VENDOR_EDIT
 /*wang.kun.@BSP.Kernel.Driver, 2019/01/26, Add for disable kpd irq handler*/
 	/*err = request_irq(kp_irqnr, kpd_irq_handler, IRQF_TRIGGER_NONE,

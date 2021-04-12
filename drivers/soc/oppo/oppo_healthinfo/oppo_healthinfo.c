@@ -595,6 +595,9 @@ static ssize_t ohm_para_write(struct file *file, const char __user *buff, size_t
         char ctrl_list[32] = {0};
         int action_ctrl;
 
+	if(len > 31)
+		return -EFAULT;
+
         if (copy_from_user(&write_data, buff, len)) {
                 ohm_err("write error.\n");
                 return -EFAULT;

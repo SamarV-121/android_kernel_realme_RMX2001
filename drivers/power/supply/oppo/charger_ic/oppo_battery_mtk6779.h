@@ -45,6 +45,11 @@ struct charger_manager;
 #include "../../../../kernel-4.9/drivers/power/supply/mediatek/charger/mtk_pe20_intf.h"
 #include "../../../../kernel-4.14/drivers/power/supply/mediatek/charger/mtk_pdc_intf.h"
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+#include <linux/delay.h>
+extern int is_sala_a_project(void);
+#endif
+
 //====================================================================//
 /* mtk_pe40_intf begin */
 #define CONFIG_MTK_PUMP_EXPRESS_PLUS_40_SUPPORT
@@ -121,7 +126,10 @@ extern void mtk_pe40_end(struct charger_manager *pinfo, int type, bool retry);
 //====================================================================//
 /* mtk_charger_init.h begin */
 #define BATTERY_CV 4350000
-#define V_CHARGER_MAX 6500000 /* 6.5 V */
+#ifdef ODM_HQ_EDIT
+/*hongzhenglong@ODM.HQ.BSP.CHG 2020/06/17 modify for showing OVP picture when power off*/
+#define V_CHARGER_MAX 5800000 /* 5.8 V */
+#endif
 #define V_CHARGER_MIN 4600000 /* 4.6 V */
 
 #define USB_CHARGER_CURRENT_SUSPEND		0 /* def CONFIG_USB_IF */
@@ -432,6 +440,8 @@ struct charger_manager {
 	struct notifier_block chg2_nb;
 	struct charger_data chg2_data;
 
+    struct adapter_device *pd_adapter;
+
 	enum charger_type chr_type;
 	bool can_charging;
 
@@ -533,6 +543,7 @@ struct mtk_pmic {
 //extern int mt_power_supply_type_check(void);
 extern enum charger_type mt_get_charger_type(void);
 //int battery_meter_get_charger_voltage(void);
+int charger_get_vbus(void);
 extern int mt6360_get_vbus_rising(void);
 extern int mt6360_check_charging_enable(void);
 extern int mt6360_suspend_charger(bool suspend);
@@ -541,6 +552,7 @@ extern int mt6360_reset_charger(void);
 extern int mt6360_set_chging_term_disable(bool disable);
 extern int mt6360_aicl_enable(bool enable);
 extern int mt6360_set_register(u8 addr, u8 mask, u8 data);
+extern int mt6360_enter_shipmode(void);                   //*zhangchao@ODM.HQ.Charger 2020/03/09 modified for use MTK ship_mode
 //extern int oppo_battery_meter_get_battery_voltage(void);
 //extern int charger_pretype_get(void);
 
@@ -558,6 +570,12 @@ extern void mt_power_off(void);
 extern void mt_usb_connect(void);
 extern void mt_usb_disconnect(void);
 //#ifdef CONFIG_MTK_HAFG_20
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/07/07 add QC config for sala A*/
+void mt6360_enable_hvdcp_detect(void);
+extern enum power_supply_type mt6360_get_hvdcp_type(void);
+#endif
 
 //extern int oppo_usb_switch_gpio_gpio_init(void);
 //#endif /* CONFIG_OPPO_CHARGER_MTK */
@@ -612,6 +630,12 @@ enum usb_state_enum {
 
 bool __attribute__((weak)) is_usb_rdy(void)
 {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+    if (is_sala_a_project() == 2) {
+        mdelay(3000);
+    }
+#endif
+
 	return true;
 }
 

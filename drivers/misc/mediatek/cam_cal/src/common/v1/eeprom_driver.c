@@ -86,12 +86,22 @@ static int EEPROM_set_i2c_bus(unsigned int deviceID,
 {
 	enum IMGSENSOR_SENSOR_IDX idx;
 	struct i2c_client *client;
+	enum EEPROM_I2C_DEV_IDX i2c_num;
 
 	idx = IMGSENSOR_SENSOR_IDX_MAP(deviceID);
 	if (idx == IMGSENSOR_SENSOR_IDX_NONE)
 		return -EFAULT;
 
-	client = g_pstI2Cclients[get_i2c_dev_sel(idx)];
+	/* jiefeng.wang@ODM.Camera.Drv 20201127 for sala-b macro otp i2c bus*/
+	if(deviceID == 4 && cmdInfo->sensorID == 0x2b) {
+		i2c_num = 0;
+	}
+	else {
+		i2c_num = get_i2c_dev_sel(idx);
+	}
+
+	client = g_pstI2Cclients[i2c_num];
+
 	pr_debug("%s end! deviceID=%d index=%u client=%p\n",
 		 __func__, deviceID, idx, client);
 
@@ -118,18 +128,18 @@ static int EEPROM_get_cmd_info(unsigned int sensorID,
 	struct stCAM_CAL_CMD_INFO_STRUCT *cmdInfo)
 {
 	struct stCAM_CAL_LIST_STRUCT *pCamCalList = NULL;
-        #ifdef ODM_HQ_EDIT
+        #ifdef CONFIG_MACH_MT6785
         /* fengbin@ODM.Camera.Drv 20190910 for 3p9 crosstalk data*/
         struct stCAM_CAL_FUNC_STRUCT *pCamCalFunc = NULL;
         #endif
 	int i = 0;
 
 	cam_cal_get_sensor_list(&pCamCalList);
-        #ifdef ODM_HQ_EDIT
+        #ifdef CONFIG_MACH_MT6785
         /* fengbin@ODM.Camera.Drv 20190910 for 3p9 crosstalk data*/
         cam_cal_get_func_list(&pCamCalFunc);
         #endif
-        #ifndef ODM_HQ_EDIT
+        #ifndef CONFIG_MACH_MT6785
         /* fengbin@ODM.Camera.Drv 20190910 for 3p9 crosstalk data*/
 	if (pCamCalList != NULL) {
         #else
@@ -146,7 +156,7 @@ static int EEPROM_get_cmd_info(unsigned int sensorID,
 					pCamCalList[i].readCamCalData;
 				cmdInfo->maxEepromSize =
 					pCamCalList[i].maxEepromSize;
-                                #ifdef ODM_HQ_EDIT
+                                #ifdef CONFIG_MACH_MT6785
                                 /* fengbin@ODM.Camera.Drv 20190910 for 3p9 crosstalk data*/
                                 for (i = 0; pCamCalFunc[i].sensorID != 0; i++) {
                                     if (pCamCalFunc[i].sensorID == sensorID){
@@ -543,6 +553,60 @@ static long EEPROM_drv_compat_ioctl
 
 #endif
 
+/* maxinming@ODM.Camera.Drv 20200317 for s5k4h7 OTP bringup */
+#define EEPROM_I2C_MSG_SIZE_READ 2
+#define S5K4H7_I2C_ADDR 0x20
+
+static struct i2c_client *g_pstI2CclientG;
+
+static int iReadRegI2C(u8 *a_pSendData, u16 a_sizeSendData,
+		u8 *a_pRecvData, u16 a_sizeRecvData, u16 i2cId)
+{
+	int  i4RetValue = 0;
+	struct i2c_msg msg[EEPROM_I2C_MSG_SIZE_READ];
+
+	spin_lock(&g_spinLock);
+	g_pstI2CclientG->addr = (i2cId >> 1);
+	spin_unlock(&g_spinLock);
+
+	msg[0].addr = g_pstI2CclientG->addr;
+	msg[0].flags = g_pstI2CclientG->flags & I2C_M_TEN;
+	msg[0].len = a_sizeSendData;
+	msg[0].buf = a_pSendData;
+
+	msg[1].addr = g_pstI2CclientG->addr;
+	msg[1].flags = g_pstI2CclientG->flags & I2C_M_TEN;
+	msg[1].flags |= I2C_M_RD;
+	msg[1].len = a_sizeRecvData;
+	msg[1].buf = a_pRecvData;
+
+	i4RetValue = i2c_transfer(g_pstI2CclientG->adapter,
+				msg,
+				EEPROM_I2C_MSG_SIZE_READ);
+
+	if (i4RetValue != EEPROM_I2C_MSG_SIZE_READ) {
+		pr_debug("I2C read failed!!\n");
+		return -1;
+	}
+	return 0;
+}
+
+static kal_uint16 S5K4H7_OTP_read_cmos_sensor(kal_uint16 addr)
+{
+	kal_uint16 get_byte = 0;
+	char pusendcmd[2] = { (char)(addr >> 8), (char)(addr & 0xFF) };
+
+	iReadRegI2C(pusendcmd, 2, (u8 *) &get_byte, 1, S5K4H7_I2C_ADDR);
+	return get_byte;
+}
+
+static void S5K4H7_OTP_write_cmos_sensor(kal_uint32 addr, kal_uint32 para)
+{
+	char pu_send_cmd[3] = {(char)(addr >> 8), (char)(addr & 0xFF), (char)(para)};
+
+	iWriteRegI2C(pu_send_cmd, 3, S5K4H7_I2C_ADDR);
+}
+
 #define NEW_UNLOCK_IOCTL
 #ifndef NEW_UNLOCK_IOCTL
 static int EEPROM_drv_ioctl(struct inode *a_pstInode,
@@ -553,8 +617,9 @@ static long EEPROM_drv_ioctl(struct file *file,
 	unsigned int a_u4Command, unsigned long a_u4Param)
 #endif
 {
-
 	int i4RetValue = 0;
+	int rt = 0;
+	int i = 0;
 	u8 *pBuff = NULL;
 	u8 *pu1Params = NULL;
 	/*u8 *tempP = NULL; */
@@ -708,18 +773,93 @@ static long EEPROM_drv_ioctl(struct file *file,
 			g_lastDevID = ptempbuf->deviceID;
 		}
 
-		if (pcmdInf != NULL) {
-			if (pcmdInf->readCMDFunc != NULL)
-				i4RetValue =
-					pcmdInf->readCMDFunc(pcmdInf->client,
+		/* maxinming@ODM.Camera.Drv 20200317 for s5k4h7 OTP bringup */
+		printk("s5k4h7 OTP sensor id = %x0x\n", ptempbuf->sensorID);
+		if (ptempbuf->sensorID == 0x487B && pcmdInf != NULL) {
+			printk("Enter s5k4h7 OTP\n");
+			pr_debug("s5k4h7 u4Command:0x%x,u4Param:0x%x\n",a_u4Command,a_u4Param);
+			g_pstI2CclientG  = pcmdInf->client;
+
+			S5K4H7_OTP_write_cmos_sensor(0x0100, 0x01);       //streaming on
+			mdelay(50);
+			S5K4H7_OTP_write_cmos_sensor(0x0A02, 0x00);       //read page 0
+			S5K4H7_OTP_write_cmos_sensor(0x3B41, 0x01);
+			S5K4H7_OTP_write_cmos_sensor(0x3B42, 0x03);
+			S5K4H7_OTP_write_cmos_sensor(0x3B40, 0x01);
+			S5K4H7_OTP_write_cmos_sensor(0x0A00, 0x01);       //read command
+
+			for (i=0; i<3; i++) {
+			  mdelay(1);
+			  rt = S5K4H7_OTP_read_cmos_sensor(0x0A01);
+			}
+			pr_debug("read s5k4h7 length:%d",ptempbuf->u4Length);
+
+			if (rt == 1) {
+				rt = 0;
+				rt = S5K4H7_OTP_read_cmos_sensor(0x0A3D);        //read flag, 1:group 1, 3:group 2
+				mdelay(1);
+				pr_debug("read s5k4h7 OTP, group=%d\n",rt);
+
+				if (rt == 1) {
+					S5K4H7_OTP_write_cmos_sensor(0x0A02, 21);    //read page 21
+					mdelay(1);
+					S5K4H7_OTP_write_cmos_sensor(0x0A00, 0x01);
+					mdelay(1);
+					if (pcmdInf->readCMDFunc != NULL) {
+						i4RetValue =
+						pcmdInf->readCMDFunc(pcmdInf->client,0x0A04,pu1Params,62);
+					}
+
+					S5K4H7_OTP_write_cmos_sensor(0x0A02, 22);    //read page 22
+					mdelay(1);
+					S5K4H7_OTP_write_cmos_sensor(0x0A00, 0x01);
+					mdelay(1);
+					if (pcmdInf->readCMDFunc != NULL) {
+						i4RetValue =
+						pcmdInf->readCMDFunc(pcmdInf->client,0x0A04,(pu1Params + 62),50);
+					}
+				} else if (rt == 3) {
+					S5K4H7_OTP_write_cmos_sensor(0x0A02, 23);    //read page 23
+					mdelay(1);
+					S5K4H7_OTP_write_cmos_sensor(0x0A00, 0x01);
+					mdelay(1);
+					if (pcmdInf->readCMDFunc != NULL) {
+						i4RetValue =
+						pcmdInf->readCMDFunc(pcmdInf->client,0x0A04,pu1Params,62);
+					}
+
+					S5K4H7_OTP_write_cmos_sensor(0x0A02, 24);    //read page 24
+					mdelay(1);
+					S5K4H7_OTP_write_cmos_sensor(0x0A00, 0x01);
+					mdelay(1);
+					if (pcmdInf->readCMDFunc != NULL) {
+						i4RetValue =
+						pcmdInf->readCMDFunc(pcmdInf->client,0x0A04,(pu1Params + 62),50);
+					}
+				}
+				pr_debug("read out s5k4h7 page data\n");
+				S5K4H7_OTP_write_cmos_sensor(0x0A00, 0x04);     //initial state
+				S5K4H7_OTP_write_cmos_sensor(0x0A00, 0x00);
+			}
+			else {
+				pr_debug("s5k4h7 sensor otp read 0x0A01 error");
+				return -EFAULT;
+			}
+		}
+		else {
+			if (pcmdInf != NULL) {
+				if (pcmdInf->readCMDFunc != NULL)
+					i4RetValue =
+						pcmdInf->readCMDFunc(pcmdInf->client,
 							  ptempbuf->u4Offset,
 							  pu1Params,
 							  ptempbuf->u4Length);
-			else {
-				pr_debug("pcmdInf->readCMDFunc == NULL\n");
-				kfree(pBuff);
-				kfree(pu1Params);
-				return -EFAULT;
+				else {
+					pr_debug("pcmdInf->readCMDFunc == NULL\n");
+					kfree(pBuff);
+					kfree(pu1Params);
+					return -EFAULT;
+				}
 			}
 		}
 #ifdef CAM_CALGETDLT_DEBUG

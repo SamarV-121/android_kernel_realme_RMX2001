@@ -13,6 +13,10 @@
 
 #include "regulator.h"
 
+#ifdef ODM_HQ_EDIT
+/*Chejian@ODM_HQ Cam.Drv 20201112 for sala3*/
+#include <soc/oppo/oppo_project.h>
+#endif
 
 static const int regulator_voltage[] = {
 	REGULATOR_VOLTAGE_0,
@@ -105,6 +109,11 @@ static enum IMGSENSOR_RETURN regulator_set(
 	int reg_type_offset;
 	atomic_t             *enable_cnt;
 
+#ifdef ODM_HQ_EDIT
+    /*Chejian@ODM_HQ Cam.Drv 20201112 for sala3,we use sub2 pinctrl and mclk for ov02b10, use main3 pinctrl and mclk for ov02b1b*/
+    if(get_Operator_Version() >=90 && get_Operator_Version() <=93 && sensor_idx >=2 && sensor_idx <= 3)
+        sensor_idx++;
+#endif
 
 	if (pin > IMGSENSOR_HW_PIN_DOVDD   ||
 	    pin < IMGSENSOR_HW_PIN_AVDD    ||

@@ -3279,6 +3279,11 @@ static int mt6768_afe_pcm_dev_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, afe);
 	mt6768_set_local_afe(afe);
 
+#ifdef ODM_HQ_EDIT
+/*sunjingtao@ODM.HQ.Multimedia.Audio 2020/03/04 modified for speaker bringup*/
+	mt6768_machine_driver_set_g_afe(afe);
+#endif /* ODM_HQ_EDIT */
+
 	afe->platform_priv = devm_kzalloc(&pdev->dev, sizeof(*afe_priv),
 					  GFP_KERNEL);
 	if (!afe->platform_priv)

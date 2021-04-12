@@ -104,7 +104,6 @@
 #include "../drivers/soc/oppo/oppo_phoenix/oppo_phoenix.h"
 #endif  //VENDOR_EDIT
 
-
 static int kernel_init(void *);
 
 extern void init_IRQ(void);
@@ -460,8 +459,6 @@ static int __init do_early_param(char *param, char *val,
 				pr_warn("Malformed early option '%s'\n", param);
 		}
 	}
-
-
 	/* We accept everything at this stage. */
 	return 0;
 }

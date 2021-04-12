@@ -69,8 +69,8 @@ void long_press_reboot_function_setting(void)
 #ifdef CONFIG_TWOKEY_REBOOT_NORMAL_MODE
 		pmic_set_register_value(PMIC_RG_PWRKEY_RST_EN, 0x01);
 		pmic_set_register_value(PMIC_RG_HOMEKEY_RST_EN, 0x01);
-		pmic_set_register_value(PMIC_RG_PWRKEY_RST_TD,
-			CONFIG_KPD_PMIC_LPRST_TD);
+		//pmic_set_register_value(PMIC_RG_PWRKEY_RST_TD,0x00);
+		pmic_config_interface((MT6358_TOP_RST_MISC),(0),(PMIC_RG_PWRKEY_RST_TD_MASK),(PMIC_RG_PWRKEY_RST_TD_SHIFT));
 #endif
 #else
 		kpd_info("disable normal mode LPRST\n");
@@ -92,8 +92,8 @@ void long_press_reboot_function_setting(void)
 #ifdef CONFIG_TWOKEY_REBOOT_OTHER_MODE
 		pmic_set_register_value(PMIC_RG_PWRKEY_RST_EN, 0x01);
 		pmic_set_register_value(PMIC_RG_HOMEKEY_RST_EN, 0x01);
-		pmic_set_register_value(PMIC_RG_PWRKEY_RST_TD,
-			CONFIG_KPD_PMIC_LPRST_TD);
+		//pmic_set_register_value(PMIC_RG_PWRKEY_RST_TD,0x00);
+		pmic_config_interface((MT6358_TOP_RST_MISC),(0),(PMIC_RG_PWRKEY_RST_TD_MASK),(PMIC_RG_PWRKEY_RST_TD_SHIFT));
 #endif
 #else
 		kpd_info("disable other mode LPRST\n");
@@ -113,6 +113,8 @@ bool __attribute__ ((weak)) ConditionEnterSuspend(void)
 /********************************************************************/
 void kpd_wakeup_src_setting(int enable)
 {
+#ifndef ODM_HQ_EDIT
+/* sunjingtao@EXP.BSP.bootloader.bootflow, 2019/10/26, Remove for keypad volume up and volume down */
 	int is_fm_radio_playing = 0;
 
 	/* If FM is playing, keep keypad as wakeup source */
@@ -130,6 +132,15 @@ void kpd_wakeup_src_setting(int enable)
 			enable_kpd(0);
 		}
 	}
+#else
+	if (enable == 1) {
+		kpd_print("enable kpd work!\n");
+		enable_kpd(1);
+	} else {
+		kpd_print("disable kpd work!\n");
+		enable_kpd(0);
+	}
+#endif	/* ODM_HQ_EDIT */
 }
 
 /********************************************************************/

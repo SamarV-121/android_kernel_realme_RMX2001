@@ -67,6 +67,10 @@ extern struct LCM_DRIVER nt36672c_fhdp_dsi_vdo_boe_t0_zal1878_lcm_drv; // Add fo
 extern struct LCM_DRIVER hx83112a_fhdp_dsi_vdo_jdi_zal1878_lcm_drv; // Add for Nemo
 extern struct LCM_DRIVER hx83112a_fhdp_dsi_vdo_jdi_t0_zal1878_lcm_drv; // Add for Nemo
 extern struct LCM_DRIVER nt36672c_fhdp_dsi_vdo_evb2_zal1878_lcm_drv; // Add for Nemo
+extern struct LCM_DRIVER nt36672c_fhdp_dsi_vdo_tianma_zal1852_lcm_drv; // Add for sala
+extern struct LCM_DRIVER nt36672c_fhdp_dsi_vdo_jdi_zal1852_lcm_drv; // Add for Sala
+extern struct LCM_DRIVER nt36672c_fhdp_dsi_vdo_boe_zal1852_lcm_drv; // Add for sala
+
 #endif //ODM_HQ_EDIT
 extern struct LCM_DRIVER otm1282a_hd720_dsi_vdo_60hz_lcm_drv;
 extern struct LCM_DRIVER otm1282a_hd720_dsi_vdo_lcm_drv;
@@ -393,6 +397,21 @@ extern struct LCM_DRIVER otm1901a_fhd_dsi_vdo_tpv_lcm_drv;
 extern struct LCM_DRIVER r63350a_fhd_dsi_vdo_truly_lcm_drv;
 extern struct LCM_DRIVER td4320_fhdp_dsi_vdo_auo_rt5081_lcm_drv;
 extern struct LCM_DRIVER nt51021h_wuxga_vdo_oncell_boe_lcm_drv;
+
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+#ifdef CONFIG_MACH_MT6771
+extern struct LCM_DRIVER nt36525_hd_dsi_vdo_dj_boe_zal1810_lcm_drv;    //HQ added for ZAL1810
+extern struct LCM_DRIVER ili9881_hd_dsi_vdo_txd_csot_zal1810_lcm_drv;    //HQ added for ZAL1810
+extern struct LCM_DRIVER ili9881_hd_dsi_vdo_dj_boe_zal1810_lcm_drv;    //HQ added for ZAL1810
+extern struct LCM_DRIVER ili9881_hd_dsi_vdo_qc_inx_zal1810_lcm_drv;    //HQ added for ZAL1810
+#endif
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, end. */
+
+#ifdef ODM_HQ_EDIT
+/* Benshan.Cheng@ODM.BSP.Tp 2020/02/17, modify for euler LCD driver */
+extern struct LCM_DRIVER ili9881h_hdp_dsi_vdo_boe_zal1851_lcm_drv; // Add for Euler
+extern struct LCM_DRIVER nt36525b_hdp_dsi_vdo_inx_zal1851_lcm_drv; // Add for Euler
+#endif //ODM_HQ_EDIT
 
 #ifdef BUILD_LK
 extern void mdelay(unsigned long msec);

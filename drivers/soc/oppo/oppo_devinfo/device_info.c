@@ -250,7 +250,7 @@ static int mainboard_verify(struct devinfo_data *const devinfo_data)
 
 	hw_opreator_version = get_hw_opreator_version(devinfo_data);
 	switch(get_PCB_Version()) {
-#ifndef ODM_HQ_EDIT
+#if !defined(ODM_HQ_EDIT) || defined(CONFIG_MACH_MT6771)
 /*sunjingtao@ODM.BSP.bootloader, 2019/10/17, Add for oppo project*/
 		case HW_VERSION__10:
 			mainboard_info.version ="10";
@@ -379,7 +379,7 @@ static int subboard_init(struct devinfo_data *const devinfo_data) {
 #endif
 	np = devinfo_data->devinfo->dev.of_node;
 
-#ifndef ODM_HQ_EDIT
+#if !defined(ODM_HQ_EDIT) || defined(CONFIG_MACH_MT6771)
 /*sunjingtao@ODM.BSP.bootloader, 2019/10/17, Add for oppo project*/
 	devinfo_data->sub_hw_id1 = of_get_named_gpio(np, "Hw,sub_hwid_1", 0);
 	if(devinfo_data->sub_hw_id1 < 0 ) {
@@ -390,7 +390,8 @@ static int subboard_init(struct devinfo_data *const devinfo_data) {
 	devinfo_data->sub_hw_id2 = of_get_named_gpio(np, "Hw,sub_hwid_2", 0);
 	if(devinfo_data->sub_hw_id2 < 0 ) {
 		DEVINFO_ERR("devinfo_data->sub_hw_id2 not specified\n");
-		return -1;
+		if(!is_project(OPPO_18601))
+			return -1;
 	}
 
 	devinfo_data->pinctrl = devm_pinctrl_get(&devinfo_data->devinfo->dev);
@@ -468,7 +469,7 @@ static int subboard_verify(struct devinfo_data *const devinfo_data)
 		return -1;
 	}
 
-#ifndef ODM_HQ_EDIT
+#if !defined(ODM_HQ_EDIT) || defined(CONFIG_MACH_MT6771)
 /*sunjingtao@ODM.BSP.bootloader, 2019/10/17, Add for oppo project*/
 	ret = pinctrl_select_state(devinfo_data->pinctrl,devinfo_data->hw_sub_id_active);
 
@@ -499,7 +500,7 @@ static int subboard_verify(struct devinfo_data *const devinfo_data)
 	}
 #endif
 	operator = get_Operator_Version();
-#ifndef ODM_HQ_EDIT
+#if !defined(ODM_HQ_EDIT) || defined(CONFIG_MACH_MT6771)
 /*sunjingtao@ODM.BSP.bootloader, 2019/10/17, Add for oppo project*/
 	DEVINFO_ERR("id1(%d) = %d id2(%d) = %d Operator = %d", devinfo_data->sub_hw_id1, id1,
 		devinfo_data->sub_hw_id2, id2, operator);
@@ -612,18 +613,60 @@ static int subboard_verify(struct devinfo_data *const devinfo_data)
 				snprintf(devinfo_data->sub_mainboard_info.manufacture, INFO_BUF_LEN, "audio-unmatch");
 			}
 			break;
+		case OPPO_18601:
+			if ((id1 == 1) && ((operator == OPERATOR_18601_REALME_INDIA) || (operator == OPERATOR_18601_REALME_INDIA_P70) || (operator == OPERATOR_18601_REALME_INDIA_MELON))) {
+				snprintf(devinfo_data->sub_mainboard_info.manufacture, INFO_BUF_LEN, "rf-match");
+			} else if ((id1 == 0) && (operator == OPERATOR_18601_REALME_ALL_BAND || operator == OPERATOR_18601_REALME_ALL_BAND_VIETNAM
+			        || operator == OPERATOR_18601_REALME_ALL_BAND_P70 || operator == OPERATOR_18601_REALME_ALL_BAND_VIETNAM_P70
+					|| operator == OPERATOR_18601_REALME_ALL_BAND_VIETNAM_3X64)) {
+				snprintf(devinfo_data->sub_mainboard_info.manufacture, INFO_BUF_LEN, "rf-match");
+			} else {
+				snprintf(devinfo_data->sub_mainboard_info.manufacture, INFO_BUF_LEN, "rf-unmatch");
+			}
+			break;
 #ifdef ODM_HQ_EDIT
 /*sunjingtao@ODM.BSP.bootloader, 2019/10/17, Add for oppo project*/
 		case OPPO_19661:
 			if ((id == 1)&& (operator == OPERATOR_19661_ASIA_SIMPLE || operator == OPERATOR_19661_RUSSIA|| operator == OPERATOR_19661_All_NET 
 					|| operator == OPERATOR_19661_All_BAND|| operator == OPERATOR_19661_All_WORLD || operator == OPERATOR_19661_VIETNAM_8X128G)
-					|| operator == OPERATOR_19661_ASIA_SIMPLE_SARTER || operator == OPERATOR_19661_All_BAND_SARTER || operator == OPERATOR_19661_VIETNAM_8X128G_SARTER) {
+					|| operator == OPERATOR_19661_ASIA_SIMPLE_SARTER || operator == OPERATOR_19661_All_BAND_SARTER || operator == OPERATOR_19661_VIETNAM_8X128G_SARTER
+					|| operator == OPERATOR_19661_All_BAND_NFC_SARTER) {
 				snprintf(devinfo_data->sub_mainboard_info.manufacture, INFO_BUF_LEN, "HQsub-match");
 			} else {
 				snprintf(devinfo_data->sub_mainboard_info.manufacture, INFO_BUF_LEN, "HQsub-unmatch");
 			}
 			break;
 #endif
+
+#ifdef ODM_HQ_EDIT
+/*sunjingtao@ODM.BSP.bootloader, 2019/10/17, Add for oppo project*/
+		case OPPO_20682:
+			if ((id == 1)&& (operator == OPERATOR_20682_ASIA_SIMPLE || operator == OPERATOR_20682_All_BAND || operator == OPERATOR_20682_All_BAND_VIETNAM
+					|| operator == OPERATOR_20682_SALA_A_ASIA_SIMPLE || operator == OPERATOR_20682_SALA_A_All_BAND || operator == OPERATOR_20682_SALA_A_All_BAND_VIETNAM || operator == OPERATOR_20682_SALA_All_BAND_NFC 
+					|| operator == OPERATOR_20682_SALA_A_INTERNATIONAL || operator == OPERATOR_20682_SALA_LITE_INTERNATIONAL || operator == OPERATOR_20682_SALA_THAILAND
+					|| operator == OPERATOR_20682_SALA_ASIA_SIMPLE_THERR_CAMERA || operator == OPERATOR_20682_SALA_INTERNATIONAL_NFC_THERR_CAMERA 
+					|| operator == OPERATOR_20682_SALA_LITE_VODAFONE)) {
+				snprintf(devinfo_data->sub_mainboard_info.manufacture, INFO_BUF_LEN, "HQsub-match");
+			} else {
+				snprintf(devinfo_data->sub_mainboard_info.manufacture, INFO_BUF_LEN, "HQsub-unmatch");
+			}
+			break;
+#endif
+
+#ifdef ODM_HQ_EDIT
+/*wangtao@ODM.BSP.bootloader, 2020/02/20, Add for oppo project*/
+		case OPPO_20671:
+			if ((id == 0)&& (operator == OPERATOR_20671_ASIA_SIMPLE || operator == OPERATOR_20671_All_WORLD || operator == OPERATOR_20671_All_BAND
+					|| operator == OPERATOR_20671_VIETNAM_All_BAND || operator == OPERATOR_20671_A_ASIA_SIMPLE || operator == OPERATOR_20671_A_All_WORLD
+					|| operator == OPERATOR_20671_A_All_BAND || operator == OPERATOR_20671_A_VIETNAM_All_BAND || operator == OPERATOR_20671_B_ASIA_SIMPLE 
+					|| operator == OPERATOR_20671_C_ASIA_SIMPLE || operator == OPERATOR_20671_C_All_WORLD || operator == OPERATOR_20671_C_All_BAND || operator == OPERATOR_20671_C_VIETNAM_All_BAND )) {
+				snprintf(devinfo_data->sub_mainboard_info.manufacture, INFO_BUF_LEN, "HQsub-match");
+			} else {
+				snprintf(devinfo_data->sub_mainboard_info.manufacture, INFO_BUF_LEN, "HQsub-unmatch");
+			}
+			break;
+#endif
+
 		default:
 			DEVINFO_ERR("illegal project\n");
 			break;

@@ -58,7 +58,10 @@ MAIN_CFILES  += common/lc898122af/LC898122AF.c
 #ifdef ODM_HQ_EDIT
 #Lijian@ODM.Camra 20190816 for FP5516 Bringup
 MAIN_CFILES  += common/fp5516af/FP5516AF.c
+MAIN_CFILES  += common/dw9718taf/DW9718TAF.c
 MAIN_CFILES  += common/bu64253af/BU64253AF.c
+MAIN_CFILES += common/dw9714af_ts/DW9714AF_TS.c
+MAIN_CFILES += common/dw9714af_qt/DW9714AF_QT.c
 #endif
 MAIN_CFILES  += common/lc898122af/OisCmd.c
 MAIN_CFILES  += common/lc898122af/OisIni.c
@@ -99,7 +102,10 @@ obj-y  += common/dw9719taf/
 #ifdef ODM_HQ_EDIT
 #Lijian@ODM.Camra 20190816 for FP5516 Bringup
 obj-y  += common/fp5516af/
+obj-y  += common/dw9718taf/
 obj-y  += common/bu64253af/
+obj-y  += common/dw9714af_ts/
+obj-y  += common/dw9714af_qt/
 #endif
 obj-y  += common/lc898212af/
 obj-y  += common/lc898212xdaf/

@@ -48,6 +48,27 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 #if defined(HX83112A_FHDP_DSI_VDO_JDI_T0_ZAL1878)
 		&hx83112a_fhdp_dsi_vdo_jdi_t0_zal1878_lcm_drv,
 #endif //HX83112A_FHDP_DSI_VDO_JDI_T0_ZAL1878
+#if defined(NT36672C_FHDP_DSI_VDO_TIANMA_ZAL1852)
+		&nt36672c_fhdp_dsi_vdo_tianma_zal1852_lcm_drv,
+#endif //NT36672C_FHDP_DSI_VDO_TIANMA_ZAL1852
+#if defined(NT36672C_FHDP_DSI_VDO_JDI_ZAL1852)
+		&nt36672c_fhdp_dsi_vdo_jdi_zal1852_lcm_drv,
+#endif //NT36672C_FHDP_DSI_VDO_JDI_ZAL1852
+
+#if defined(NT36672C_FHDP_DSI_VDO_BOE_ZAL1852)
+		&nt36672c_fhdp_dsi_vdo_boe_zal1852_lcm_drv,
+#endif //NT36672C_FHDP_DSI_VDO_BOE_ZAL1852
+
+#endif //ODM_HQ_EDIT
+
+#ifdef ODM_HQ_EDIT
+/* Benshan.Cheng@ODM.Multimedia.LCD  2019/09/27 add for LCD bring up */
+#if defined(ILI9881H_HDP_DSI_VDO_BOE_ZAL1851)
+		&ili9881h_hdp_dsi_vdo_boe_zal1851_lcm_drv,
+#endif //ILI9881H_HDP_DSI_VDO_BOE_ZAL1851
+#if defined(NT36525B_HDP_DSI_VDO_INX_ZAL1851)
+		&nt36525b_hdp_dsi_vdo_inx_zal1851_lcm_drv,
+#endif //NT36525B_HDP_DSI_VDO_INX_ZAL1851
 #endif //ODM_HQ_EDIT
 
 #if defined(ES6311_ANX6585_ZIGZAG_WXGA)
@@ -1442,6 +1463,23 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 #if defined(NT51021H_WUXGA_VDO_ONCELL_BOE)
 	&nt51021h_wuxga_vdo_oncell_boe_lcm_drv,
 #endif
+
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+#ifdef CONFIG_MACH_MT6771
+#if defined(NT36525_HD_DSI_VDO_DJ_BOE_ZAL1810)
+	&nt36525_hd_dsi_vdo_dj_boe_zal1810_lcm_drv,
+#endif //NT36525_HD_DSI_VDO_DJ_BOE_ZAL1810
+#if defined(ILI9881_HD_DSI_VDO_TXD_CSOT_ZAL1810)
+       &ili9881_hd_dsi_vdo_txd_csot_zal1810_lcm_drv,
+#endif //ILI9881_HD_DSI_VDO_TXD_CSOT_ZAL1810
+#if defined(ILI9881_HD_DSI_VDO_DJ_BOE_ZAL1810)
+	&ili9881_hd_dsi_vdo_dj_boe_zal1810_lcm_drv,
+#endif //ILI9881_HD_DSI_VDO_DJ_BOE_ZAL1810
+#if defined(ILI9881_HD_DSI_VDO_QC_INX_ZAL1810)
+	&ili9881_hd_dsi_vdo_qc_inx_zal1810_lcm_drv,
+#endif //ILI9881_HD_DSI_VDO_QC_INX_ZAL1810
+#endif
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, end. */
 };
 
 unsigned char lcm_name_list[][128] = {

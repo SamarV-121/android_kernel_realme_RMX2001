@@ -111,6 +111,9 @@
 #define CMD_OPEN_BLACK_GESTURE  0x13
 #define CMD_ENTER_SLEEP         0x11
 
+#define EVENTBUFFER_PHONE_CALL_ON  0x71
+#define EVENTBUFFER_PHONE_CALL_OFF         0x72
+
 typedef enum {
     NVT_RAWDATA,    //raw data
     NVT_DIFFDATA,   //diff data

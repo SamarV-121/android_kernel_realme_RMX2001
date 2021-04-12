@@ -33,26 +33,25 @@
 #ifdef VENDOR_EDIT
 // Kun.Hu@TECH.BSP.Stability.PHOENIX_PROJECT 2019/06/11, Add for phoenix project
 #include "../drivers/soc/oppo/oppo_phoenix/oppo_phoenix.h"
-static int kernel_panic_happened = 0;
+#include <linux/timer.h>
+#include <linux/timex.h>
+#include <linux/rtc.h>
+//Liang.Zhang@PSW.TECH.BOOTUP, 2019/01/22, Add for monitor kernel error
+int kernel_panic_happened = 0;
+int hwt_happened = 0;
+int is_kernel_panic = 0;
 #endif
 
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
 
-#ifdef VENDOR_EDIT
-/* Bin.Li@EXP.BSP.bootloader.bootflow, 2017/05/24, Add for interface reboot reason */
-int is_kernel_panic = 0;
-#endif
 
 #ifdef VENDOR_EDIT
 //Zhang Jiashu@PSW.AD.Performance,2019/10/03,Add for flushing device cache before goto dump mode!
 bool is_triggering_panic = false;
 bool is_triggering_hwt = false;
 #endif  /*VENDOR_EDIT*/
-//Liang.Zhang@PSW.TECH.BOOTUP, 2019/01/22, Add for monitor kernel error
-#ifdef HANG_OPPO_ALL
-int hwt_happened = 0;
-#endif  // VENDOR_EDIT
+
 
 int panic_on_oops = CONFIG_PANIC_ON_OOPS_VALUE;
 static unsigned long tainted_mask;
@@ -86,6 +85,34 @@ void __weak panic_smp_self_stop(void)
 	while (1)
 		cpu_relax();
 }
+
+#ifdef VENDOR_EDIT
+//Liang.Zhang@PSW.TECH.BOOTUP, 2018/11/12, Add for monitor kernel panic
+void deal_fatal_err(void)
+{
+    if(!phx_is_phoenix_boot_completed()) {
+
+        if(kernel_panic_happened) {
+            phx_set_boot_error(ERROR_KERNEL_PANIC);
+        } else if(hwt_happened) {
+            phx_set_boot_error(ERROR_HWT);
+        }
+
+    } else {
+        struct timespec ts;
+        struct rtc_time tm;
+        char err_info[60] = {0};
+
+        getnstimeofday(&ts);
+        rtc_time_to_tm(ts.tv_sec, &tm);
+
+        sprintf(err_info, "panic after bootup @%d-%d-%d %d:%d:%d",
+                tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+        pr_err("panic after bootup @%d-%d-%d %d:%d:%d\n",
+               tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+    }
+}
+#endif  /*VENDOR_EDIT*/
 
 /*
  * Stop ourselves in NMI context if another CPU has already panicked. Arch code
@@ -175,18 +202,6 @@ void panic(const char *fmt, ...)
 	int old_cpu, this_cpu;
 	bool _crash_kexec_post_notifiers = crash_kexec_post_notifiers;
 
-#ifdef VENDOR_EDIT
-    // Kun.Hu@TECH.BSP.Stability.PHOENIX_PROJECT 2019/06/11, Add for phoenix project
-    kernel_panic_happened++;
-	if(phx_set_boot_error && phx_is_phoenix_boot_completed)
-	{
-		// we only care about panic on boot not complete
-		if(kernel_panic_happened < 2 && !phx_is_phoenix_boot_completed())
-		{
-			phx_set_boot_error(ERROR_KERNEL_PANIC);
-		}
-	}
-#endif  /*VENDOR_EDIT*/
 	/*
 	 * Disable local interrupts. This will prevent panic_smp_self_stop
 	 * from deadlocking the first cpu that invokes the panic, since

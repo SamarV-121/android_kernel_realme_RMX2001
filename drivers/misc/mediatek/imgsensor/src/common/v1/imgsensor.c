@@ -460,10 +460,10 @@ static inline int imgsensor_check_is_alive(struct IMGSENSOR_SENSOR *psensor)
 			&retLen);
 
 	if (sensorID == 0 || sensorID == 0xFFFFFFFF) {
-		pr_info("Fail to get sensor ID %x\n", sensorID);
+		pr_info("Fail to get sensor ID %x, curr_sensorname:%s\n", sensorID, psensor_inst->psensor_name);
 		err = ERROR_SENSOR_CONNECT_FAIL;
 	} else {
-		pr_info(" Sensor found ID = 0x%x\n", sensorID);
+		pr_info("Sensor found ID = 0x%x, curr_sensorname:%s\n", sensorID, psensor_inst->psensor_name);
 		err = ERROR_NONE;
 	}
 
@@ -545,20 +545,6 @@ int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 		}
 		kfree(psensor_list);
 	}
-
-
-
-	/*pr_debug("get_search_list %d,\n %d %d %d %d\n %d %d %d %d\n",
-	 *   get_search_list,
-	 *   orderedSearchList[0],
-	 *   orderedSearchList[1],
-	 *   orderedSearchList[2],
-	 *   orderedSearchList[3],
-	 *   orderedSearchList[4],
-	 *   orderedSearchList[5],
-	 *   orderedSearchList[6],
-	 *   orderedSearchList[7]);
-	 */
 
 	/*pr_debug(" %d %d %d %d\n %d %d %d %d\n",
 	 *   orderedSearchList[8],
@@ -1284,7 +1270,6 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 		psensor->inst.sensor_idx = pFeatureCtrl->InvokeCamera;
 		drv_idx = imgsensor_set_driver(psensor);
 		memcpy(pFeaturePara, &drv_idx, FeatureParaLen);
-
 		break;
 	}
 	case SENSOR_FEATURE_CHECK_IS_ALIVE:

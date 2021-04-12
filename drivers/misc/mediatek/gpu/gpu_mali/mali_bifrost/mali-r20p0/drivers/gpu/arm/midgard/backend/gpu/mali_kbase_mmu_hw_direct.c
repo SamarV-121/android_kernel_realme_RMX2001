@@ -83,7 +83,12 @@ static int wait_ready(struct kbase_device *kbdev,
 	if (max_loops == 0) {
 		dev_err(kbdev->dev, "AS_ACTIVE bit stuck, might be caused by slow/unstable GPU clock or possible faulty FPGA connector\n");
 #ifdef ENABLE_MTK_DEBUG
+//feiwen@BSP.System,2020/04/10,modify for gpu
+#ifdef TARGET_WATERMELON_Q_PROJECT
+		//mt_gpufreq_dump_reg();
+#else
 		mt_gpufreq_dump_reg();
+#endif
 		mtk_gpu_log_trigger_aee("AS_ACTIVE bit stuck");
 #endif
 		return -1;

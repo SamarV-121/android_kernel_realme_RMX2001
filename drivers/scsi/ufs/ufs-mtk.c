@@ -371,10 +371,10 @@ static int ufs_mtk_hie_cfg_request(unsigned int mode,
 	 * Bypass error by unsuccesful keyhint registration (-ENODEV)
 	 * because ufs host driver shall work fine in this case.
 	 */
-	if ((key_idx < 0) && (key_idx != -ENODEV))
+	if ((key_idx < 0) && (key_idx != -ENODEV)) {
+		spin_unlock_irqrestore(info->hba->host->host_lock, flags);
 		return key_idx;
-
-	spin_unlock_irqrestore(info->hba->host->host_lock, flags);
+	}
 
 	if (need_update || (key_idx < 0)) {
 
@@ -423,8 +423,6 @@ static int ufs_mtk_hie_cfg_request(unsigned int mode,
 			UFS_REG_CRYPTO_CAPABILITY);
 		addr = (cpt_cap.cap.cfg_ptr << 8) + (u32)(key_idx << 7);
 
-		spin_lock_irqsave(info->hba->host->host_lock, flags);
-
 		/* write configuration only to register */
 		for (i = 0; i < 32; i++) {
 			ufshcd_writel(info->hba, cpt_cfg.cfgx_raw[i],
@@ -433,14 +431,10 @@ static int ufs_mtk_hie_cfg_request(unsigned int mode,
 				key_idx,
 				(addr + i * 4), cpt_cfg.cfgx_raw[i]);
 		}
-
-		spin_unlock_irqrestore(info->hba->host->host_lock, flags);
 #else
 		hie_para = ((key_idx & 0xFF) << UFS_HIE_PARAM_OFS_CFG_ID) |
 			((mode & 0xFF) << UFS_HIE_PARAM_OFS_MODE) |
 			((len & 0xFF) << UFS_HIE_PARAM_OFS_KEY_TOTAL_BYTE);
-
-		spin_lock_irqsave(info->hba->host->host_lock, flags);
 
 		/* init ufs crypto IP for HIE and program key by first 8B */
 		mt_secure_call(MTK_SIP_KERNEL_CRYPTO_HIE_CFG_REQUEST,
@@ -451,10 +445,10 @@ static int ufs_mtk_hie_cfg_request(unsigned int mode,
 			mt_secure_call(MTK_SIP_KERNEL_CRYPTO_HIE_CFG_REQUEST,
 				key_ptr[i], key_ptr[i + 1], key_ptr[i + 2], 0);
 		}
-
-		spin_unlock_irqrestore(info->hba->host->host_lock, flags);
 #endif
 	}
+
+	spin_unlock_irqrestore(info->hba->host->host_lock, flags);
 
 	cmd = info->cmd;
 
@@ -608,9 +602,8 @@ static void ufs_mtk_advertise_hci_quirks(struct ufs_hba *hba)
 	hba->quirks |= UFSHCD_QUIRK_UFS_HCI_VENDOR_HOST_RST;
 #endif
 
-#if defined(UFS_MTK_PLATFORM_UFS_HCI_MANUALLY_DISABLE_AH8_BEFORE_RING_DOORBELL)
+	/* Always enable "Disable AH8 before RDB" */
 	hba->quirks |= UFSHCD_QUIRK_UFS_HCI_DISABLE_AH8_BEFORE_RDB;
-#endif
 
 	dev_info(hba->dev, "hci quirks: %#x\n", hba->quirks);
 }
@@ -1042,10 +1035,6 @@ static int ufs_mtk_init_mphy(struct ufs_hba *hba)
 
 static int ufs_mtk_enable_crypto(struct ufs_hba *hba)
 {
-	/* avoid resetting host during resume flow or when link is not off */
-	if (hba->pm_op_in_progress || !ufshcd_is_link_off(hba))
-		return 0;
-
 	/* restore vendor crypto setting by re-using resume operation */
 	mt_secure_call(MTK_SIP_KERNEL_HW_FDE_UFS_CTL, (1 << 2), 0, 0, 0);
 
@@ -1103,6 +1092,24 @@ int ufs_mtk_linkup_fail_handler(struct ufs_hba *hba, int left_retry)
 	return 0;
 }
 
+int ufs_mtk_check_powerctl(struct ufs_hba *hba)
+{
+	int err = 0;
+	u32 val = 0;
+
+	/* check if host in power saving */
+	err = ufshcd_dme_get(hba,
+		UIC_ARG_MIB(VENDOR_UNIPROPOWERDOWNCONTROL), &val);
+	if (!err && val == 0x1) {
+		err = ufshcd_dme_set(hba,
+			UIC_ARG_MIB(VENDOR_UNIPROPOWERDOWNCONTROL), 0);
+		dev_info(hba->dev, "get dme 0x%x = %d, set 0 (%d)\n",
+			VENDOR_UNIPROPOWERDOWNCONTROL, val, err);
+	}
+
+	return err;
+}
+
 static int ufs_mtk_hce_enable_notify(struct ufs_hba *hba,
 	enum ufs_notify_change_status stage)
 {
@@ -1144,6 +1151,11 @@ static int ufs_mtk_pre_link(struct ufs_hba *hba)
 
 	/* ensure auto-hibern8 is disabled during hba probing */
 	ufshcd_vops_auto_hibern8(hba, false);
+
+	/* powerup unipro if unipro powerdown */
+	ret = ufs_mtk_check_powerctl(hba);
+	if (ret)
+		return ret;
 
 	/* configure deep stall */
 	ret = ufshcd_dme_get(hba, UIC_ARG_MIB(VENDOR_SAVEPOWERCONTROL), &tmp);
@@ -1219,8 +1231,21 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		 */
 		ret = ufshcd_dme_set(hba,
 			UIC_ARG_MIB_SEL(VENDOR_UNIPROPOWERDOWNCONTROL, 0), 1);
-		if (ret)
+		if (ret) {
+			/* dump ufs debug Info like XO_UFS/VEMC/VUFS18 */
+			ufs_mtk_pltfrm_gpio_trigger_and_debugInfo_dump(hba);
+
+			/*
+			 * Power down fail leave vendor-specific power down mode
+			 * to resume UniPro state
+			 */
+			(void)ufshcd_dme_set(hba,
+				UIC_ARG_MIB_SEL(VENDOR_UNIPROPOWERDOWNCONTROL,
+				0), 0);
+			ret = -EAGAIN;
+
 			return ret;
+		}
 
 		ufs_mtk_pltfrm_suspend(hba);
 
@@ -2112,6 +2137,33 @@ int ufs_mtk_auto_hiber8_quirk_handler(struct ufs_hba *hba, bool enable)
 
 	return 0;
 }
+
+int ufs_mtk_wait_link_state(struct ufs_hba *hba, u32 *state,
+			    unsigned long retry_ms)
+{
+	unsigned long timeout;
+	u32 val;
+
+	timeout = jiffies + msecs_to_jiffies(retry_ms);
+	do {
+		ufshcd_writel(hba, 0x20, REG_UFS_MTK_DEBUG_SEL);
+		val = ufshcd_readl(hba, REG_UFS_MTK_PROBE);
+		val = val >> 28;
+
+		if (val == *state)
+			break;
+
+		/* sleep for max. 200us */
+		usleep_range(100, 200);
+	} while (time_before(jiffies, timeout));
+
+	if (val == *state)
+		return 0;
+
+	*state = val;
+	return -ETIMEDOUT;
+}
+
 
 /* Notice: this function must be called in automic context */
 /* Because it is not protected by ufs spin_lock or mutex */

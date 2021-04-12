@@ -12,7 +12,7 @@
 #
 
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
-subdir-ccflags-y += -Werror
+subdir-ccflags-y += -Werror -Wunused-function -Wunused-variable
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
@@ -42,7 +42,6 @@ obj-$(CONFIG_MTK_PUMP_EXPRESS_PLUS_SUPPORT) += mtk_pe_intf.o
 obj-$(CONFIG_MTK_PUMP_EXPRESS_PLUS_20_SUPPORT) += mtk_pe20_intf.o
 obj-$(CONFIG_CHARGER_RT9465) += rt9465.o
 obj-$(CONFIG_CHARGER_RT9458) += rt9458.o
-obj-$(CONFIG_CHARGER_RT9467) += rt9467.o
-obj-$(CONFIG_CHARGER_RT9471) += rt9471.o
 obj-$(CONFIG_CHARGER_HL7005) += hl7005.o
 obj-$(CONFIG_CHARGER_BQ25601) += bq25601.o
+obj-$(CONFIG_MTK_HVDCP) += mtk_hvdcp_intf.o

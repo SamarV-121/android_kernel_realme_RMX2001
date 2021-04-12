@@ -16,6 +16,7 @@
  */
 
 #include "ccci_fsm_internal.h"
+#include <plat_lastbus.h>
 
 static struct ccci_fsm_ctl *ccci_fsm_entries[MAX_MD_NUM];
 
@@ -135,7 +136,7 @@ static void fsm_routine_zombie(struct ccci_fsm_ctl *ctl)
 static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_command *cmd, enum CCCI_EE_REASON reason)
 {
-	int count = 0, ex_got = 0;
+	int count = 0, ex_got = 0, time = -1;
 	int rec_ok_got = 0, pass_got = 0;
 	struct ccci_fsm_event *event;
 	unsigned long flags;
@@ -231,6 +232,7 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 			msleep(EVENT_POLL_INTEVAL);
 		}
 		fsm_md_exception_stage(&ctl->ee_ctl, 2);
+		time = lastbus_timeout_dump();
 		/*wait until modem memory dump done*/
 		fsm_check_ee_done(&ctl->ee_ctl, EE_DONE_TIMEOUT);
 		break;

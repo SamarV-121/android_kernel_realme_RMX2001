@@ -18,7 +18,8 @@
 struct alsps_context *alsps_context_obj /* = NULL*/;
 struct platform_device *pltfm_dev;
 int last_als_report_data = -1;
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 /* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/10/12, add als node for als_offset cali */
 int als_offset = 0;
 int dark_code = 0;
@@ -40,7 +41,8 @@ int als_data_report_t(int value, int status, int64_t time_stamp)
 	cxt = alsps_context_obj;
 	event.time_stamp = time_stamp;
 	/* pr_debug(" +als_data_report! %d, %d\n", value, status); */
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
     /* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/10/12, add als node for als_offset cali */
 	dark_code = value;
 	if(value >= als_offset)
@@ -900,7 +902,8 @@ static ssize_t ps_store_cali(struct device *dev, struct device_attribute *attr,
 	vfree(cali_buf);
 	return count;
 }
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
     /* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/10/12, add als node for als_offset cali */
 static ssize_t als_show_offset(struct device *dev, struct device_attribute *attr,
 			     char *buf)
@@ -1059,7 +1062,8 @@ DEVICE_ATTR(alsbatch, 0644, als_show_batch, als_store_batch);
 DEVICE_ATTR(alsflush, 0644, als_show_flush, als_store_flush);
 DEVICE_ATTR(alsdevnum, 0644, als_show_devnum, NULL);
 DEVICE_ATTR(alscali, 0644, NULL, als_store_cali);
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
     /* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/10/12, add als node for als_offset cali */
 DEVICE_ATTR(alsoffset, 0644, als_show_offset, als_store_offset);
 DEVICE_ATTR(alsdark, 0644, als_show_dark, NULL);
@@ -1076,7 +1080,9 @@ static struct attribute *als_attributes[] = {
 	&dev_attr_alsflush.attr,
 	&dev_attr_alsdevnum.attr,
 	&dev_attr_alscali.attr,
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
+
     /* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/10/12, add als node for als_offset cali */
 	&dev_attr_alsoffset.attr,
 	&dev_attr_alsdark.attr,

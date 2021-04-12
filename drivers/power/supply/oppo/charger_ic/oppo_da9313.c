@@ -71,6 +71,11 @@ extern void mt_power_off(void);
 #include <oppo_da9313.h>
 #include <linux/proc_fs.h>
 
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+extern int is_sala_a_project(void);
+#endif
+
 static struct chip_da9313 *the_chip = NULL;
 static DEFINE_MUTEX(da9313_i2c_access);
 
@@ -379,6 +384,11 @@ static int da9313_driver_probe(struct i2c_client *client, const struct i2c_devic
     divider_ic->dev = &client->dev;
     the_chip = divider_ic;
     divider_ic->fixed_mode_set_by_dev_file = false;
+
+	if (is_sala_a_project() != 2) {
+		chg_err(" it is not sala_A project,return\n");
+		return -ENOMEM;
+	}
 
     da9313_dump_registers();
 

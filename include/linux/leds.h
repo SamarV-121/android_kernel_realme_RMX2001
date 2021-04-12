@@ -44,7 +44,8 @@ enum led_brightness {
 };
 #define TEN_BITS (((get_project() == 17197) || (get_project() == 17199) \
 				|| (get_project() == 19531) || (get_project() == 19391)) ? 1 : 0)
-#define ELEVEN_BITS (((get_project() == 19661) || (get_project() == 17331) || (get_project() == 17332) \
+#define ELEVEN_BITS (((get_project() == 20671) || (get_project() == 18601) || (get_project() == 19661) \
+				|| (get_project() == 17331) || (get_project() == 17332) \
 				|| (get_project() == 17335) || (get_project() == 17337) \
 				|| ((get_project() >= 17061) && (get_project() <= 17067)) \
 				|| ((get_project() >= 17175) && (get_project() <= 17178)) \
@@ -56,8 +57,12 @@ enum led_brightness {
 				|| ((get_project() >= 18161) && (get_project() <= 18169)) \
 				|| ((get_project() >= 18151) && (get_project() <= 18159)) \
 				|| (get_project() == 17339) || (get_project() == 17340)) ? 1 : 0)
-#define LED_HALF (ELEVEN_BITS ? 1023 : (TEN_BITS ? 511 : 127))
-#define LED_FULL (ELEVEN_BITS ? 2047 : (TEN_BITS ? 1023 : 255))
+//#ifdef ODM_HQ_EDIT
+/* Longyajun@ODM.HQ.Multimedia.LCM 2020/05/06 modified for 4095 steps backlight */
+#define TWELVE_BITS	((get_project() == 20682) ? 1 : 0)
+#define LED_HALF (ELEVEN_BITS ? 1023 : (TWELVE_BITS ? 2047 : 127))
+#define LED_FULL (ELEVEN_BITS ? 2047 : (TWELVE_BITS ? 4095 : 255))
+//endif /*ODM_HQ_EDIT*/
 #endif /* VENDOR_EDIT */
 struct led_classdev {
 	const char		*name;

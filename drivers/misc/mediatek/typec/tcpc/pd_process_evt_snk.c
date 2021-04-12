@@ -18,6 +18,13 @@
 #include "inc/tcpci_event.h"
 #include "inc/pd_process_evt.h"
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/08/11 Add for PD hard reset*/
+#include <mt-plat/mtk_boot_common.h>
+
+extern int is_sala_a_project(void);
+#endif
+
 /* PD Control MSG reactions */
 
 DECL_PE_STATE_TRANSITION(PD_CTRL_MSG_ACCEPT) = {
@@ -41,6 +48,18 @@ DECL_PE_STATE_TRANSITION(PD_DATA_MSG_SOURCE_CAP) = {
 #endif	/* CONFIG_USB_PD_TCPM_CB_2ND */
 };
 DECL_PE_STATE_REACTION(PD_DATA_MSG_SOURCE_CAP);
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/08/11 Add for PD hard reset*/
+bool oppo_power_off_charging(void)
+{
+    if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT) {
+        return true;
+    } else {
+        return false;
+    }
+}
+#endif
 
 /*
  * [BLOCK] Porcess Ctrl MSG
@@ -374,9 +393,22 @@ static inline bool pd_process_timer_msg(
 #ifndef CONFIG_USB_PD_DBG_IGRONE_TIMEOUT
 	case PD_TIMER_SINK_WAIT_CAP:
 	case PD_TIMER_PS_TRANSITION:
-		if (pd_port->pe_data.hard_reset_counter <=
-						PD_HARD_RESET_COUNT) {
-			PE_TRANSIT_STATE(pd_port, PE_SNK_HARD_RESET);
+		if (pd_port->pe_data.hard_reset_counter <= PD_HARD_RESET_COUNT) {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/08/11 Add for PD hard reset*/
+            if (is_sala_a_project() == 2) {
+                if (oppo_power_off_charging() == false) {
+                                
+                    printk(KERN_ERR "[OPPO_CHG][%s]: PE_SNK_HARD_RESET!\n", __func__);
+                    PE_TRANSIT_STATE(pd_port, PE_SNK_HARD_RESET);
+                } 
+            } else {
+                PE_TRANSIT_STATE(pd_port, PE_SNK_HARD_RESET);
+            }
+#else
+            PE_TRANSIT_STATE(pd_port, PE_SNK_HARD_RESET);
+#endif
+
 			return true;
 		}
 		break;

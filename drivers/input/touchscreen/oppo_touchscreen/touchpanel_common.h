@@ -142,6 +142,7 @@ typedef enum {
     MODE_PALM_REJECTION,
     MODE_FACE_DETECT,
     MODE_HEADSET,
+    MODE_CALL_PHONE,
 } work_mode;
 
 typedef enum {
@@ -736,7 +737,7 @@ struct earsense_proc_operations {
 
 /*********PART3:function or variables for other files**********************/
 extern unsigned int tp_debug ;                                                            /*using for print debug log*/
-
+extern int tpd_load_status;
 struct touchpanel_data *common_touch_data_alloc(void);
 
 int  common_touch_data_free(struct touchpanel_data *pdata);

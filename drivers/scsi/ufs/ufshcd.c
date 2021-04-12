@@ -6313,6 +6313,7 @@ static int ufshcd_issue_tm_cmd(struct ufs_hba *hba, int lun_id, int task_id,
 	task_req_upiup->input_param2 = cpu_to_be32(task_id);
 
 	ufshcd_vops_res_ctrl(hba, UFS_RESCTL_CMD_SEND);
+	ufs_mtk_auto_hiber8_quirk_handler(hba, false);
 	ufshcd_vops_setup_task_mgmt(hba, free_slot, tm_function);
 
 	/* send command to the controller */
@@ -8809,20 +8810,8 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	 * 3. Manually enter h8.
 	 */
 	ufshcd_vops_auto_hibern8(hba, false);
-	timeout = jiffies + msecs_to_jiffies(H8_POLL_TOUT_MS);
-	do {
-		ret = ufshcd_dme_get(hba, UIC_ARG_MIB(VENDOR_POWERSTATE), &reg);
-		if (ret != 0)
-			dev_err(hba->dev,
-				"ufshcd_dme_get_ 0x%x fail, ret = %d!\n",
-				VENDOR_POWERSTATE, ret);
-
-		if (reg != VENDOR_POWERSTATE_HIBERNATE)
-			break;
-
-		/* sleep for max. 200us */
-		usleep_range(100, 200);
-	} while (time_before(jiffies, timeout));
+	reg = VENDOR_POWERSTATE_LINKUP;
+	ufs_mtk_wait_link_state(hba, &reg, 100);
 
 	/* Device is stuck in H8 state */
 	if (reg == VENDOR_POWERSTATE_HIBERNATE) {
@@ -8905,17 +8894,7 @@ disable_clks:
 		dev_err(hba->dev, "%s: vender suspend failed. ret = %d\n",
 			__func__, ret);
 
-		/* block commands from scsi mid-layer */
-		ufshcd_scsi_block_requests(hba);
-		hba->ufshcd_state = UFSHCD_STATE_ERROR;
-		hba->force_host_reset = true;
-		schedule_work(&hba->eh_work);
-
-		/* Unable to recover the link, so no point proceeding */
-		if (ret) {
-			ret = -EAGAIN;
-			goto set_link_active;
-		}
+		goto set_link_active;
 	}
 
 	if (!ufshcd_is_link_active(hba))

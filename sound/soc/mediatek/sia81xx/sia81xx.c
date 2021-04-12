@@ -187,6 +187,8 @@ static const char *support_chip_type_name_table[] = {
 	[CHIP_TYPE_SIA8109] = "sia8109"
 };
 
+//sunjingtao@ODM.HQ.Multimedia.Audio 2020/04/21 added for autoaudiotest
+static int SIA81xx_probed = 0;
 
 /********************************************************************
  * sia81xx misc option
@@ -213,6 +215,10 @@ int sia81xx_power_on(void)
 {
 	int ret = 0;
 
+	//sunjingtao@ODM.HQ.Multimedia.Audio 2020/04/21 added for autoaudiotest
+	if(0 == SIA81xx_probed)
+	    return  0;
+
 	if(temp_sia81xx_dev == NULL)
 		return 0;
 
@@ -227,6 +233,10 @@ EXPORT_SYMBOL(sia81xx_power_on);
 int sia81xx_power_off(void)
 {
 	int ret = 0;
+
+       //sunjingtao@ODM.HQ.Multimedia.Audio 2020/04/21 added for autoaudiotest
+	if(0 == SIA81xx_probed)
+	    return  0;
 
 	if(temp_sia81xx_dev == NULL)
 		return 0;
@@ -1412,6 +1422,10 @@ static int sia81xx_power_set(
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	sia81xx_dev_t *sia81xx = snd_soc_codec_get_drvdata(codec);
 
+	//sunjingtao@ODM.HQ.Multimedia.Audio 2020/04/21 added for autoaudiotest
+	if(0 == SIA81xx_probed)
+	    return  0;
+
 	pr_debug("[debug][%s] %s: ucontrol = %ld, rst = %d \r\n", 
 		LOG_FLAG, __func__, ucontrol->value.integer.value[0], sia81xx->rst_pin);
 
@@ -1447,6 +1461,10 @@ static int sia81xx_audio_scene_set(
 	sia81xx_dev_t *sia81xx = snd_soc_codec_get_drvdata(codec);
 	//fanxiongnan@ODM.HQ.MM.Audio.BSP 2020/01/16 added to fix pop issue
 	temp_sia81xx_dev = sia81xx;
+
+       //sunjingtao@ODM.HQ.Multimedia.Audio 2020/04/21 added for autoaudiotest
+       if(0 == SIA81xx_probed)
+           return  0;
 
 	pr_debug("[debug][%s] %s: ucontrol = %ld, rst = %d \r\n", 
 		LOG_FLAG, __func__, ucontrol->value.integer.value[0], sia81xx->rst_pin);
@@ -1917,6 +1935,9 @@ static int sia81xx_i2c_probe(
 		pr_info("[ info][%s] %s: there isn't sia81xx device \r\n",
 		LOG_FLAG, __func__);
 	}
+
+       //sunjingtao@ODM.HQ.Multimedia.Audio 2020/04/21 added for autoaudiotest
+       SIA81xx_probed = 1;
 
 	return 0;
 }

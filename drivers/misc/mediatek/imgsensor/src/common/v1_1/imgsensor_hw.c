@@ -22,9 +22,8 @@
 #ifdef ODM_HQ_EDIT
 /* Houbing.Peng@ODM_HQ Cam.Drv 20191112 add for change BUCK_VS2 vol from 1.35v to 1.4v */
 #include <mt-plat/upmu_common.h>
-#endif
-#ifndef VENDOR_EDIT
-#define VENDOR_EDIT
+/*Houbing.Peng@ODM 20200416 add for sala bringup*/
+#include <soc/oppo/oppo_project.h>
 #endif
 enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 {
@@ -50,7 +49,20 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 	for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
 		psensor_pwr = &phw->sensor_pwr[i];
 
+		#ifdef CONFIG_MACH_MT6785
+		/*Houbing.Peng@ODM 20200416 add for sala bringup*/
+        /*Chejian@ODM_HQ Cam.Drv 20201112 for sala3*/
+		if (is_project(OPPO_20682)) {
+			pcust_pwr_cfg = imgsensor_custom_config_20682;
+            if (get_Operator_Version() >= 90 && get_Operator_Version() <= 93){
+                pcust_pwr_cfg = imgsensor_custom_config_SALA3;
+            }
+		} else {
+			pcust_pwr_cfg = imgsensor_custom_config;
+		}
+		#else
 		pcust_pwr_cfg = imgsensor_custom_config;
+		#endif
 		while (pcust_pwr_cfg->sensor_idx != i &&
 		       pcust_pwr_cfg->sensor_idx != IMGSENSOR_SENSOR_IDX_NONE)
 			pcust_pwr_cfg++;
@@ -140,13 +152,13 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 
 	if (ppwr_seq->name == NULL)
 #else
-	while (ppwr_seq->idx != NULL &&
+	while (ppwr_seq->name != NULL &&
 		ppwr_seq < ppower_sequence + IMGSENSOR_HW_SENSOR_MAX_NUM &&
-		strcmp(ppwr_seq->idx, pcurr_idx)) {
+		strcmp(ppwr_seq->name, pcurr_idx)) {
 		ppwr_seq++;
 	}
 
-	if (ppwr_seq->idx == NULL)
+	if (ppwr_seq->name == NULL)
 #endif
 		return IMGSENSOR_RETURN_ERROR;
 
@@ -159,8 +171,7 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 			if (ppwr_info->pin != IMGSENSOR_HW_PIN_UNDEF) {
 				pdev =
 				phw->pdev[psensor_pwr->id[ppwr_info->pin]];
-
-				if (__ratelimit(&ratelimit))
+                if (__ratelimit(&ratelimit))
 					PK_DBG(
 					"sensor_idx %d, ppwr_info->pin %d, ppwr_info->pin_state_on %d",
 					sensor_idx,
@@ -232,7 +243,7 @@ enum IMGSENSOR_RETURN imgsensor_hw_power(
 
 #ifndef ODM_HQ_EDIT
 /* Lijian@ODM.Camera.Drv 20190827 for snesor bringup */
-	PK_DBG("sensor_idx %d, power %d curr_sensor_name %s, enable list %s\n",
+	printk("sensor_idx %d, power %d curr_sensor_name %s, enable list %s\n",
 		sensor_idx,
 		pwr_status,
 		curr_sensor_name,
@@ -263,10 +274,25 @@ enum IMGSENSOR_RETURN imgsensor_hw_power(
 			platform_power_sequence,
 			str_index);
 
+	#ifdef CONFIG_MACH_MT6785
+	/*Houbing.Peng@ODM 20200416 add for sala bringup*/
+	if (is_project(OPPO_20682)) {
+		imgsensor_hw_power_sequence(
+				phw,
+				sensor_idx,
+				pwr_status, sensor_power_sequence_20682, curr_sensor_name);
+	} else {
+		imgsensor_hw_power_sequence(
+				phw,
+				sensor_idx,
+				pwr_status, sensor_power_sequence, curr_sensor_name);
+	}
+	#else
 	imgsensor_hw_power_sequence(
 			phw,
 			sensor_idx,
 			pwr_status, sensor_power_sequence, curr_sensor_name);
+	#endif
 
 	return IMGSENSOR_RETURN_SUCCESS;
 }

@@ -668,6 +668,9 @@ page_owner=on loop.max_part=7";
 		compatible = "mediatek,kp";
 		reg = <0 0x10010000 0 0x1000>;
 		interrupts = <GIC_SPI 75 IRQ_TYPE_EDGE_FALLING>;
+
+		//zhangchao@ODM.HQ.Charger 2020/03/09 add for distinguish 1878 1879 and 1877
+		cphy_dphy-gpio = <&pio 58 0x00>;
 	};
 
 	topmisc@10011000 {
@@ -2387,6 +2390,18 @@ page_owner=on loop.max_part=7";
 		io-channels = <&auxadc 3>;
 		io-channel-names = "thermistor-ch3";
 	};
+	
+	flashlight_ntc_adc: flashlight_ntc {
+		compatible = "mediatek,flashlight_ntc";
+		io-channels = <&auxadc 5>;
+		io-channel-names = "thermistor-ch5";
+	};
+
+	charger_ntc_adc: charger_ntc {
+		compatible = "mediatek,charger_ntc";
+		io-channels = <&auxadc 4>;
+		io-channel-names = "thermistor-ch4";
+	};		
 /* #endif */
 
 	drcc: drcc {
@@ -4099,11 +4114,11 @@ page_owner=on loop.max_part=7";
 		interrupts = <GIC_SPI 285 IRQ_TYPE_LEVEL_LOW>;
 
 		clocks = <&camsys CAMSYS_CCU_CGPDN>,
-			 <&mmsys_config MMSYS_GALS_CCU2MM>,
-                         <&scpsys SCP_SYS_CAM>;
+			<&mmsys_config MMSYS_GALS_CCU2MM>,
+			<&scpsys SCP_SYS_CAM>;
 		clock-names = "CCU_CLK_CAM_CCU",
-			      "CCU_CLK_MMSYS_CCU",
-                              "CAM_PWR";
+			    "CCU_CLK_MMSYS_CCU",
+			    "CAM_PWR";
 #ifdef CONFIG_MTK_IOMMU_V2
 		iommus = <&iommu0 M4U_PORT_CCUG>;
 #endif
@@ -5157,7 +5172,8 @@ page_owner=on loop.max_part=7";
 		/* enable_pe_plus; */
 		enable_pd20_reset;
 		power_path_support;
-		max_charger_voltage = <6500000>;
+		/*hongzhenglong@ODM.HQ.BSP.CHG 2020/06/17 modify for showing OVP picture when power off*/
+		max_charger_voltage = <5800000>;
 		fast_charge_voltage = <3000000>;
 
 		/* charging current */
@@ -5593,7 +5609,7 @@ page_owner=on loop.max_part=7";
 
 #include "mt6359.dtsi"
 #include "cust_mt6785_msdc.dtsi"
-#include "cust_mt6785_camera.dtsi"
+
 //#ifdef ODM_HQ_EDIT
 //sunjingtao@ODM.BSP.System  2019/9/7 add for devinfo
 #include "hq_devinfo.dtsi"

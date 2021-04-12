@@ -21,7 +21,9 @@
 #include <sched_ctl.h>
 #include <mtk_mcdi_state.h>
 #include "hypnus_op.h"
+
 //#include <mtk_gpufreq_plat.h>
+
 #if 0
 #include <vpu_drv.h>
 #endif
@@ -36,7 +38,10 @@ extern int mt_gpufreq_scene_protect(unsigned int min_freq, unsigned int max_freq
 extern int set_sched_boost(unsigned int val);
 extern int sched_deisolate_cpu(int cpu);
 extern int sched_isolate_cpu(int cpu);
+
 extern unsigned int mt_gpufreq_get_freq_by_idx(unsigned int idx);
+
+
 #if 0
 extern int vpu_lock_set_power(struct vpu_lock_power *vpu_lock_power);
 #endif
@@ -235,6 +240,87 @@ static int mt_set_updown_migrate(unsigned int up_migrate, unsigned int down_migr
 }
 
 
+static int mt_set_vpu_freq_limit(u32 core_id, u32 min, u32 max)
+{
+	/*struct vpu_lock_power vpu_lock_power;
+
+
+	vpu_lock_power.core = (0x1 << core_id);
+	vpu_lock_power.lock = true;
+	vpu_lock_power.priority = POWER_HAL;
+	vpu_lock_power.max_boost_value = max;
+	vpu_lock_power.min_boost_value = min;
+
+
+	return vpu_lock_set_power(&vpu_lock_power);*/
+	return 0;
+}
+
+static int mt_set_mdla_freq_limit(u32 core_id, u32 min, u32 max)
+{
+	/*struct mdla_lock_power mdla_lock_power;
+
+
+	mdla_lock_power.core = (0x1 << core_id);
+	mdla_lock_power.lock = true;
+	mdla_lock_power.priority = MDLA_OPP_POWER_HAL;
+	mdla_lock_power.max_boost_value = max;
+	mdla_lock_power.min_boost_value = min;
+
+
+	return mdla_lock_set_power(&mdla_lock_power);*/
+	return 0;
+
+
+}
+
+static int mt_set_cpunr_limit(struct hypnus_data *pdata, unsigned int index,
+		unsigned int min, unsigned int max)
+{
+#if 0
+	struct cluster_data *cluster;
+	struct cpumask *cluster_mask, pmask;
+	unsigned int cpu, now_cpus, need_cpus;
+	int ret;
+
+	if (index >=  pdata->cluster_nr)
+		return -EINVAL;
+
+	ret = now_cpus = cpu = 0;
+	cluster = &pdata->cluster_data[i];
+	cluster_mask = &cluster->cluster_mask;
+	now_cpus = cpu_available_count(cluster_mask);
+	need_cpus = prop->need_cpus[i];
+
+	if (need_cpus > now_cpus) {
+		cpumask_and(&pmask, cluster_mask, cpu_online_mask);
+		cpumask_and(&pmask, &pmask, cpu_isolated_mask);
+		for_each_cpu(cpu, &pmask) {
+			hypnus_unisolate_cpu(pdata, cpu);
+			if (need_cpus
+				<= cpu_available_count(cluster_mask))
+				break;
+		}
+	} else if (need_cpus < now_cpus) {
+		cpu = cpumask_first(cluster_mask);
+
+		for (j = cluster->num_cpus - 1; j >= 0; j--) {
+			if (cpu_isolated(cpu + j)
+				|| !cpu_online(cpu + j))
+				continue;
+			hypnus_isolate_cpu(pdata, cpu + j);
+			if (need_cpus
+				>= cpu_available_count(cluster_mask))
+				break;
+		}
+	}
+
+	ret |= (need_cpus != cpu_available_count(cluster_mask));
+	return ret;
+#endif
+	return 0;
+}
+
 static struct hypnus_chipset_operations mediatek_op = {
 	.name = "mediatek",
 	.get_running_avg = mt_get_running_avg,
@@ -259,6 +345,7 @@ static struct hypnus_chipset_operations mediatek_op = {
 	.set_updown_migrate = mt_set_updown_migrate,
 	.set_dsp_freq_limit = NULL, //mt_set_vpu_freq_limit,
 	.set_npu_freq_limit = NULL, //mt_set_mdla_freq_limit,
+
 };
 
 void hypnus_chipset_op_init(struct hypnus_data *pdata)

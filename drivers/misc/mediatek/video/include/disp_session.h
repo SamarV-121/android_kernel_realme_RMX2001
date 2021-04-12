@@ -545,7 +545,7 @@ struct dynamic_fps_levels {
 };
 
 /*DynFPS start*/
-#define MULTI_CONFIG_NUM 2
+#define MULTI_CONFIG_NUM 3
 struct dyn_config_info {
 	unsigned int vsyncFPS;
 	unsigned int vact_timing_fps;/*active timing fps*/

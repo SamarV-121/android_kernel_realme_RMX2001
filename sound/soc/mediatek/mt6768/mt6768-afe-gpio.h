@@ -13,6 +13,11 @@ struct mtk_base_afe;
 
 int mt6768_afe_gpio_init(struct mtk_base_afe *afe);
 
+#ifdef ODM_HQ_EDIT
+/*sunjingtao@ODM.HQ.Multimedia.Audio 2020/03/04 modified for speaker bringup*/
+int mt6768_afe_gpio_extamp_select(struct mtk_base_afe *afe, bool enable, int mode);
+#endif /* ODM_HQ_EDIT */
+
 int mt6768_afe_gpio_request(struct mtk_base_afe *afe, bool enable,
 			    int dai, int uplink);
 

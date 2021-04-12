@@ -830,7 +830,7 @@ int spi_write_firmware(struct spi_device *client, u8 *fw, u32 *len_array, u8 arr
     for (i = 0; i < array_len; i++) {
         t[i].len = len_array[i];
         t[i].tx_buf = buf;
-        t[i].cs_change = 1;
+        //t[i].cs_change = 1;
         spi_message_add_tail(&t[i], &m);
         //TPD_INFO("i=%d, len=%d, buf[0]=%x\n", i, len_array[i], buf[0]);
         buf = buf + len_array[i];

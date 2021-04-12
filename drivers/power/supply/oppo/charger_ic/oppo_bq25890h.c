@@ -36,13 +36,13 @@
 #include <mt-plat/mt_gpio.h>
 #include <mt_boot_common.h>
 #include <mt-plat/mtk_rtc.h>
-#elif defined(CONFIG_OPPO_CHARGER_MTK6763) || defined(CONFIG_OPPO_CHARGER_MTK6771)
+#elif defined(CONFIG_OPPO_CHARGER_MTK6763) || defined(CONFIG_OPPO_CHARGER_MTK6771) || defined(CONFIG_OPPO_HQ_EULER_CHARGER)
 #include <linux/module.h>
 //#include <upmu_common.h>
 #include <mt-plat/mtk_gpio.h>
 //#include <mtk_boot_common.h>
 #include <mt-plat/mtk_rtc.h>
-//#include <mt-plat/charger_type.h>
+#include <mt-plat/charger_type.h>
 #else
 #include <mach/mt_typedefs.h>
 #include <mach/mt_gpio.h>
@@ -51,7 +51,7 @@
 #include <mach/mtk_rtc.h>
 #endif
 
-#if defined CONFIG_OPPO_CHARGER_MTK6763 || defined(CONFIG_OPPO_CHARGER_MTK6771)
+#if defined CONFIG_OPPO_CHARGER_MTK6763 || defined(CONFIG_OPPO_CHARGER_MTK6771)  || defined(CONFIG_OPPO_HQ_EULER_CHARGER)
 #include <soc/oppo/device_info.h>
 #else
 #include <soc/oppo/device_info.h>
@@ -103,7 +103,7 @@ static DEFINE_MUTEX(bq25890h_i2c_access);
 static int __bq25890h_read_reg(struct chip_bq25890h *chip, int reg, int *returnData)
 {
     #ifdef 	CONFIG_OPPO_CHARGER_MTK
-    #if defined CONFIG_OPPO_CHARGER_MTK6763  || defined(CONFIG_OPPO_CHARGER_MTK6771)
+    #if defined CONFIG_OPPO_CHARGER_MTK6763  || defined(CONFIG_OPPO_CHARGER_MTK6771)  || defined(CONFIG_OPPO_HQ_EULER_CHARGER)
 	int ret = 0;
 
     ret = i2c_smbus_read_byte_data(chip->client, reg);
@@ -160,7 +160,7 @@ static int bq25890h_read_reg(struct chip_bq25890h *chip, int reg, int *returnDat
 static int __bq25890h_write_reg(struct chip_bq25890h *chip, int reg, int val)
 {
     #ifdef CONFIG_OPPO_CHARGER_MTK
-    #if defined CONFIG_OPPO_CHARGER_MTK6763 || defined(CONFIG_OPPO_CHARGER_MTK6771)
+    #if defined CONFIG_OPPO_CHARGER_MTK6763 || defined(CONFIG_OPPO_CHARGER_MTK6771)  || defined(CONFIG_OPPO_HQ_EULER_CHARGER)
 	int ret = 0;
 
     ret = i2c_smbus_write_byte_data(chip->client, reg, val);
@@ -231,7 +231,7 @@ static int bq25890h_usbin_input_current_limit[] = {
     100,    150,    500,    900,
     1200,   1500,   2000,   3000,
 };
-#if defined(CONFIG_OPPO_CHARGER_MTK6763)  || defined(CONFIG_OPPO_CHARGER_MTK6771)
+#if defined(CONFIG_OPPO_CHARGER_MTK6763)  || defined(CONFIG_OPPO_CHARGER_MTK6771)  || defined(CONFIG_OPPO_HQ_EULER_CHARGER)
 #define AICL_COUNT 10
 static int chg_vol_mini(int *chg_vol)
 {
@@ -246,7 +246,7 @@ static int chg_vol_mini(int *chg_vol)
 	return chg_vol_temp;
 }
 #endif
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6353) || defined(CONFIG_OPPO_CHARGER_MTK6763)  || defined(CONFIG_OPPO_CHARGER_MTK6771)
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6353) || defined(CONFIG_OPPO_CHARGER_MTK6763)  || defined(CONFIG_OPPO_CHARGER_MTK6771)  || defined(CONFIG_OPPO_HQ_EULER_CHARGER)
 static int bq25890h_input_current_limit_write(int value)
 {
 	int rc = 0;
@@ -337,7 +337,7 @@ static int bq25890h_input_current_limit_write(int value)
 		goto aicl_end;
 
 	j = 5; /* 1500 */
-	#if defined(CONFIG_OPPO_CHARGER_MTK6763)  || defined(CONFIG_OPPO_CHARGER_MTK6771)
+	#if defined(CONFIG_OPPO_CHARGER_MTK6763)  || defined(CONFIG_OPPO_CHARGER_MTK6771)  || defined(CONFIG_OPPO_HQ_EULER_CHARGER)
 	aicl_point_temp = charger_ic->sw_aicl_point;
 	#else
 	aicl_point_temp = charger_ic->sw_aicl_point;
@@ -355,14 +355,14 @@ static int bq25890h_input_current_limit_write(int value)
 		goto aicl_end;
 
 	j = 6; /* 2000 */
-	#if defined(CONFIG_OPPO_CHARGER_MTK6763)  || defined(CONFIG_OPPO_CHARGER_MTK6771)
+	#if defined(CONFIG_OPPO_CHARGER_MTK6763)  || defined(CONFIG_OPPO_CHARGER_MTK6771)  || defined(CONFIG_OPPO_HQ_EULER_CHARGER)
 	aicl_point_temp = charger_ic->sw_aicl_point;
 	#else
 	aicl_point_temp = charger_ic->sw_aicl_point;
 	#endif
 	rc = bq25890h_config_interface(charger_ic, REG00_BQ25890H_ADDRESS, REG00_BQ25890H_INPUT_CURRENT_LIMIT_2000MA, REG00_BQ25890H_INPUT_CURRENT_LIMIT_MASK);
 	msleep(90);
-	#if defined(CONFIG_OPPO_CHARGER_MTK6763)  || defined(CONFIG_OPPO_CHARGER_MTK6771)
+	#if defined(CONFIG_OPPO_CHARGER_MTK6763)  || defined(CONFIG_OPPO_CHARGER_MTK6771)  || defined(CONFIG_OPPO_HQ_EULER_CHARGER)
 	for(i = 0; i < AICL_COUNT; i++){
 		chg_vol = battery_meter_get_charger_voltage();
 		chg_vol_all[i] = chg_vol;
@@ -999,7 +999,7 @@ int bq25890h_unsuspend_charger(void)
 	return rc;
 }
 
-#if defined CONFIG_MTK_PMIC_CHIP_MT6353 || defined(CONFIG_OPPO_CHARGER_MTK6763) || defined(CONFIG_OPPO_CHARGER_MTK6771)
+#if defined CONFIG_MTK_PMIC_CHIP_MT6353 || defined(CONFIG_OPPO_CHARGER_MTK6763) || defined(CONFIG_OPPO_CHARGER_MTK6771)  || defined(CONFIG_OPPO_HQ_EULER_CHARGER)
 int bq25890h_reset_charger(void)
 {
 	int rc = 0;
@@ -1064,7 +1064,7 @@ int bq25890h_reset_charger(void)
 
 	return rc;
 }
-#else /*defined CONFIG_MTK_PMIC_CHIP_MT6353 || defined(CONFIG_OPPO_CHARGER_MTK6763) || defined(CONFIG_OPPO_CHARGER_MTK6771)*/
+#else /*defined CONFIG_MTK_PMIC_CHIP_MT6353 || defined(CONFIG_OPPO_CHARGER_MTK6763) || defined(CONFIG_OPPO_CHARGER_MTK6771)  || defined(CONFIG_OPPO_HQ_EULER_CHARGER)*/
 int bq25890h_reset_charger(void)
 {
 	int rc = 0;
@@ -1185,7 +1185,7 @@ int bq25890h_hardware_init(void)
 		bq25890h_float_voltage_write(4400);
 		msleep(100);
 	}
-	#if defined(CONFIG_OPPO_CHARGER_MTK6763) || defined(CONFIG_OPPO_CHARGER_MTK6771)
+	#if defined(CONFIG_OPPO_CHARGER_MTK6763) || defined(CONFIG_OPPO_CHARGER_MTK6771)  || defined(CONFIG_OPPO_HQ_EULER_CHARGER)
 	bq25890h_float_voltage_write(4370);
 	#else
 	bq25890h_float_voltage_write(4320);
@@ -1338,7 +1338,7 @@ struct oppo_chg_operations  bq25890h_chg_ops = {
 	.get_rtc_soc = get_rtc_spare_oppo_fg_value,
 	.set_rtc_soc = set_rtc_spare_oppo_fg_value,
 /*Qiao.Hu@BSP.BaseDrv.CHG.Basic, 2017/11/29, add for mt6771 charger */
-	#elif defined(CONFIG_OPPO_CHARGER_MTK6771)
+	#elif defined(CONFIG_OPPO_CHARGER_MTK6771)  || defined(CONFIG_OPPO_HQ_EULER_CHARGER)
     .get_rtc_soc = oppo_get_rtc_ui_soc,
 	.set_rtc_soc = oppo_set_rtc_ui_soc,
 	#elif defined(CONFIG_OPPO_CHARGER_MTK6763)
@@ -1413,7 +1413,7 @@ static void hw_bc12_init(void)
 
 //static DEVICE_ATTR(bq25601d_access, 0664, show_bq25601d_access, store_bq25601d_access);
 #ifdef VENDOR_EDIT
-extern enum charger_type MTK_CHR_Type_num;
+enum charger_type MTK_CHR_Type_num;
 extern unsigned int upmu_get_rgs_chrdet(void);
 
 enum charger_type mt_charger_type_detection_bq25890h(void)

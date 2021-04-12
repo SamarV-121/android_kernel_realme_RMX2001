@@ -184,6 +184,11 @@ int mt6768_add_misc_control(struct snd_soc_platform *platform);
 
 int mt6768_set_local_afe(struct mtk_base_afe *afe);
 
+#ifdef ODM_HQ_EDIT
+/*sunjingtao@ODM.HQ.Multimedia.Audio 2020/03/04 modified for speaker bringup*/
+int mt6768_machine_driver_set_g_afe(struct mtk_base_afe *afe);
+#endif /* ODM_HQ_EDIT */
+
 unsigned int mt6768_general_rate_transform(struct device *dev,
 					   unsigned int rate);
 unsigned int mt6768_rate_transform(struct device *dev,

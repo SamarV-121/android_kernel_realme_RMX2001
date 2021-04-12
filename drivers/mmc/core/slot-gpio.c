@@ -32,7 +32,9 @@ struct mmc_gpio {
 
 #ifdef ODM_HQ_EDIT
 /*sunjingtao@ODM_HQ.BSP.Kernel.Driver 2019.08.22 add sdcard poweroff quick*/
+#ifndef CONFIG_MACH_MT6768
 extern void msdc_sd_power_off_quick(void);
+#endif
 #endif
 
 static irqreturn_t mmc_gpio_cd_irqt(int irq, void *dev_id)
@@ -42,7 +44,9 @@ static irqreturn_t mmc_gpio_cd_irqt(int irq, void *dev_id)
 
 #ifdef ODM_HQ_EDIT
 /*sunjingtao@ODM_HQ.BSP.Kernel.Driver 2019.08.22 add sdcard poweroff quick*/
+#ifndef CONFIG_MACH_MT6768
 	msdc_sd_power_off_quick();
+#endif
 #endif
 
 	host->trigger_card_event = true;

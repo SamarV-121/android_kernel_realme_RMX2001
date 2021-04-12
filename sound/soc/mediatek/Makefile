@@ -108,3 +108,8 @@ endif
 #fanxiongnan@ODM.HQ.Multimedia.Audio 2019/10/09 added for aw87339 bringup
 obj-$(CONFIG_SND_SOC_AW87339) += aw87339_audio.o
 #endif /* ODM_HQ_EDIT */
+
+#ifdef ODM_HQ_EDIT
+#sunjingtao@ODM.HQ.Multimedia.Audio 2020/04/17 added for aw87359 bringup
+obj-$(CONFIG_SND_SOC_AW87359) += aw87359_audio.o
+#endif /* ODM_HQ_EDIT */

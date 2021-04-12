@@ -75,8 +75,9 @@ unsigned int tp_register_times = 0;
 struct touchpanel_data *g_tp = NULL;
 static DECLARE_WAIT_QUEUE_HEAD(waiter);
 int gesture_flag = 0;
+int call_phone = 0;
 
-
+extern char *saved_command_line;
 
 /*******Part2:declear Area********************************/
 static void speedup_resume(struct work_struct *work);
@@ -1593,6 +1594,64 @@ static const struct file_operations proc_game_switch_fops = {
     .owner = THIS_MODULE,
 };
 
+//proc/touchpanel/call_phone_switch_enable
+static ssize_t proc_call_phone_switch_write(struct file *file, const char __user *buffer, size_t count, loff_t *ppos)
+{
+    int value = 0 ;
+    char buf[4] = {0};
+    struct touchpanel_data *ts = PDE_DATA(file_inode(file));
+
+    if (count > 4) {
+        TPD_INFO("%s:count > 4\n", __func__);
+        return count;
+    }
+
+    if (!ts) {
+        TPD_INFO("%s: ts is NULL\n", __func__);
+        return count;
+    }
+
+    if (!ts->ts_ops->mode_switch) {
+        TPD_INFO("%s:not support ts_ops->mode_switch callback\n", __func__);
+        return count;
+    }
+    if (copy_from_user(buf, buffer, count)) {
+        TPD_INFO("%s: read proc input error.\n", __func__);
+        return count;
+    }
+    sscanf(buf, "%x", &value);
+    call_phone = value;
+
+    TPD_INFO("%s: MODE_CALL_PHONE value=0x%x\n", __func__, value);
+    mutex_lock(&ts->mutex);
+    ts->ts_ops->mode_switch(ts->chip_data, MODE_CALL_PHONE, value > 0);
+    mutex_unlock(&ts->mutex);
+
+    return count;
+}
+
+static ssize_t proc_call_phone_switch_read(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
+{
+    int ret = 0;
+    char page[PAGESIZE] = {0};
+    struct touchpanel_data *ts = PDE_DATA(file_inode(file));
+
+    if (!ts) {
+        snprintf(page, PAGESIZE - 1, "%d\n", -1); //no support
+    } else {
+        snprintf(page, PAGESIZE - 1, "%d\n", ts->noise_level); //support
+    }
+    ret = simple_read_from_buffer(user_buf, count, ppos, page, strlen(page));
+    return ret;
+}
+
+static const struct file_operations proc_call_phone_switch_fops = {
+    .write = proc_call_phone_switch_write,
+    .read  = proc_call_phone_switch_read,
+    .open  = simple_open,
+    .owner = THIS_MODULE,
+};
+
 //proc/touchpanel/black_screen_test
 static ssize_t proc_black_screen_test_read(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
 {
@@ -2235,7 +2294,7 @@ static ssize_t proc_fw_update_write(struct file *file, const char __user *page, 
         TPD_INFO("%s: read proc input error.\n", __func__);
         return size;
     }
-//cbs
+
     sscanf(buf, "%d", &val);
     ts->firmware_update_type = val;
 //    if (!ts->force_update && ts->firmware_update_type != 2)
@@ -3201,6 +3260,15 @@ static int init_touchpanel_proc(struct touchpanel_data *ts)
     //proc files-step2-10:/proc/touchpanel/game_switch_enable (edge limit control interface)
     if (ts->game_switch_support) {
         prEntry_tmp = proc_create_data("game_switch_enable", 0666, prEntry_tp, &proc_game_switch_fops, ts);
+        if (prEntry_tmp == NULL) {
+            ret = -ENOMEM;
+            TPD_INFO("%s: Couldn't create proc entry, %d\n", __func__, __LINE__);
+        }
+    }
+
+    //proc files-step2-10:/proc/touchpanel/call_phone_switch_enable (edge limit control interface)
+    if (ts->game_switch_support) {
+        prEntry_tmp = proc_create_data("call_phone_switch_enable", 0666, prEntry_tp, &proc_call_phone_switch_fops, ts);
         if (prEntry_tmp == NULL) {
             ret = -ENOMEM;
             TPD_INFO("%s: Couldn't create proc entry, %d\n", __func__, __LINE__);
@@ -4686,7 +4754,15 @@ static void init_parse_dts(struct device *dev, struct touchpanel_data *ts)
     // irq gpio
     ts->hw_res.irq_gpio = of_get_named_gpio_flags(np, "irq-gpio", 0, &(ts->irq_flags));
 	TPD_INFO("%s : irq_gpio = %d\n",__func__, ts->hw_res.irq_gpio);
-    rc = of_property_read_string(np, "chip-name_nvt", &ts->panel_data.chip_name);
+#if defined (CONFIG_MACH_MT6768)
+	if (strstr(saved_command_line, "ili9881h_boe")) {
+		rc = of_property_read_string(np, "chip-name_ili", &ts->panel_data.chip_name);
+	} else if (strstr(saved_command_line, "nt36525b_inx")) {
+		rc = of_property_read_string(np, "chip-name_nvt", &ts->panel_data.chip_name);
+	}
+#elif defined (CONFIG_MACH_MT6785)
+	rc = of_property_read_string(np, "chip-name_nvt", &ts->panel_data.chip_name);
+#endif
     if (rc < 0) {
         TPD_INFO("failed to get chip name, firmware/limit name will be invalid\n");
     }
@@ -5152,7 +5228,6 @@ int tp_register_irq_func(struct touchpanel_data *ts)
     if (gpio_is_valid(ts->hw_res.irq_gpio)) {
         TPD_DEBUG("%s, irq_gpio is %d, ts->irq is %d\n", __func__, ts->hw_res.irq_gpio, ts->irq);
 
-		//cbs
 		ts->irq = gpio_to_irq(ts->hw_res.irq_gpio);
 
         if(ts->irq_flags_cover) {

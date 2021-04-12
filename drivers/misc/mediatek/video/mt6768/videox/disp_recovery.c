@@ -85,6 +85,11 @@ static unsigned int esd_check_enable;
 unsigned int esd_checking;
 static int te_irq;
 
+#ifdef ODM_HQ_EDIT
+/* liyan@ODM.HQ.Multimedia.LCM 2019/09/29  add backlight recovery for esd recovery */
+unsigned int esd_recovery_backlight_level = 1600;
+#endif /* ODM_HQ_EDIT */
+
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) && \
 	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
 /***********external display dual LCM ESD check******************/
@@ -685,6 +690,10 @@ static int primary_display_check_recovery_worker_kthread(void *data)
 	return 0;
 }
 
+#ifdef ODM_HQ_EDIT
+/* zhongwenjie@PSW.BSP.TP.Function, 2018/07/05, Add for tp fw download after esd recovery */
+extern bool flag_lcd_off;
+#endif /*ODM_HQ_EDIT*/
 /* ESD RECOVERY */
 int primary_display_esd_recovery(void)
 {
@@ -753,6 +762,19 @@ int primary_display_esd_recovery(void)
 
 	DISPDBG("[ESD]dsi power reset[begine]\n");
 	dpmgr_path_dsi_power_off(primary_get_dpmgr_handle(), NULL);
+
+	/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+	#ifdef ODM_HQ_EDIT
+	if (primary_get_lcm()->drv && primary_get_lcm()->drv->hw_reset_before_lp11 && primary_get_lcm()->drv->resume_power){
+		DISPDBG("[recovery]lcm hw_reset before mipi dsi power on\n");
+		primary_get_lcm()->drv->resume_power();
+		primary_get_lcm()->drv->hw_reset_before_lp11();
+	} else {
+		DISPDBG("Do not lcm hw_reset before mipi dsi goes to LP11 state\n");
+	}
+	#endif
+	/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, end. */
+
 	dpmgr_path_dsi_power_on(primary_get_dpmgr_handle(), NULL);
 	if (!primary_display_is_video_mode())
 		dpmgr_path_ioctl(primary_get_dpmgr_handle(), NULL,
@@ -799,6 +821,11 @@ int primary_display_esd_recovery(void)
 
 	}
 	mmprofile_log_ex(mmp_r, MMPROFILE_FLAG_PULSE, 0, 11);
+#ifdef ODM_HQ_EDIT
+/* liyan@ODM.HQ.Multimedia.LCM 2019/09/29  add backlight recovery for esd recovery */
+	disp_lcm_set_backlight(primary_get_lcm(), NULL, esd_recovery_backlight_level);
+	flag_lcd_off = false;
+#endif /*ODM_HQ_EDIT*/
 
 	/*
 	 * (in suspend) when we stop trigger loop

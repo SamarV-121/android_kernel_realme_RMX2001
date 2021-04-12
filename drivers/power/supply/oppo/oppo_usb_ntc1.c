@@ -47,8 +47,10 @@ int oppo_usb_ntc_adc1_read(void)
 
 	//printk("%s:enter\n", __func__);
 
+#if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
 	if (thermistor_ch2)
 		ret = iio_read_channel_processed(thermistor_ch2, &auxadc_voltage);
+#endif
 
 	//printk("[%s]usb_ntc_adc1 auxadc_voltage is %d\n", __func__, auxadc_voltage);
 	adc_volt = auxadc_voltage * 1500 / 4096;

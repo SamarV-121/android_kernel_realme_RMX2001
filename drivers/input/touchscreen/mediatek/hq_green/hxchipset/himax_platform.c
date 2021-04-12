@@ -965,10 +965,11 @@ static struct tpd_driver_t tpd_device_driver = {
 
 static int __init himax_common_init(void)
 {
+
 	int ret = -1;
 	
 	I("Himax_common touch panel driver init\n");
-	
+	return 0;
 //	ret = gpio_get_value(LCD_PHY_GPIO);
 	ret = gpio_get_value(359);
 	I("ret: %d\n",ret);

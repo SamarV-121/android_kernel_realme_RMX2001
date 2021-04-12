@@ -40,9 +40,24 @@ extern int bq25890h_otg_enable(void);
 extern int bq25890h_otg_disable(void);
 extern int bq25601d_otg_enable(void);
 extern int bq25601d_otg_disable(void);
+extern int oppo_mt6370_otg_enable(void);
+extern int oppo_mt6370_otg_disable(void);
 //extern bool get_otg_switch(void);
+
 #endif /* VENDOR_EDIT */
 #endif
+
+#ifdef VENDOR_EDIT
+/* LiYue@BSP.CHG.Basic, 2019/09/13, Add for OTG */
+extern void oppo_chg_set_otg_online(bool online);
+#endif
+
+#ifdef ODM_HQ_EDIT
+extern int get_vbatt_num(void);
+extern int mp2650_otg_enable(void);
+extern int mp2650_otg_disable(void);
+#endif
+
 struct usbotg_boost {
 	struct platform_device *pdev;
 	struct charger_device *primary_charger;
@@ -119,6 +134,17 @@ static enum alarmtimer_restart
 
 int usb_otg_set_vbus(int is_on)
 {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*wangtao@ODM.HQ.BSP.CHG 2019/10/17 modify kernel error*/
+    if(get_vbatt_num() == 2){
+	    if(is_on)
+		    mp2650_otg_enable();
+	    else
+		    mp2650_otg_disable();
+	    pr_info("%s: return, OTG 5v is supported by customization, is_on: %d\n", __func__, is_on);
+	    return 0;
+    }
+#endif
 #if defined(ODM_HQ_EDIT)
 /*wangtao@ODM.HQ.BSP.CHG 2019/10/17 modify kernel error*/
 	if (!IS_ERR(drvvbus)) {
@@ -178,6 +204,8 @@ int usb_otg_set_vbus(int is_on)
 			bq25890h_otg_enable();
 		} else if (charger_ic_flag == 2) {
 			bq25601d_otg_enable();
+		} else if (charger_ic_flag == 5) {
+			oppo_mt6370_otg_enable();
 		}
 #endif /* VENDOR_EDIT */
 #endif
@@ -199,6 +227,8 @@ int usb_otg_set_vbus(int is_on)
 			bq25890h_otg_disable();
 		} else if (charger_ic_flag == 2) {
 			bq25601d_otg_disable();
+		} else if (charger_ic_flag == 5) {
+			oppo_mt6370_otg_disable();
 		}
 #endif /* VENDOR_EDIT */
 #endif

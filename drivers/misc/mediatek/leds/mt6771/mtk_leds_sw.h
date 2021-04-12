@@ -49,7 +49,13 @@ typedef int (*cust_set_brightness) (int level);
 /* 10bit backlight level */
 #define LED_INCREASE_LED_LEVEL_MTKPATCH
 #ifdef LED_INCREASE_LED_LEVEL_MTKPATCH
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+#ifdef ODM_HQ_EDIT
+#define MT_LED_INTERNAL_LEVEL_BIT_CNT 11
+#else
 #define MT_LED_INTERNAL_LEVEL_BIT_CNT 10
+#endif
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, end. */
 #endif
 
 /******************************************************************************

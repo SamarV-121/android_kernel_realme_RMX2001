@@ -24,8 +24,8 @@
 
 #include <linux/power_supply.h>
 #ifdef CONFIG_OPPO_CHARGER_MTK
-#include <mt-plat/charging.h>
-#include <mt-plat/battery_meter.h>
+//#include <mt-plat/charging.h>
+//#include <mt-plat/battery_meter.h>
 #else /* CONFIG_OPPO_CHARGER_MTK */
 
 #endif /* CONFIG_OPPO_CHARGER_MTK */
@@ -54,10 +54,14 @@
 #define REG00_MP2650_1ST_CURRENT_LIMIT_STEP                    50    //default 3A
 #define REG00_MP2650_1ST_CURRENT_LIMIT_500MA                  (BIT(3) | BIT(1))
 #define REG00_MP2650_1ST_CURRENT_LIMIT_900MA                  (BIT(4) | BIT(1))
+#define REG00_MP2650_1ST_CURRENT_LIMIT_1100MA                  (BIT(4) | BIT(2) | BIT(1))
 #define REG00_MP2650_1ST_CURRENT_LIMIT_1200MA                  (BIT(4) | BIT(3))
+#define REG00_MP2650_1ST_CURRENT_LIMIT_1350MA                  (BIT(4) | BIT(3) | BIT(1) | BIT(0))
+#define REG00_MP2650_1ST_CURRENT_LIMIT_1400MA                  (BIT(4) |BIT(3) |BIT(2))
 #define REG00_MP2650_1ST_CURRENT_LIMIT_1500MA                  (BIT(4) |BIT(3) |BIT(2) |BIT(1))
 #define REG00_MP2650_1ST_CURRENT_LIMIT_1600MA                  (BIT(5))
 #define REG00_MP2650_1ST_CURRENT_LIMIT_1700MA                  (BIT(5) | BIT(1))
+#define REG00_MP2650_1ST_CURRENT_LIMIT_1900MA                  (BIT(5) | BIT(2) | BIT(1))
 #define REG00_MP2650_1ST_CURRENT_LIMIT_2000MA                  (BIT(5) | BIT(3))
 #define REG00_MP2650_1ST_CURRENT_LIMIT_2400MA                  (BIT(5) | BIT(4))
 #define REG00_MP2650_1ST_CURRENT_LIMIT_3600MA                  (BIT(6) | BIT(3))
@@ -165,6 +169,14 @@
 #define REG07_MP2650_PRECHARGE_THRESHOLD_6000MV                BIT(4)//default
 #define REG07_MP2650_PRECHARGE_THRESHOLD_6200MV                BIT(5)
 #define REG07_MP2650_PRECHARGE_THRESHOLD_6400MV                (BIT(5) | BIT(4))
+
+//Hongbin.Chen@ODM_LQ.BSP.CHG,  2020/08/19 ,Modify precharge voltage for pd/qc current little
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+#define REG07_MP2650_PRECHARGE_THRESHOLD_6600MV                0
+#define REG07_MP2650_PRECHARGE_THRESHOLD_6800MV                BIT(4)//default
+#define REG07_MP2650_PRECHARGE_THRESHOLD_7400MV                BIT(5)
+#define REG07_MP2650_PRECHARGE_THRESHOLD_7200MV                (BIT(5) | BIT(4))
+#endif
 
 #define REG07_MP2650_BAT_NUMBER_MASK                           (BIT(7) | BIT(6))
 #define REG07_MP2650_BAT_NUMBER_2_CELL                         0    //default
@@ -393,6 +405,12 @@
 #define REG12_MP2650_INPUT_OVA_THRESHOLD_OFFSET                -400
 #define REG12_MP2650_INPUT_OVA_THRESHOLD_STEP                  100    //default 11.5A
 
+//Hongbin.Chen@ODM_LQ.BSP.CHG,  2020/08/19 ,Modify precharge voltage for pd/qc current little
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+#define REG12_MP2650_BUCK_SWITCH_MASK                          BIT(2)
+#define REG12_MP2650_BUCK_SWITCH_DISABLE                       BIT(2)
+#define REG12_MP2650_BUCK_SWITCH_ENABLE                        0
+#endif
 
 /* Address:13h (Read only)*/
 #define REG13_MP2650_ADDRESS                                   0x13
@@ -554,6 +572,20 @@
 #define REG2829_MP2650_DISCHARGE_CURRENT_OFFSET                0
 #define REG2829_MP2650_SDISCHARGE_CURRENT_STEP                 12.5    //12.5mA
 
+#define REG2F_MP2650_ADDRESS                                 0x2F
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+#define REG31_MP2650_ADDRESS                                 0x31
+#define REG37_MP2650_ADDRESS                                 0x37
+
+/*Hongbin.Chen@ODM_LQ.BSP.CHG,  2020/07/31 ,Modify mps 2d reg for when charger full display charge*/
+#define REG2D_MP2650_ADDRESS                                 0x2D
+#endif
+
+#define REG39_MP2650_ADDRESS                                 0x39
+
+#define REG53_MP2650_ADDRESS                                 0x53
+
 enum {
 	OVERTIME_AC = 0,
 	OVERTIME_USB,
@@ -566,6 +598,7 @@ struct chip_mp2650 {
         struct device               *dev;
         int                         hw_aicl_point;
         int                         sw_aicl_point;
+        int         pre_current_ma;
 
         struct pinctrl                       *pinctrl;
         
@@ -577,7 +610,7 @@ struct chip_mp2650 {
         atomic_t                    charger_suspended;
 };
 
-struct oppo_chg_operations *  oppo_get_chg_ops(void);
+struct oppo_chg_operations *  svooc_oppo_get_chg_ops(void);
 bool oppo_charger_ic_chip_is_null(void);
 extern int mp2650_input_current_limit_write(int value);
 extern int mp2650_input_current_limit_ctrl_by_vooc_write(int current_ma);
@@ -609,6 +642,31 @@ extern void mp2650_dump_registers(void);
 extern int mp2650_hardware_init_for_wired_charge(void);
 extern int mp2650_hardware_init_for_wireless_charge(void);
 #ifdef CONFIG_OPPO_CHARGER_MTK
+extern int battery_meter_get_charger_voltage(void);
+extern int oppo_battery_meter_get_battery_voltage(void);
+extern int mp2650_otg_ilim_set(int ilim);
+extern int mt_power_supply_type_check(void);
+extern int mt_get_chargerid_volt(void);
+extern void mt_set_chargerid_switch_val(int value);
+extern int mt_get_chargerid_switch_val(void);
+extern int get_rtc_spare_oppo_fg_value(void);
+extern int set_rtc_spare_oppo_fg_value(int soc);
+//extern int oppo_chg_get_charger_subtype(void);
+extern int oppo_mt6360_pd_setup(void);
+//extern int oppo_chg_set_qc_config(void);
+//extern int oppo_chg_enable_qc_detect(void);
+extern bool oppo_mt6360_get_pd_type(void);
+extern bool oppo_mt6360_get_vbus_status(void);
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/07/07 add QC config for sala A*/
+extern int oppo_chg_get_charger_subtype(void);
+extern int oppo_chg_set_qc_config(void);
+extern int oppo_chg_enable_hvdcp_detect(void);
+extern int oppo_chg_set_pd_config(void);
+extern bool oppo_chg_get_pd_type(void);
+#endif
+
 #else /* CONFIG_OPPO_CHARGER_MTK */
 extern int qpnp_get_battery_voltage(void);
 extern int opchg_get_charger_type(void) ;
@@ -627,5 +685,10 @@ extern int oppo_chg_set_qc_config(void);
 extern bool oppo_sm8150_get_pd_type(void);
 extern int oppo_chg_enable_qc_detect(void);
 extern int mp2650_otg_ilim_set(int ilim);
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+extern int mp2650_set_prechg_voltage_threshold(void);
+#endif
+
 #endif/* CONFIG_OPPO_CHARGER_MTK */
 #endif

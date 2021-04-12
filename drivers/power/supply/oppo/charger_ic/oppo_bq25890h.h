@@ -363,7 +363,7 @@ extern int oppo_usb_switch_gpio_gpio_init(void);
 
 //#endif /* CONFIG_OPPO_CHARGER_MTK */
 
-#if defined(CONFIG_OPPO_CHARGER_MTK6763) || defined(CONFIG_OPPO_CHARGER_MTK6771)
+#if defined(CONFIG_OPPO_CHARGER_MTK6763) || defined(CONFIG_OPPO_CHARGER_MTK6771) || defined(CONFIG_OPPO_HQ_EULER_CHARGER)
 extern int oppo_battery_meter_get_battery_voltage(void);
 extern bool meter_fg_30_get_battery_authenticate(void);
 #endif /* CONFIG_OPPO_CHARGER_MTK6763 */

@@ -70,3 +70,15 @@ config PD_DBG_INFO
 	  Say Y to enable PD debug
 	  information
 	  Say N to disable
+
+##ifdef ODM_HQ_EDIT
+#zhangchao@ODM_HQ.BSP.CHG 2020/03/16,bring up fusb302
+config TCPC_FUSB302
+	bool "TCPC_FUSB302"
+	default n
+	help
+	  Set yes to support TCPC_FUSB302 features
+	  smart typec.
+	  Set No to disable TCPC_FUSB302 features
+	  smart typec.
+##endif

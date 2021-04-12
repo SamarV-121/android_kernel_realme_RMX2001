@@ -46,13 +46,14 @@ static const unsigned int src_iir_coeff_44_to_32[] = {
 };
 
 static const unsigned int src_iir_coeff_48_to_16[] = {
-	0x091009, 0xf68197, 0x091009, 0x26dd51, 0xe09fd1, 0x000002,
-	0x091009, 0xf6e5b0, 0x091009, 0x26e8ad, 0xe20be1, 0x000002,
-	0x091009, 0xf7e303, 0x091009, 0x27af51, 0xe407c2, 0x000002,
-	0x091009, 0xfa0fc6, 0x091009, 0x29331a, 0xe6e0ac, 0x000002,
-	0x091009, 0xfee432, 0x091009, 0x2b4be9, 0xea7ccb, 0x000002,
-	0x091009, 0x08fc54, 0x091009, 0x2d52b2, 0xede0d8, 0x000002,
-	0x000000, 0x122013, 0x122013, 0x2e3256, 0x000000, 0x000001
+	0x0296a4, 0xfd69dd, 0x0296a4, 0x209439, 0xe01ff9, 0x000002,
+	0x0f4ff3, 0xf0d6d4, 0x0f4ff3, 0x209bc9, 0xe076c3, 0x000002,
+	0x0e8490, 0xf1fe63, 0x0e8490, 0x20cfd6, 0xe12124, 0x000002,
+	0x14852f, 0xed794a, 0x14852f, 0x21503d, 0xe28b32, 0x000002,
+	0x136222, 0xf17677, 0x136222, 0x225be1, 0xe56964, 0x000002,
+	0x0a8d85, 0xfc4a97, 0x0a8d85, 0x24310c, 0xea6952, 0x000002,
+	0x05eff5, 0x043455, 0x05eff5, 0x4ced8f, 0xe134d6, 0x000001,
+	0x000000, 0x3aebe6, 0x3aebe6, 0x04f3b0, 0x000000, 0x000004
 };
 
 static const unsigned int src_iir_coeff_48_to_32[] = {
@@ -508,6 +509,11 @@ static const struct snd_soc_dapm_widget mtk_dai_src_widgets[] = {
 			    SND_SOC_DAPM_PRE_PMU |
 			    SND_SOC_DAPM_POST_PMU |
 			    SND_SOC_DAPM_PRE_PMD),
+
+	SND_SOC_DAPM_INPUT("HW SRC 1 Out Endpoint"),
+	SND_SOC_DAPM_INPUT("HW SRC 2 Out Endpoint"),
+	SND_SOC_DAPM_OUTPUT("HW SRC 1 In Endpoint"),
+	SND_SOC_DAPM_OUTPUT("HW SRC 2 In Endpoint"),
 };
 
 static int mtk_afe_src_en_connect(struct snd_soc_dapm_widget *source,
@@ -563,6 +569,11 @@ static const struct snd_soc_dapm_route mtk_dai_src_routes[] = {
 	{"HW_SRC_1_Out", NULL, HW_SRC_1_EN_W_NAME, mtk_afe_src_en_connect},
 	{"HW_SRC_2_In", NULL, HW_SRC_2_EN_W_NAME, mtk_afe_src_en_connect},
 	{"HW_SRC_2_Out", NULL, HW_SRC_2_EN_W_NAME, mtk_afe_src_en_connect},
+
+	{"HW SRC 1 In Endpoint", NULL, "HW_SRC_1_In"},
+	{"HW SRC 2 In Endpoint", NULL, "HW_SRC_2_In"},
+	{"HW_SRC_1_Out", NULL, "HW SRC 1 Out Endpoint"},
+	{"HW_SRC_2_Out", NULL, "HW SRC 2 Out Endpoint"},
 };
 
 /* dai ops */

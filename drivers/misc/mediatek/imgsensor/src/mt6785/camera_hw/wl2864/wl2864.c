@@ -14,6 +14,9 @@
 #include "wl2864.h"
 
 #ifdef ODM_HQ_EDIT
+/*Houbing.Peng@ODM 20200416 add for sala bringup*/
+#include<soc/oppo/oppo_project.h>
+
 /*Houbing.Peng@ODM Cam.Drv 20200117 avoid wl2864 power up confict*/
 static struct wl2864 wl2864_instance;
 #endif
@@ -29,6 +32,20 @@ struct WL2864_LDOMAP  ldolist[] = {
 	{IMGSENSOR_SENSOR_IDX_MAIN3, AVDD, CAMERA_LDO_VDDIO},//for rear main3 and main4(sub2)(AVDD)
 };
 
+#ifdef ODM_HQ_EDIT
+/*Houbing.Peng@ODM 20200416 add for sala bringup*/
+struct WL2864_LDOMAP  ldolist_20682[] = {
+	{IMGSENSOR_SENSOR_IDX_MAIN, AVDD, CAMERA_LDO_AVDD1},//for rear main(AVDD)
+	{IMGSENSOR_SENSOR_IDX_MAIN, AVDD2, CAMERA_LDO_AVDD2},//for rear main(AVDD2)
+	{IMGSENSOR_SENSOR_IDX_MAIN, AFVDD, CAMERA_LDO_VDDAF},//for main(AFVDD)
+	{IMGSENSOR_SENSOR_IDX_SUB, AVDD, CAMERA_LDO_VDDOIS},//for front(AVDD)
+	{IMGSENSOR_SENSOR_IDX_SUB, DVDD, CAMERA_LDO_DVDD2},//for front(DVDD)
+	{IMGSENSOR_SENSOR_IDX_MAIN2, DVDD, CAMERA_LDO_DVDD1},//for main2(DVDD)
+	{IMGSENSOR_SENSOR_IDX_MAIN2, AVDD, CAMERA_LDO_VDDOIS},//for main2(AVDD)
+	{IMGSENSOR_SENSOR_IDX_SUB2, AVDD, CAMERA_LDO_VDDIO},//for rear main3 and main4(sub2)(AVDD)
+	{IMGSENSOR_SENSOR_IDX_MAIN3, AVDD, CAMERA_LDO_VDDIO},//for rear main3 and main4(sub2)(AVDD)
+};
+#endif
 
 static const int extldo_regulator_voltage[] = {
 	EXTLDO_REGULATOR_VOLTAGE_0,
@@ -81,29 +98,75 @@ static enum IMGSENSOR_RETURN wl2864_set(
 		   pin_state > IMGSENSOR_HW_PIN_STATE_LEVEL_HIGH)
 			ret = IMGSENSOR_RETURN_ERROR;
 
-	for(i=0;i<(sizeof(ldolist)/sizeof(ldolist[0]));i++) {
-		if ((pin == ldolist[i].hwpin) && (sensor_idx == ldolist[i].idx)) {
-			//pr_debug("%s stoneadd got the wl2864 ldo(%d) to %d mV ! \n",__func__, ldolist[i].wl2864ldo,extldo_regulator_voltage[pin_state-EXTLDO_REGULATOR_VOLTAGE_0]);
-
-			if(pin_state > IMGSENSOR_HW_PIN_STATE_LEVEL_0) {
-				pr_debug("%s stoneadd power on ++++++wl2864  ldo(%d) to  %d mV !\n",__func__,
-						ldolist[i].wl2864ldo,
-						extldo_regulator_voltage[pin_state-EXTLDO_REGULATOR_VOLTAGE_0]);
-				#ifdef ODM_HQ_EDIT
-				/*Houbing.Peng@ODM Cam.Drv 20200117 avoid wl2864 power up confict*/
-				mutex_lock(pinst->pwl2864_mutex);
-				camera_ldo_set_ldo_value(ldolist[i].wl2864ldo,extldo_regulator_voltage[pin_state-EXTLDO_REGULATOR_VOLTAGE_0]);
-				camera_ldo_set_en_ldo(ldolist[i].wl2864ldo,1);
-				mutex_unlock(pinst->pwl2864_mutex);
-				#else
-				camera_ldo_set_ldo_value(ldolist[i].wl2864ldo,extldo_regulator_voltage[pin_state-EXTLDO_REGULATOR_VOLTAGE_0]);
-				camera_ldo_set_en_ldo(ldolist[i].wl2864ldo,1);
-				#endif
-			} else {
-				pr_debug("%s stoneadd power off ++++++wl2864  ldo(%d) \n",__func__, ldolist[i].wl2864ldo);
-				camera_ldo_set_en_ldo(ldolist[i].wl2864ldo,0);
+	/*Houbing.Peng@ODM 20200416 add for sala bringup*/
+	if (is_project(OPPO_20682)) {
+		/*Hongyu.Zhao@ODM 20200504 add for sala-a compatible with sala*/
+		static int operator = OPERATOR_UNKOWN;
+		operator = get_Operator_Version();
+		if (operator == OPERATOR_20682_SALA_A_ASIA_SIMPLE
+			|| operator == OPERATOR_20682_SALA_A_All_BAND
+			|| operator == OPERATOR_20682_SALA_A_All_BAND_VIETNAM
+			|| operator == OPERATOR_20682_SALA_A_INTERNATIONAL
+			|| operator == OPERATOR_20682_SALA_LITE_INTERNATIONAL
+			|| operator == OPERATOR_20682_SALA_LITE_VODAFONE) {
+			ldolist_20682[6].wl2864ldo = CAMERA_LDO_AVDD1;
+		}
+        /*Chejian@ODM_HQ Cam.Drv 20201112 add for sala-b compatible with sala-a*/
+        if(operator >= 90 && operator <=93){
+            ldolist_20682[6].wl2864ldo = CAMERA_LDO_VDDIO;
+            pr_debug("%s ++++++wl2864 sala-b compatible with sala main2-ov12b10 (AVDD) ldo(%d) operator=%d\n",__func__,
+                    ldolist_20682[6].wl2864ldo, operator);
+        }
+		pr_debug("%s ++++++wl2864 sala-a compatible with sala main2(AVDD) ldo(%d) operator=%d \n",__func__,
+							ldolist_20682[6].wl2864ldo, operator);
+		for(i=0;i<(sizeof(ldolist_20682)/sizeof(ldolist_20682[0]));i++) {
+			if ((pin == ldolist_20682[i].hwpin) && (sensor_idx == ldolist_20682[i].idx)) {
+				if(pin_state > IMGSENSOR_HW_PIN_STATE_LEVEL_0) {
+					pr_debug("%s stoneadd power on ++++++wl2864  ldo(%d) to  %d mV !\n",__func__,
+							ldolist_20682[i].wl2864ldo,
+							extldo_regulator_voltage[pin_state-EXTLDO_REGULATOR_VOLTAGE_0]);
+					#ifdef ODM_HQ_EDIT
+					/*Houbing.Peng@ODM Cam.Drv 20200117 avoid wl2864 power up confict*/
+					mutex_lock(pinst->pwl2864_mutex);
+					camera_ldo_set_ldo_value(ldolist_20682[i].wl2864ldo,extldo_regulator_voltage[pin_state-EXTLDO_REGULATOR_VOLTAGE_0]);
+					camera_ldo_set_en_ldo(ldolist_20682[i].wl2864ldo,1);
+					mutex_unlock(pinst->pwl2864_mutex);
+					#else
+					camera_ldo_set_ldo_value(ldolist_20682[i].wl2864ldo,extldo_regulator_voltage[pin_state-EXTLDO_REGULATOR_VOLTAGE_0]);
+					camera_ldo_set_en_ldo(ldolist_20682[i].wl2864ldo,1);
+					#endif
+				} else {
+					pr_debug("%s stoneadd power off ++++++wl2864  ldo(%d) \n",__func__, ldolist_20682[i].wl2864ldo);
+					camera_ldo_set_en_ldo(ldolist_20682[i].wl2864ldo,0);
+				}
+				break;
 			}
-			break;
+		}
+	} else {
+		for(i=0;i<(sizeof(ldolist)/sizeof(ldolist[0]));i++) {
+			if ((pin == ldolist[i].hwpin) && (sensor_idx == ldolist[i].idx)) {
+				//pr_debug("%s stoneadd got the wl2864 ldo(%d) to %d mV ! \n",__func__, ldolist[i].wl2864ldo,extldo_regulator_voltage[pin_state-EXTLDO_REGULATOR_VOLTAGE_0]);
+
+				if(pin_state > IMGSENSOR_HW_PIN_STATE_LEVEL_0) {
+					pr_debug("%s stoneadd power on ++++++wl2864  ldo(%d) to  %d mV !\n",__func__,
+							ldolist[i].wl2864ldo,
+							extldo_regulator_voltage[pin_state-EXTLDO_REGULATOR_VOLTAGE_0]);
+					#ifdef ODM_HQ_EDIT
+					/*Houbing.Peng@ODM Cam.Drv 20200117 avoid wl2864 power up confict*/
+					mutex_lock(pinst->pwl2864_mutex);
+					camera_ldo_set_ldo_value(ldolist[i].wl2864ldo,extldo_regulator_voltage[pin_state-EXTLDO_REGULATOR_VOLTAGE_0]);
+					camera_ldo_set_en_ldo(ldolist[i].wl2864ldo,1);
+					mutex_unlock(pinst->pwl2864_mutex);
+					#else
+					camera_ldo_set_ldo_value(ldolist[i].wl2864ldo,extldo_regulator_voltage[pin_state-EXTLDO_REGULATOR_VOLTAGE_0]);
+					camera_ldo_set_en_ldo(ldolist[i].wl2864ldo,1);
+					#endif
+				} else {
+					pr_debug("%s stoneadd power off ++++++wl2864  ldo(%d) \n",__func__, ldolist[i].wl2864ldo);
+					camera_ldo_set_en_ldo(ldolist[i].wl2864ldo,0);
+				}
+				break;
+			}
 		}
 	}
 	ret = IMGSENSOR_RETURN_SUCCESS;

@@ -81,7 +81,7 @@ static int aw87339_spk_scene_get(struct snd_kcontrol *kcontrol,
 static int aw87339_spk_scene_set(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
-	pr_debug("%s: ucontrol = %ldn", __func__, ucontrol->value.integer.value[0]);
+	pr_debug("%s: ucontrol = %ld\n", __func__, ucontrol->value.integer.value[0]);
 
 	if(SPEAKER_SCENE_NUM <= ucontrol->value.integer.value[0]) {
 		aw87339_speaker_scene = SPEAKER_SCENE_PLAYBACK;
@@ -92,6 +92,49 @@ static int aw87339_spk_scene_set(struct snd_kcontrol *kcontrol,
 
 	return 0;
 }
+#endif
+#ifdef CONFIG_SND_SOC_AW87359
+//sunjingtao@ODM.HQ.Multimedia.Audio 2020/04/17 added for aw87359 bringup
+extern unsigned char aw87359_audio_dspk(void);
+extern unsigned char aw87359_audio_drcv(void);
+extern unsigned char aw87359_audio_abspk(void);
+extern unsigned char aw87359_audio_dspk_ftm(void);
+extern unsigned char aw87359_audio_off(void);
+
+enum {
+	SPEAKER_SCENE_NORMAL = 0,
+	SPEAKER_SCENE_FTM,
+	SPEAKER_SCENE_N
+};
+
+static int aw87359_speaker_scene = SPEAKER_SCENE_NORMAL;
+static const char *const aw87359_spk_scene[] = { "Normal", "FTM" };
+static const struct soc_enum aw87359_spk_scene_enum =
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(aw87359_spk_scene), aw87359_spk_scene);
+
+static int aw87359_spk_scene_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s() = %d\n", __func__, aw87359_speaker_scene);
+	ucontrol->value.integer.value[0] = aw87359_speaker_scene;
+	return 0;
+}
+
+static int aw87359_spk_scene_set(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: ucontrol = %ld\n", __func__, ucontrol->value.integer.value[0]);
+
+	if(SPEAKER_SCENE_N <= ucontrol->value.integer.value[0]) {
+		aw87359_speaker_scene = SPEAKER_SCENE_NORMAL;
+		pr_err("%s(): set speaker scene val = %ld !!! \n", __func__, ucontrol->value.integer.value[0]);
+	} else {
+		aw87359_speaker_scene = ucontrol->value.integer.value[0];
+	}
+
+	return 0;
+}
+
 #endif
 #endif /* ODM_HQ_EDIT */
 
@@ -152,6 +195,16 @@ static int mt6785_mt6359_spk_amp_event(struct snd_soc_dapm_widget *w,
 		#ifdef CONFIG_SND_SOC_SIA8109
 		sia81xx_power_on();
 		#endif
+
+		#ifdef CONFIG_SND_SOC_AW87359
+		//sunjingtao@ODM.HQ.Multimedia.Audio 2020/04/17 added for aw87359 bringup
+		if(aw87359_speaker_scene == SPEAKER_SCENE_NORMAL)
+			aw87359_audio_dspk();
+		else if(aw87359_speaker_scene == SPEAKER_SCENE_FTM)
+			aw87359_audio_dspk_ftm();
+		else
+			aw87359_audio_dspk();
+		#endif
 		#endif /* ODM_HQ_EDIT */
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
@@ -165,6 +218,11 @@ static int mt6785_mt6359_spk_amp_event(struct snd_soc_dapm_widget *w,
 		//fanxiongnan@ODM.HQ.MM.Audio.BSP 2020/01/16 added to fix pop issue
 		#ifdef CONFIG_SND_SOC_SIA8109
 		sia81xx_power_off();
+		#endif
+
+		#ifdef CONFIG_SND_SOC_AW87359
+		//sunjingtao@ODM.HQ.Multimedia.Audio 2020/04/17 added for aw87359 bringup
+		aw87359_audio_off();
 		#endif
 		#endif /* ODM_HQ_EDIT */
 		break;
@@ -197,6 +255,8 @@ static const struct snd_kcontrol_new mt6785_mt6359_controls[] = {
 //fanxiongnan@ODM.HQ.Multimedia.Audio 2019/12/06 added for aw87339 speaker & voice mode switch
 	SOC_ENUM_EXT("AW87339 Spk Scene", aw87339_spk_scene_enum,
 			aw87339_spk_scene_get, aw87339_spk_scene_set),
+       SOC_ENUM_EXT("AW87359 Spk Scene", aw87359_spk_scene_enum,
+			aw87359_spk_scene_get, aw87359_spk_scene_set),
 #endif /* ODM_HQ_EDIT */
 };
 

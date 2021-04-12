@@ -77,17 +77,7 @@
 
 #define CCU_DEV_NAME            "ccu"
 
-#ifndef ODM_HQ_EDIT
-/*Cong.Zhou@ODM_HQ Cam.Drv 20200110 ALPS04955135 modify ccu issue*/
-#define ODM_HQ_EDIT
-#endif
-
-#ifndef ODM_HQ_EDIT
-#define CCU_CLK_NUM 2 /* [0]: Camsys, [1]: Mmsys */
-#else
-/*Cong.Zhou@ODM_HQ Cam.Drv 20200110 ALPS04955135 modify ccu issue*/
 #define CCU_CLK_NUM 3 /* [0]: Camsys, [1]: Mmsys */
-#endif
 struct clk *ccu_clk_ctrl[CCU_CLK_NUM];
 
 struct ccu_device_s *g_ccu_device;
@@ -138,11 +128,7 @@ static int ccu_suspend(struct platform_device *dev, pm_message_t mesg);
 
 static int ccu_resume(struct platform_device *dev);
 
-#ifdef ODM_HQ_EDIT
-/*fengbin@ODM_HQ Cam.Drv 20200116 ALPS04972951 modify HWT issue*/
 static int32_t _clk_count;
-#endif
-
 /*-------------------------------------------------------------------------*/
 /* CCU Driver: pm operations                                               */
 /*-------------------------------------------------------------------------*/
@@ -451,10 +437,7 @@ static int ccu_open(struct inode *inode, struct file *flip)
 
 	struct ccu_user_s *user;
 
-        #ifdef ODM_HQ_EDIT
-        /*fengbin@ODM_HQ Cam.Drv 20200116 ALPS04972951 modify HWT issue*/
-        _clk_count = 0;
-        #endif
+	_clk_count = 0;
 
 	ccu_create_user(&user);
 	if (IS_ERR_OR_NULL(user)) {
@@ -600,21 +583,13 @@ int ccu_clock_enable(void)
 {
 	int ret;
 
-        LOG_DBG_MUST("%s.\n", __func__);
-        #ifdef ODM_HQ_EDIT
-        /*fengbin@ODM_HQ Cam.Drv 20200116 ALPS04972951 modify HWT issue*/
-        LOG_DBG_MUST("%s %d.\n", __func__, _clk_count);
-        _clk_count++;
-        #endif
+	LOG_DBG_MUST("%s %d.\n", __func__, _clk_count);
+
+	mutex_lock(&g_ccu_device->clk_mutex);
+	_clk_count++;
+
 	ccu_qos_init();
 
-	#ifndef ODM_HQ_EDIT
-	ret = (clk_prepare_enable(ccu_clk_ctrl[0]) |
-		clk_prepare_enable(ccu_clk_ctrl[1]));
-	if (ret)
-		LOG_ERR("clock enable fail.\n");
-	#else
-	/*Cong.Zhou@ODM_HQ Cam.Drv 20200110 ALPS04955135 modify ccu issue*/
 	ret = clk_prepare_enable(ccu_clk_ctrl[0]);
 	if (ret)
 		LOG_ERR("CCU_CLK_MMSYS_CCU enable fail.\n");
@@ -624,28 +599,25 @@ int ccu_clock_enable(void)
 	ret = clk_prepare_enable(ccu_clk_ctrl[2]);
 	if (ret)
 		LOG_ERR("CCU_CLK_CAM_CCU enable fail.\n");
-	#endif
+
+	mutex_unlock(&g_ccu_device->clk_mutex);
 	return ret;
 }
 
 void ccu_clock_disable(void)
 {
-	LOG_DBG_MUST("%s.\n", __func__);
-	#ifndef ODM_HQ_EDIT
-	/*Cong.Zhou@ODM_HQ Cam.Drv 20200110 ALPS04955135 modify ccu issue*/
-	clk_disable_unprepare(ccu_clk_ctrl[0]);
-	clk_disable_unprepare(ccu_clk_ctrl[1]);
-	#else
-        LOG_DBG_MUST("%s %d.\n", __func__, _clk_count);
-        if (_clk_count > 0) {
-              clk_disable_unprepare(ccu_clk_ctrl[2]);
-              clk_disable_unprepare(ccu_clk_ctrl[1]);
-              clk_disable_unprepare(ccu_clk_ctrl[0]);
-              _clk_count--;
-        }
-	#endif
+	LOG_DBG_MUST("%s %d.\n", __func__, _clk_count);
+
+	mutex_lock(&g_ccu_device->clk_mutex);
+	if (_clk_count > 0) {
+		clk_disable_unprepare(ccu_clk_ctrl[2]);
+		clk_disable_unprepare(ccu_clk_ctrl[1]);
+		clk_disable_unprepare(ccu_clk_ctrl[0]);
+		_clk_count--;
+	}
 
 	ccu_qos_uninit();
+	mutex_unlock(&g_ccu_device->clk_mutex);
 }
 
 static long ccu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
@@ -1213,17 +1185,6 @@ static int ccu_probe(struct platform_device *pdev)
 	}
 /* get Clock control from device tree.  */
 	{
-		#ifndef ODM_HQ_EDIT
-		/*Cong.Zhou@ODM_HQ Cam.Drv 20200110 ALPS04955135 modify ccu issue*/
-		ccu_clk_ctrl[0] =
-		devm_clk_get(g_ccu_device->dev, "CCU_CLK_CAM_CCU");
-		if (ccu_clk_ctrl[0] == NULL)
-			LOG_ERR("Get ccu clock ctrl camsys fail.\n");
-		ccu_clk_ctrl[1] =
-		devm_clk_get(g_ccu_device->dev, "CCU_CLK_MMSYS_CCU");
-		if (ccu_clk_ctrl[1] == NULL)
-			LOG_ERR("Get ccu clock ctrl mmsys fail.\n");
-		#else
 		ccu_clk_ctrl[0] =
 		devm_clk_get(g_ccu_device->dev, "CCU_CLK_MMSYS_CCU");
 		if (ccu_clk_ctrl[0] == NULL)
@@ -1236,7 +1197,6 @@ static int ccu_probe(struct platform_device *pdev)
 		devm_clk_get(g_ccu_device->dev, "CCU_CLK_CAM_CCU");
 		if (ccu_clk_ctrl[2] == NULL)
 			LOG_ERR("Get CCU_CLK_CAM_CCU fail.\n");
-		#endif
 	}
 	/**/
 	g_ccu_device->irq_num = irq_of_parse_and_map(node, 0);
@@ -1389,6 +1349,7 @@ static int __init CCU_INIT(void)
 
 	INIT_LIST_HEAD(&g_ccu_device->user_list);
 	mutex_init(&g_ccu_device->user_mutex);
+	mutex_init(&g_ccu_device->clk_mutex);
 	mutex_init(&g_ccu_device->ion_client_mutex);
 	init_waitqueue_head(&g_ccu_device->cmd_wait);
 

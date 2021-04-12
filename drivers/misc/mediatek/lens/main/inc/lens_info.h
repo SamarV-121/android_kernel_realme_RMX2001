@@ -66,10 +66,14 @@
 #define AFDRV_OV8825AF "OV8825AF"
 #define AFDRV_WV511AAF "WV511AAF"
 
-#ifdef ODM_HQ_EDIT
+#if defined(ODM_HQ_EDIT) || defined(VENDOR_EDIT)
 /* Lijian@ODM.Camra 20190827 for FP5516 Bringup */
 #define AFDRV_FP5516AF "FP5516AF"
+#define AFDRV_DW9718TAF "DW9718TAF"
 #define AFDRV_BU64253AF "BU64253AF"
+/* Jian.Li@ODM.Camra.Drv 20200224 add for DW9714AF_QT and DW9714AF_TS Bringup */
+#define AFDRV_DW9714AF_QT "DW9714AF_QT"
+#define AFDRV_DW9714AF_TS "DW9714AF_TS"
 #endif
 /* Structures */
 struct stAF_MotorInfo {

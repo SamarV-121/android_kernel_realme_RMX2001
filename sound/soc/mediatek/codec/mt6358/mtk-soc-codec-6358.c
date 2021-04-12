@@ -780,11 +780,13 @@ void Auddrv_Read_Efuse_HPOffset(void)
 }
 EXPORT_SYMBOL(Auddrv_Read_Efuse_HPOffset);
 
+#ifndef ODM_HQ_EDIT
 static void setHpGainZero(void)
 {
 	Ana_Set_Reg(ZCD_CON2, DL_GAIN_0DB << 7, 0x0f80);
 	Ana_Set_Reg(ZCD_CON2, DL_GAIN_0DB, 0x001f);
 }
+#endif
 
 static void Hp_Zcd_Enable(bool _enable)
 {
@@ -1456,6 +1458,7 @@ static void OpenTrimBufferHardware_withLO(bool enable, bool buffer_on)
 
 #endif
 
+#ifndef ODM_HQ_EDIT
 static bool OpenHeadPhoneImpedanceSetting(bool bEnable)
 {
 	pr_debug("%s benable = %d\n", __func__, bEnable);
@@ -1569,6 +1572,7 @@ static bool OpenHeadPhoneImpedanceSetting(bool bEnable)
 	}
 	return true;
 }
+#endif
 
 /* Headphone Impedance Detection */
 /* Pmic Headphone Impedance variable */
@@ -1582,6 +1586,7 @@ struct mtk_hpdet_param {
 	int resistance_second_threshold;
 };
 
+#ifndef ODM_HQ_EDIT
 static int hp_impedance;
 static const int auxcable_impedance = 5000;
 static int efuse_current_calibrate;
@@ -1808,6 +1813,7 @@ static int detect_impedance(void)
 
 	return impedance;
 }
+#endif
 
 /* 1.7V * 0.5kohm / (2.5 + 0.5)kohm = 0.283V, support 1k ~ 14k, 0.5k margin */
 #define MIC_VINP_4POLE_THRES_MV 283
@@ -5216,6 +5222,12 @@ static int Audio_MIC_Mode_Set(struct snd_kcontrol *kcontrol,
 static int hp_impedance_get(struct snd_kcontrol *kcontrol,
 			    struct snd_ctl_elem_value *ucontrol)
 {
+#ifdef ODM_HQ_EDIT
+	//jianghao@ODM.HQ.Multimedia.Audio.BSP 2020/04/02 Turn off impedance detection
+	pr_debug("%s(), turn off hp_impedance\n", __func__);
+	ucontrol->value.integer.value[0] = 32;
+	return 0;
+#else
 	if (!set_hp_impedance_ctl) {
 		pr_warn("%s(), set_hp_impedance_ctl == NULL\n", __func__);
 		return 0;
@@ -5235,6 +5247,7 @@ static int hp_impedance_get(struct snd_kcontrol *kcontrol,
 	pr_debug("%s(), hp_impedance = %d, efuse = %d\n",
 		 __func__, hp_impedance, efuse_current_calibrate);
 	return 0;
+#endif
 }
 
 static int hp_impedance_set(struct snd_kcontrol *kcontrol,
@@ -7660,6 +7673,7 @@ static const struct snd_kcontrol_new mt6358_UL_Codec_controls[] = {
 		       Audio_Vow_Periodic_Set),
 };
 
+#ifndef ODM_HQ_EDIT
 static int read_efuse_hp_impedance_current_calibration(void)
 {
 	int ret = 0;
@@ -7712,6 +7726,7 @@ static int read_efuse_hp_impedance_current_calibration(void)
 	pr_debug("-%s(), efuse: %d\n", __func__, value);
 	return value;
 }
+#endif
 
 static void mt6358_codec_init_reg(struct snd_soc_codec *codec)
 {
@@ -7829,7 +7844,9 @@ static int mt6358_codec_probe(struct snd_soc_codec *codec)
 	memset((void *)mCodec_data, 0, sizeof(struct mt6358_codec_priv));
 	mt6358_codec_init_reg(codec);
 	InitCodecDefault();
+#ifndef ODM_HQ_EDIT
 	efuse_current_calibrate = read_efuse_hp_impedance_current_calibration();
+#endif
 	mInitCodec = true;
 	apply_n12db_gain = 0;
 

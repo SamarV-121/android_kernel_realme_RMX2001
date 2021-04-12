@@ -42,7 +42,8 @@ static long alsps_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 	int data = 0;
 	uint32_t enable = 0;
 	int threshold_data[2] = {0, 0};
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 /* zuoqiquan@ODM_HQ.Sensors.SCP.BSP, 2019/10/29,modify sensor code for huaqin */
 	int als_cali = 0;
 #else
@@ -101,7 +102,8 @@ static long alsps_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 			return -EFAULT;
 		if (alsps_factory.fops != NULL &&
 		    alsps_factory.fops->als_enable_sensor != NULL) {
-			#ifdef ODM_HQ_EDIT
+			/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+			#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 			/* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/10/12, modify als sample rate */
 			err = alsps_factory.fops->als_enable_sensor(enable,
 								    100);
@@ -137,7 +139,8 @@ static long alsps_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 			return -EINVAL;
 		}
 		return 0;
-#ifndef ODM_HQ_EDIT
+
+#if !defined(ODM_HQ_EDIT) || defined(TARGET_WATERMELON_Q_PROJECT)
 /* zuoqiquan@ODM_HQ.Sensors.SCP.BSP, 2019/10/29,modify sensor code for huaqin */
 #ifdef VENDOR_EDIT
 /*zhq@PSW.BSP.Sensor, 2018/10/28, Add for als ps cail*/
@@ -194,7 +197,8 @@ static long alsps_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 			return -EINVAL;
 		}
 		return 0;
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 /* zuoqiquan@ODM_HQ.Sensors.SCP.BSP, 2019/10/29,modify sensor code for huaqin */
 		case ALSPS_ALS_SET_CALI:
 			if (copy_from_user(&als_cali, ptr, sizeof(als_cali)))
@@ -297,7 +301,8 @@ static long alsps_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 		return 0;
 	case ALSPS_IOCTL_SET_CALI:
         pr_err("ALSPS_IOCTL_SET_CALI start!\n");
-		#ifdef ODM_HQ_EDIT
+		/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+		#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 		/* zuoqiquan@ODM_HQ.Sensors.SCP.BSP, 2019/10/29,modify sensor code for huaqin */
 		if (copy_from_user(&data, ptr, sizeof(data)))
 			return -EFAULT;
@@ -334,7 +339,8 @@ static long alsps_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 		if (alsps_factory.fops != NULL &&
 		    alsps_factory.fops->ps_get_cali != NULL) {
 			pr_err("ALSPS_IOCTL_GET_CALI start\n");
-			#ifdef ODM_HQ_EDIT
+			/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+			#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 			/* zuoqiquan@ODM_HQ.Sensors.SCP.BSP, 2019/10/29,modify sensor code for huaqin */
 			err = alsps_factory.fops->ps_get_cali(&data);
 			#else
@@ -348,7 +354,12 @@ static long alsps_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 			pr_err("ALSPS_IOCTL_GET_CALI NULL\n");
 			return -EINVAL;
 		}
+		/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/04, sync sensor data */
+		#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 		if (copy_to_user(ptr, &data, sizeof(data)))
+		#else
+		if (copy_to_user(ptr, data_buf, sizeof(data_buf)))
+		#endif
 			return -EFAULT;
 		return 0;
 
@@ -383,7 +394,8 @@ static long alsps_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 		}
 		return 0;
 	default:
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 		/* zuoqiquan@ODM_HQ.Sensors.SCP.BSP, 2019/11/11,add log for ioctrl error */
 		pr_err("unknown IOCTL: 0x%08x 0x%08x\n", cmd,ALSPS_ALS_SET_CALI);
 		if (cmd == 0x40048420){
@@ -456,7 +468,8 @@ static long alsps_factory_compat_ioctl(struct file *file,
 						 (unsigned long)arg32);
 		break;
 	default:
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 /* zuoqiquan@ODM_HQ.Sensors.SCP.BSP, 2019/11/11,add log for ioctrl error */
 		pr_err("unknown COMPAT_IOCTL: 0x%08x 0x%08x\n", cmd,COMPAT_ALSPS_IOCTL_ALS_SET_CALI);
 #else

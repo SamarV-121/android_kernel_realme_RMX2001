@@ -13,6 +13,12 @@
 
 #include "gpio.h"
 
+#ifdef ODM_HQ_EDIT
+/* Lijian@ODM.Camera.Drv 20200329 for snesor bringup */
+#include<soc/oppo/oppo_project.h>
+#define preDVT 4
+#endif
+
 struct GPIO_PINCTRL gpio_pinctrl_list_cam[
 			GPIO_CTRL_STATE_MAX_NUM_CAM] = {
 	/* Main */
@@ -107,6 +113,29 @@ static enum IMGSENSOR_RETURN gpio_init(
 		}
 	}
 #endif
+
+	#ifdef ODM_HQ_EDIT
+	/* Lijian@ODM.Camera.Drv 20200329 for snesor bringup */
+	pr_info("%s :[i2cpullup] get_PCB_Version()=%d\n", __func__, get_PCB_Version());
+	if (get_PCB_Version() > preDVT) {
+		pgpio->ppinctrl_state_i2c_pullup =
+			pinctrl_lookup_state(pgpio->ppinctrl, "cami2c_pullup_disable");
+	} else {
+		pgpio->ppinctrl_state_i2c_pullup =
+			pinctrl_lookup_state(pgpio->ppinctrl, "cami2c_pullup_enable");
+	}
+	if (pgpio->ppinctrl_state_i2c_pullup == NULL ||
+		IS_ERR(pgpio->ppinctrl_state_i2c_pullup)) {
+		pr_info(
+			"%s : pinctrl err, %s\n",
+			__func__,
+		"cami2c_pullup_disable");
+		ret = IMGSENSOR_RETURN_ERROR;
+	} else {
+		pinctrl_select_state(
+			pgpio->ppinctrl, pgpio->ppinctrl_state_i2c_pullup);
+	}
+	#endif
 
 	return ret;
 }

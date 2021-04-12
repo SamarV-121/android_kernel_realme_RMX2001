@@ -28,6 +28,9 @@
 #include "mtk-ssusb-hal.h"
 #endif
 
+/*liuting@ODM.HQ.BSP.CHG 2020/05/19 Add for usb wakelock*/
+extern int oppo_get_chg_unwakelock(void);
+
 unsigned int cable_mode = CABLE_MODE_NORMAL;
 #ifdef CONFIG_MTK_UART_USB_SWITCH
 u32 port_mode = PORT_MODE_USB;
@@ -435,6 +438,12 @@ static bool __usb_cable_connected(int ops)
 {
 	enum charger_type chg_type = CHARGER_UNKNOWN;
 	bool connected = false, vbus_exist = false;
+
+#ifdef VENDOR_EDIT
+/*liuting@ODM.HQ.BSP.CHG 2020/05/19 Add for usb wakelock*/
+	if(oppo_get_chg_unwakelock() == 1)
+		return false;
+#endif
 
 	if (mu3d_force_on) {
 		/* FORCE USB ON */

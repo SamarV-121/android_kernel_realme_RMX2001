@@ -50,6 +50,12 @@ struct mtk_vcu_mem {
 	size_t size;
 };
 
+struct vcu_pa_pages {
+	unsigned long pa;
+	unsigned long kva;
+	struct list_head list;
+};
+
 /**
  * struct mtk_vcu_queue - the allocated buffer queue
  *
@@ -67,6 +73,7 @@ struct mtk_vcu_queue {
 	unsigned int num_buffers;
 	const struct vb2_mem_ops *mem_ops;
 	struct mtk_vcu_mem bufs[CODEC_MAX_BUFFER];
+	struct vcu_pa_pages pa_pages;
 };
 
 /**

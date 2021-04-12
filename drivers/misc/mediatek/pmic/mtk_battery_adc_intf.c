@@ -23,6 +23,14 @@
 #include <mtk_charger.h>
 #include "include/pmic_auxadc.h"
 
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/07/07 slove salaA FTM test report vbatov error*/
+#include "../../../power/oppo/oppo_gauge.h"
+
+extern int is_sala_a_project(void);
+#endif
+
 bool __attribute__ ((weak)) is_power_path_supported(void)
 {
 	pr_notice_once("%s: check mtk_charger\n", __func__);
@@ -39,7 +47,16 @@ int pmic_get_battery_voltage(void)
 	if (is_isense_supported() && is_power_path_supported())
 		bat = pmic_get_auxadc_value(AUXADC_LIST_ISENSE);
 	else
+	#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+    /* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/07/07 slove salaA FTM test report vbatov error*/
+        if (is_sala_a_project() == 2) {
+            bat = oppo_gauge_get_batt_mvolts();
+        }else {
+            bat = pmic_get_auxadc_value(AUXADC_LIST_BATADC);
+        }
+        #else
 		bat = pmic_get_auxadc_value(AUXADC_LIST_BATADC);
+	#endif
 #endif
 	return bat;
 }
@@ -102,6 +119,10 @@ int pmic_get_vbus(void)
 	vchr = 5001;
 #else
 	vchr = pmic_get_auxadc_value(AUXADC_LIST_VCDT);
+//#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6771)
+/* Wangchao@ODM.HQ.Charger 2020/3/6 modified for bring up charging */
+//	return vchr * 10;
+//#endif
 	vchr =
 		(((fg_cust_data.r_charger_1 +
 		fg_cust_data.r_charger_2) * 100 * vchr) /

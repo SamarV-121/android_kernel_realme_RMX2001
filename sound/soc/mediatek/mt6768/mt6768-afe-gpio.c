@@ -30,6 +30,11 @@ enum mt6768_afe_gpio {
 	MT6768_AFE_GPIO_VOW_DAT_ON,
 	MT6768_AFE_GPIO_VOW_CLK_OFF,
 	MT6768_AFE_GPIO_VOW_CLK_ON,
+#ifdef ODM_HQ_EDIT
+/*sunjingtao@ODM.HQ.Multimedia.Audio 2020/03/04 modified for speaker bringup*/
+	MT6768_AFE_GPIO_EXTAMP_PULLHIGH,
+	MT6768_AFE_GPIO_EXTAMP_PULLLOW,
+#endif /* ODM_HQ_EDIT */
 	MT6768_AFE_GPIO_GPIO_NUM
 };
 
@@ -56,6 +61,11 @@ static struct audio_gpio_attr aud_gpios[MT6768_AFE_GPIO_GPIO_NUM] = {
 	[MT6768_AFE_GPIO_VOW_DAT_ON] = {"vow_dat_miso_on", false, NULL},
 	[MT6768_AFE_GPIO_VOW_CLK_OFF] = {"vow_clk_miso_off", false, NULL},
 	[MT6768_AFE_GPIO_VOW_CLK_ON] = {"vow_clk_miso_on", false, NULL},
+#ifdef ODM_HQ_EDIT
+/*sunjingtao@ODM.HQ.Multimedia.Audio 2020/03/04 modified for speaker bringup*/
+	[MT6768_AFE_GPIO_EXTAMP_PULLHIGH] = {"aud_gpio_extamp_pullhigh", false, NULL},
+	[MT6768_AFE_GPIO_EXTAMP_PULLLOW] = {"aud_gpio_extamp_pulllow", false, NULL},
+#endif /* ODM_HQ_EDIT */
 };
 
 static DEFINE_MUTEX(gpio_request_mutex);
@@ -140,6 +150,52 @@ static int mt6768_afe_gpio_adda_ul(struct mtk_base_afe *afe, bool enable)
 					      MT6768_AFE_GPIO_DAT_MISO_OFF);
 	}
 }
+
+#ifdef ODM_HQ_EDIT
+/*sunjingtao@ODM.HQ.Multimedia.Audio 2020/03/04 modified for speaker bringup*/
+static DEFINE_MUTEX(extamp_gpio_request_mutex);
+
+int mt6768_afe_gpio_extamp_select(struct mtk_base_afe *afe, bool enable, int mode)
+{
+	int extamp_mode = 0;
+	int retval = -1;
+	int i = 0;
+	mutex_lock(&extamp_gpio_request_mutex);
+
+	pr_err("[WENDELL] %s enter, enable = %d, mode = %d", __func__, enable, mode);
+
+	if (enable) {
+		if (mode == 1)
+			extamp_mode = 1;
+		else if (mode == 2)
+			extamp_mode = 2;
+		else
+			extamp_mode = 3; /* default mode is 3 */
+
+		for (i = 0; i < extamp_mode; i++) {
+			retval = mt6768_afe_gpio_select(afe, MT6768_AFE_GPIO_EXTAMP_PULLLOW);
+			if (retval)
+				pr_err("could not set aud_gpios[MT6768_AFE_GPIO_EXTAMP_PULLLOW] pins\n");
+			udelay(2);
+
+			retval = mt6768_afe_gpio_select(afe, MT6768_AFE_GPIO_EXTAMP_PULLHIGH);
+			if (retval)
+				pr_err("could not set aud_gpios[MT6768_AFE_GPIO_EXTAMP_PULLHIGH] pins\n");
+			udelay(2);
+		}
+	} else {
+		retval = mt6768_afe_gpio_select(afe, MT6768_AFE_GPIO_EXTAMP_PULLLOW);
+		if (retval)
+			pr_err("could not set aud_gpios[MT6768_AFE_GPIO_EXTAMP_PULLLOW] pins\n");
+		udelay(2);
+	}
+	pr_err("[WENDELL] %s exit, enable = %d, mode = %d", __func__, enable, mode);
+	mutex_unlock(&extamp_gpio_request_mutex);
+
+	return retval;
+}
+#endif /* ODM_HQ_EDIT */
+
 
 int mt6768_afe_gpio_request(struct mtk_base_afe *afe, bool enable,
 			    int dai, int uplink)

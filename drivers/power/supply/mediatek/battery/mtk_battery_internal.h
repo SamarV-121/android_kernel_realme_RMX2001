@@ -235,7 +235,10 @@ enum Fg_kernel_cmds {
 /* Yichun.Chen  PSW.BSP.CHG  2019-07-23  for aging issue */
 	FG_KERNEL_CMD_REQ_CHANGE_AGING_DATA,
 	FG_KERNEL_CMD_AG_LOG_TEST,
+#if defined(CONFIG_OPPO_HQ_CHARGER)
+/*Shouli.Wang@ODM_WT.BSP.CHG 2019/10/20, Add charger code*/
 	FG_KERNEL_CMD_AGLOG_LATCH_DONE,
+#endif /*ODM_WT_EDIT*/
 #endif
 
 	FG_KERNEL_CMD_FROM_USER_NUMBER
@@ -331,10 +334,15 @@ enum daemon_cmd_int_data {
 	FG_SET_OCV_mah = FG_SET_ANCHOR + 12,
 	FG_SET_OCV_Vtemp = FG_SET_ANCHOR + 13,
 	FG_SET_OCV_SOC = FG_SET_ANCHOR + 14,
+#if defined(ODM_HQ_EDIT) && (defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6771))
+/*Shouli.Wang@ODM_WT.BSP.CHG 2019/10/20, Add charger code*/
+	FG_SET_CON0_SOFF_VALID = FG_SET_ANCHOR + 15,
+#else
 #ifdef VENDOR_EDIT
 /* Yichun.Chen  PSW.BSP.CHG  2019-07-29  for aging issue */
 	FG_SET_AG_ERR = FG_SET_ANCHOR + 15,
 #endif
+#endif /*ODM_WT_EDIT*/
 	FG_SET_DATA_MAX,
 };
 
@@ -773,9 +781,12 @@ struct mtk_battery {
 	unsigned int proc_subcmd;
 	unsigned int proc_subcmd_para1;
 	char proc_log[4096];
+#if !defined(ODM_HQ_EDIT) && !defined(CONFIG_MACH_MT6768)
+/*Shouli.Wang@ODM_WT.BSP.CHG 2019/10/20, Add charger code*/
 #ifdef VENDOR_EDIT
 /* Yichun.Chen  PSW.BSP.CHG  2019-07-29  for aging issue */
 	char ag_log[2000];
+#endif
 #endif
 
 /*battery interrupt*/
@@ -813,11 +824,13 @@ struct mtk_battery {
 
 	bool is_reset_aging_factor;
 	int aging_factor;
+#if !defined(ODM_HQ_EDIT) && !defined(CONFIG_MACH_MT6768)
+/*Shouli.Wang@ODM_WT.BSP.CHG 2019/10/20, Add charger code*/
 #ifdef VENDOR_EDIT
 /* Yichun.Chen  PSW.BSP.CHG  2019-07-29  for aging issue */
 	int ag_detect_err;
 #endif
-
+#endif
 	struct timespec uisoc_oldtime;
 
 	signed int ptim_lk_v;

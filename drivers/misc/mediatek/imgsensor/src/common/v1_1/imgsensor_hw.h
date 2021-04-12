@@ -45,20 +45,11 @@ struct IMGSENSOR_HW_POWER_INFO {
 	u32 pin_off_delay;
 };
 
-#ifdef ODM_HQ_EDIT
-/* Lijian@ODM.Camera.Drv 20190912 MTK patch for mipi switch */
 struct IMGSENSOR_HW_POWER_SEQ {
 	char *name;
 	struct IMGSENSOR_HW_POWER_INFO pwr_info[IMGSENSOR_HW_POWER_INFO_MAX];
 	u32 _idx;
 };
-#else
-struct IMGSENSOR_HW_POWER_SEQ {
-	char *name;
-	struct IMGSENSOR_HW_POWER_INFO pwr_info[IMGSENSOR_HW_POWER_INFO_MAX];
-	u32 _idx;
-};
-#endif
 
 struct IMGSENSOR_HW_DEVICE_COMMON {
 	struct platform_device *pplatform_device;
@@ -105,6 +96,13 @@ extern struct IMGSENSOR_HW_POWER_SEQ platform_power_sequence[];
 extern struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[];
 extern enum IMGSENSOR_RETURN (*hw_open[IMGSENSOR_HW_ID_MAX_NUM])
 					(struct IMGSENSOR_HW_DEVICE **);
+#ifdef ODM_HQ_EDIT
+/*Houbing.Peng@ODM 20200416 add for sala bringup*/
+extern struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence_20682[];
+extern struct IMGSENSOR_HW_CFG imgsensor_custom_config_20682[];
+/*Chejian@ODM_HQ Cam.Drv 20201112 for sala3*/
+extern struct IMGSENSOR_HW_CFG imgsensor_custom_config_SALA3[];
+#endif
 
 #endif
 

@@ -150,13 +150,6 @@ owner_mt(const struct sk_buff *skb, struct xt_action_param *par)
             sock_gen_put(sk);
             sk = NULL;
          }
-#ifdef VENDOR_EDIT
-/* Wen.Luo@BSP.Kernel.Stability 2019/12/20 add for bug-id:2710161, sock memleak, add WRAN_ON follow other sk_state */
-         else if (sk) {
-            pr_info("owner_mt: sk: %px, sk->sk_state: %d \n", sk, sk->sk_state);
-            sock_gen_put(sk);
-         }
-#endif
     }
     if(sk) {
         pr_debug("owner_mt: sk: %p, sk->sk_state: %d, sk->sk_socket: %p\n", sk, sk->sk_state, sk->sk_socket);
@@ -204,8 +197,15 @@ static struct xt_match owner_mt_reg __read_mostly = {
 	.checkentry = owner_check,
 	.match      = owner_mt,
 	.matchsize  = sizeof(struct xt_owner_match_info),
+#ifndef VENDOR_EDIT
+//Yuanhua.Du@PSW.NW.DATA.2180713, 2019/07/20, Add NF_INET_LOCAL_IN for iptables owner match rules
 	.hooks      = (1 << NF_INET_LOCAL_OUT) |
 	              (1 << NF_INET_POST_ROUTING),
+#else
+	.hooks      = (1 << NF_INET_LOCAL_OUT) |
+	              (1 << NF_INET_POST_ROUTING) |
+	              (1 << NF_INET_LOCAL_IN),
+#endif
 	.me         = THIS_MODULE,
 };
 

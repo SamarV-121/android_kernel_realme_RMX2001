@@ -289,3 +289,12 @@ config SND_SOC_SIA8109
 	help
 	This option enables support for AW87339 Smart K PA.
 #endif /* ODM_HQ_EDIT */
+
+#ifdef ODM_HQ_EDIT
+#sunjingtao@ODM.HQ.Multimedia.Audio 2020/04/17 added for aw87359 bringup
+config SND_SOC_AW87359
+	tristate "SoC Audio for awinic AW87359 Smart K PA"
+	depends on I2C
+	help
+	This option enables support for AW87359 Smart K PA.
+#endif /* ODM_HQ_EDIT */

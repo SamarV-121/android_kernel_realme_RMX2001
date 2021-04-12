@@ -18,6 +18,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/port
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/$(MTK_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/debug_latch/lastbus/mt6785
 
 # fsm objects
 obj-$(CONFIG_MTK_ECCCI_DRIVER) := ccci_fsm_all.o

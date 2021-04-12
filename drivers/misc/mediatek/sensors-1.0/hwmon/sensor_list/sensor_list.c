@@ -139,6 +139,13 @@ static void sensorlist_get_deviceinfo(struct work_struct *work)
 		strlcpy(sensorlist_info[handle].name,
 			devinfo.name,
 			sizeof(sensorlist_info[handle].name));
+#if defined(ODM_HQ_EDIT) && defined(TARGET_WATERMELON_Q_PROJECT)
+/* zuoqiquan@ODM_HQ.Sensors.SCP.BSP, 2018/12/13,for sensors cts/vts fail  */
+		if(!strcmp(sensorlist_info[accel].name, "lis2doc"))
+			strlcpy(sensorlist_info[gyro].name, "mmc_vgyro",sizeof(sensorlist_info[gyro].name));
+		else if(!strcmp(sensorlist_info[accel].name, "bma253"))
+			strlcpy(sensorlist_info[gyro].name,"akm_vgyro",sizeof(sensorlist_info[gyro].name));
+#endif
 		spin_unlock(&sensorlist_info_lock);
 	}
 }

@@ -30,6 +30,10 @@ enum IMGSENSOR_HW_PIN {
 	IMGSENSOR_HW_PIN_DVDD,
 	IMGSENSOR_HW_PIN_DOVDD,
 	IMGSENSOR_HW_PIN_AFVDD,
+#ifdef ODM_HQ_EDIT
+	/*Houbing.Peng@ODM 20200416 add for sala bringup*/
+	IMGSENSOR_HW_PIN_AVDD2,
+#endif
 #ifdef MIPI_SWITCH
 	IMGSENSOR_HW_PIN_MIPI_SWITCH_EN,
 	IMGSENSOR_HW_PIN_MIPI_SWITCH_SEL,
@@ -95,6 +99,8 @@ enum Voltage {
 #ifdef ODM_HQ_EDIT
 /* Lijian@ODM.Camra 20190827 for FP5516 Bringup */
 #define	AFVDD  IMGSENSOR_HW_PIN_AFVDD
+/*Houbing.Peng@ODM 20200416 add for sala bringup*/
+#define	AVDD2  IMGSENSOR_HW_PIN_AVDD2
 #else
 #define	AFVDD  IMGSENSOR_HW_PIN_UNDEF
 #endif

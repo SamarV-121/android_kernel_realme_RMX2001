@@ -184,7 +184,7 @@ static struct wake_lock vcodec_wake_lock2;
 static unsigned int is_entering_suspend;
 #endif
 
-/* #define VCODEC_DEBUG */
+#define VCODEC_DEBUG
 #ifdef VCODEC_DEBUG
 #undef VCODEC_DEBUG
 #define VCODEC_DEBUG pr_info
@@ -525,8 +525,8 @@ void vdec_polling_status(void)
 					i, u4DataStatus);
 			}
 
-			/* smi_debug_bus_hanging_detect_ext2(0x1FF, 1, 0, 1); */
-			/*mmsys_cg_check(); */
+			smi_debug_bus_hang_detect(0, "VCODEC");
+			mmsys_cg_check();
 
 			u4Counter = 0;
 			WARN_ON(1);

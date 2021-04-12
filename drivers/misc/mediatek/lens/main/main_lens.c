@@ -95,16 +95,25 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	 BU64253AF_Release, BU64253AF_GetFileName, NULL},
 	{1, AFDRV_FP5516AF, FP5516AF_SetI2Cclient, FP5516AF_Ioctl,
 	 FP5516AF_Release, FP5516AF_GetFileName, NULL},
-#endif
-	{1, AFDRV_AK7371AF, AK7371AF_SetI2Cclient, AK7371AF_Ioctl,
-	 AK7371AF_Release, AK7371AF_GetFileName, NULL},
-	{1, AFDRV_AK7374AF, AK7374AF_SetI2Cclient, AK7374AF_Ioctl,
-         AK7374AF_Release, AK7374AF_GetFileName, NULL},
+	{1, AFDRV_DW9718TAF, DW9718TAF_SetI2Cclient, DW9718TAF_Ioctl,
+	 DW9718TAF_Release, DW9718TAF_GetFileName, NULL},
+
+    /* Jian.Li@ODM.Camra.Drv  20200224 add for DW9714AF_QT and DW9714AF_TS Bringup */
+	{1, AFDRV_DW9714AF_QT, DW9714AF_QT_SetI2Cclient, DW9714AF_QT_Ioctl,
+	 DW9714AF_QT_Release, DW9714AF_QT_GetFileName, NULL},
+	{1, AFDRV_DW9714AF_TS, DW9714AF_TS_SetI2Cclient, DW9714AF_TS_Ioctl,
+	 DW9714AF_TS_Release, DW9714AF_TS_GetFileName, NULL},
+#else
 	#ifdef VENDOR_EDIT
 	/* Longyuan.Yang@Camera add for FP5516 driver 20190227 */
 	{1, AFDRV_FP5516AF, FP5516AF_SetI2Cclient, FP5516AF_Ioctl,
          FP5516AF_Release,  FP5516AF_GetFileName, NULL},
 	#endif
+#endif
+	{1, AFDRV_AK7371AF, AK7371AF_SetI2Cclient, AK7371AF_Ioctl,
+	 AK7371AF_Release, AK7371AF_GetFileName, NULL},
+	{1, AFDRV_AK7374AF, AK7374AF_SetI2Cclient, AK7374AF_Ioctl,
+         AK7374AF_Release, AK7374AF_GetFileName, NULL},
 	{1, AFDRV_BU6424AF, BU6424AF_SetI2Cclient, BU6424AF_Ioctl,
 	 BU6424AF_Release, BU6424AF_GetFileName, NULL},
 	{1, AFDRV_BU6429AF, BU6429AF_SetI2Cclient, BU6429AF_Ioctl,

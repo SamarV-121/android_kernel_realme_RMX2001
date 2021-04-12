@@ -19,9 +19,33 @@
 #define LCD_BIAS_VPOS_ADDR    0x00
 #define LCD_BIAS_VNEG_ADDR    0x01
 #define LCD_BIAS_APPS_ADDR    0x03
+/*longyajun@ODM.Multimedia.LCD 2020/05/24 add for avdd MTP 5.5V */
+#define LCD_BIAS_APPS_MTP_ADDR 0xFF
 #define NEG_OUTPUT_APPS 0x40
 
 #ifdef BUILD_LK
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+#ifdef CONFIG_MACH_MT6771
+#define LCD_BIAS_I2C_BUSNUM   3	/* for I2C channel 3 */
+#define LCD_BIAS_I2C_ADDR       0x3E /*for I2C slave dev addr*/
+
+#define LCD_BIAS_ST_MODE         0
+#define LCD_BIAS_MAX_ST_MODE_SPEED 100  /* khz */
+
+#define GPIO_LCD_BIAS_ENP_PIN (GPIO23 | 0x80000000)
+#define GPIO_LCD_BIAS_ENN_PIN (GPIO21 | 0x80000000)
+#endif
+#ifdef CONFIG_MACH_MT6769
+/* Benshan.Cheng@ODM.Multimedia.LCD 2020/02/17, modify for euler LCD driver. */
+#define LCD_BIAS_I2C_BUSNUM   0	/* for I2C channel 0 */
+#define LCD_BIAS_I2C_ADDR       0x3E /*for I2C slave dev addr*/
+
+#define LCD_BIAS_ST_MODE         0
+#define LCD_BIAS_MAX_ST_MODE_SPEED 100  /* khz */
+
+#define GPIO_LCD_BIAS_ENP_PIN (GPIO169 | 0x80000000)
+#define GPIO_LCD_BIAS_ENN_PIN (GPIO165 | 0x80000000)
+#else
 #define LCD_BIAS_I2C_BUSNUM   6	/* for I2C channel 6 */
 #define LCD_BIAS_I2C_ADDR       0x3E /*for I2C slave dev addr*/
 
@@ -30,6 +54,8 @@
 
 #define GPIO_LCD_BIAS_ENP_PIN (GPIO23 | 0x80000000)
 #define GPIO_LCD_BIAS_ENN_PIN (GPIO202 | 0x80000000)
+#endif
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, end. */
 
 #define LCD_BIAS_PRINT printf
 

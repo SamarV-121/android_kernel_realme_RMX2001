@@ -2834,13 +2834,22 @@ static int mt6358_amic_enable(struct mt6358_priv *priv)
 					   0xff00, 0x0000);
 			break;
 		}
+#ifndef ODM_HQ_EDIT
+//sunjingtao@ODM.HQ.Multimedia.Audio.BSP 2020/03/12 modified for micbias1 voltage setting
 		/* Enable MICBIAS0, MISBIAS0 = 1P9V */
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON9,
 				   0xff, 0x21);
+#else
+		/* Enable MICBIAS0, MISBIAS0 = 2P7V */
+		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON9,
+				   0xff, 0x71);
+#endif
 	}
 
 	/* mic bias 1 */
 	if (mux_pga_l == PGA_MUX_AIN1 || mux_pga_r == PGA_MUX_AIN1) {
+#ifndef ODM_HQ_EDIT
+//sunjingtao@ODM.HQ.Multimedia.Audio.BSP 2020/03/12 modified for micbias1 voltage setting
 		/* Enable MICBIAS1, MISBIAS1 = 2P6V */
 		if (mic_type == MIC_TYPE_MUX_DCC_ECM_SINGLE)
 			regmap_write(priv->regmap,
@@ -2848,6 +2857,15 @@ static int mt6358_amic_enable(struct mt6358_priv *priv)
 		else
 			regmap_write(priv->regmap,
 				     MT6358_AUDENC_ANA_CON10, 0x0061);
+#else
+		/* Enable MICBIAS1, MISBIAS1 = 2P7V */
+		if (mic_type == MIC_TYPE_MUX_DCC_ECM_SINGLE)
+			regmap_write(priv->regmap,
+				     MT6358_AUDENC_ANA_CON10, 0x0171);
+		else
+			regmap_write(priv->regmap,
+				     MT6358_AUDENC_ANA_CON10, 0x0071);
+#endif
 	}
 
 	/* set mic pga gain */

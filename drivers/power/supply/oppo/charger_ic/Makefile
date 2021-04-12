@@ -16,8 +16,29 @@ ifeq ($(CONFIG_OPPO_CHARGER_MTK),y)
 		subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
 		subdir-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/misc/
 		obj-y	+= oppo_battery_mtk6779.o
+		obj-y	+= oppo_da9313.o
+		obj-y	+= oppo_mp2650.o
 	else
+ifeq ($(CONFIG_OPPO_HQ_EULER_CHARGER),y)
+		MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+		subdir-ccflags-y += -Werror
+		subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
+		subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+		subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
+		subdir-ccflags-$(CONFIG_USB_MU3D_DRV) += -I$(srctree)/drivers/misc/mediatek/mu3d/drv
+		subdir-ccflags-$(CONFIG_USB_MTK_HDRC) += -I$(srctree)/drivers/misc/mediatek/usb20/
+		subdir-ccflags-$(CONFIG_MTK_PMIC_CHIP_MT6355) += -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6355
+		subdir-ccflags-$(CONFIG_MTK_PMIC_CHIP_MT6356) += -I$(srctree)/drivers/misc/mediatek/pmic/include/mt6356
+		subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/include
+		subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
+		subdir-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/misc/
+		subdir-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery/
+		obj-$(CONFIG_CHARGER_BQ2589X) += oppo_bq2589x_charger.o
+		obj-$(CONFIG_CHARGER_BQ2591X) += oppo_bq2591x_charger.o
+else
 		obj-y	+= oppo_battery_mtk.o
+endif
+
 	endif
 	//obj-y	+= oppo_bq24196.o
 

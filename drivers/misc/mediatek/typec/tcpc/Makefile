@@ -19,3 +19,11 @@ obj-$(CONFIG_USB_POWER_DELIVERY)	+= tcpci_event.o \
 		pd_policy_engine_src.o pd_policy_engine_snk.o pd_policy_engine_ufp.o pd_policy_engine_vcs.o \
 		pd_policy_engine_dfp.o pd_policy_engine_dr.o pd_policy_engine_drs.o pd_policy_engine_prs.o \
 		pd_policy_engine_dbg.o pd_policy_engine_com.o pd_dpm_alt_mode_dc.o
+#ifdef ODM_HQ_EDIT
+#/*wangtao@ODM_HQ.BSP.CHG 2020/02/24,  charger bring up*/
+obj-$(CONFIG_TCPC_RT1711H)	+= tcpc_rt1711h.o
+#endif	/*ODM_HQ_EDIT*/	
+##ifdef ODM_HQ_EDIT
+#zhangchao@ODM_HQ.BSP.CHG 2020/03/16,bring up fusb302
+obj-$(CONFIG_TCPC_FUSB302)	+= fusb302b/
+##endif	/*ODM_HQ_EDIT*/

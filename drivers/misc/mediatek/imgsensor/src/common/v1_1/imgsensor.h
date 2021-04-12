@@ -21,7 +21,6 @@
 #include "imgsensor_common.h"
 #include "imgsensor_i2c.h"
 #include "imgsensor_hw.h"
-
 #define IMGSENSOR_FEATURE_PARA_LEN_MAX 128000
 
 struct IMGSENSOR_STATUS {
@@ -82,5 +81,11 @@ imgsensor_sensor_control(
 
 extern struct IMGSENSOR_HW_CFG imgsensor_custom_config[];
 
+#ifdef ODM_HQ_EDIT
+/*Houbing.Peng@ODM 20200416 add for sala bringup*/
+/*Chejian@ODM_HQ Cam.Drv 20201112 for sala3*/
+extern struct IMGSENSOR_HW_CFG imgsensor_custom_config_20682[];
+extern struct IMGSENSOR_HW_CFG imgsensor_custom_config_SALA3[];
 #endif
 
+#endif

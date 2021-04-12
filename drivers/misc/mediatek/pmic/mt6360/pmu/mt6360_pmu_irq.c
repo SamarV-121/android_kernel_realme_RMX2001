@@ -37,6 +37,9 @@ extern void oppo_chg_set_chargerid_switch_val(int);
 extern bool oppo_vooc_get_fastchg_to_normal(void);
 extern bool oppo_vooc_get_fastchg_to_warm(void);
 extern void oppo_chg_set_charger_type_unknown(void);
+extern void oppo_vooc_set_mcu_sleep(void);
+extern bool oppo_vooc_get_fastchg_dummy_started(void);
+extern int is_sala_a_project(void);
 #endif /*ODM_HQ_EDIT*/
 
 static irqreturn_t mt6360_pmu_irq_handler(int irq, void *data)
@@ -92,6 +95,11 @@ static irqreturn_t mt6360_pmu_irq_handler(int irq, void *data)
 							}
 						} else {
 							if (!vbus_status) {
+								printk(KERN_ERR "[OPPO_CHG] %s oppo_vooc_set_mcu_sleep!\n", __func__);
+								if (is_sala_a_project() == 2 && oppo_vooc_get_fastchg_dummy_started() == false
+										&& oppo_vooc_get_fastchg_started() == false) {
+									oppo_vooc_set_mcu_sleep();
+								}
 								oppo_vooc_reset_fastchg_after_usbout();
 								if (oppo_vooc_get_fastchg_started() == false) {
 									oppo_chg_set_chargerid_switch_val(0);

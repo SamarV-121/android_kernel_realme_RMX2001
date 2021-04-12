@@ -13,6 +13,7 @@
 
 #include <linux/slab.h>
 #include <linux/interrupt.h>
+#include <linux/iopoll.h>
 
 #include "m4u_priv.h"
 #include "m4u_platform.h"
@@ -69,6 +70,30 @@ int gM4u_port_num = M4U_PORT_UNKNOWN;
 
 static DEFINE_MUTEX(m4u_larb0_mutex);
 
+static void m4u_invalid_tlb_fail_dump(unsigned long m4u_base)
+{
+	int i;
+
+	m4u_info("TLB flush timeout, m4u_base = 0x%lx\n", m4u_base);
+	m4u_call_atf_debug(M4U_ATF_SECURITY_DEBUG_EN);
+	m4u_info("%s #%d\n", __func__, __LINE__);
+	for (i = 0; i < 5; i++) {
+		/* DE required for normal bank: 0x20, 0x24, 0x28, 0x2c, 0x12c */
+		m4u_info("m4u dump reg times[%d] [0x%04x]:0x%08x,[0x%04x]:0x%08x,[0x%04x]:0x%08x,[0x%04x]:0x%08x,[0x%04x]:0x%08x\n",
+			 i,
+			 REG_MMU_INVLD,
+			 M4U_ReadReg32(m4u_base, REG_MMU_INVLD),
+			 REG_MMU_INVLD_SA,
+			 M4U_ReadReg32(m4u_base, REG_MMU_INVLD_SA),
+			 REG_MMU_INVLD_EA,
+			 M4U_ReadReg32(m4u_base, REG_MMU_INVLD_EA),
+			 REG_INVLID_SEL,
+			 M4U_ReadReg32(m4u_base, REG_INVLID_SEL),
+			 REG_MMU_CPE_DONE,
+			 M4U_ReadReg32(m4u_base, REG_MMU_CPE_DONE));
+	}
+}
+
 int m4u_invalid_tlb(int m4u_id, int L2_en,
 		int isInvAll, unsigned int mva_start,
 			unsigned int mva_end)
@@ -101,8 +126,26 @@ int m4u_invalid_tlb(int m4u_id, int L2_en,
 	}
 
 	if (!isInvAll) {
-		while (!M4U_ReadReg32(m4u_base, REG_MMU_CPE_DONE))
-			;
+		u32 tmp;
+		int ret;
+
+		/* tlb sync */
+		ret = readl_poll_timeout_atomic(
+				(void __iomem *)(m4u_base + REG_MMU_CPE_DONE),
+				tmp, tmp != 0, 10, 1000);
+		if (ret) {
+			m4u_invalid_tlb_fail_dump(m4u_base);
+			m4u_info("m4u_%d tlb timeout.L2:%d, is_all:%d,add:0x%08x~0x%08x\n",
+				 m4u_id, L2_en, isInvAll, mva_start, mva_end);
+			/* Use aee to notify M4U owner to check this issue */
+			m4u_aee_print("M4U TLB timeout\n");
+
+			//clear
+			M4U_WriteReg32(m4u_base, REG_MMU_CPE_DONE, 0);
+			/* falling back flush all */
+			M4U_WriteReg32(m4u_base, REG_INVLID_SEL, reg);
+			M4U_WriteReg32(m4u_base, REG_MMU_INVLD, F_MMU_INV_ALL);
+		}
 		M4U_WriteReg32(m4u_base, REG_MMU_CPE_DONE, 0);
 	}
 
@@ -214,6 +257,8 @@ static int m4u_dump_rs_sta_info(int m4u_index, int mmu)
 	unsigned long m4u_base = gM4UBaseAddr[m4u_index];
 	unsigned int RegValue = 0;
 	int i = 0;
+	char buf[700] = {0};
+	int pos = 0;
 
 	M4UMSG("Dump IOMMU-MMU[%d]RS Status Register\n", mmu);
 	/* RS Status Register, Total 16 in 6785
@@ -222,10 +267,11 @@ static int m4u_dump_rs_sta_info(int m4u_index, int mmu)
 	for (i = 0; i < 16; i++) {
 		RegValue = M4U_ReadReg32(m4u_base, REG_MMU_RSx_ST(mmu, i));
 		if (RegValue != 0)
-			M4UMSG("0x%x = 0x%x\n", REG_MMU_RSx_ST(mmu, i),
+			pos += snprintf(buf + pos, sizeof(buf) - pos,
+				"0x%x = 0x%x, ", REG_MMU_RSx_ST(mmu, i),
 				RegValue);
 	}
-
+	M4UMSG("%s", buf);
 	return 0;
 }
 

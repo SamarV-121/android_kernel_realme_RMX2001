@@ -71,24 +71,31 @@
 #include <mtk_gauge_time_service.h>
 #include <mt-plat/upmu_common.h>
 #include <pmic_lbat_service.h>
+
+
+
 #ifdef VENDOR_EDIT
 /* Qiao.Hu@EXP.BSP.CHG.basic, 2017/07/20, Add for charger */
 #include <soc/oppo/device_info.h>
+
 #include <soc/oppo/oppo_project.h>
 #include <linux/gpio.h>
-#include "../../../oppo/oppo_gauge.h"
-extern bool is_vooc_project(void);
+#include "../../oppo/oppo_gauge.h"
+extern int is_vooc_project(void);
 
 #endif  /*VENDOR_EDIT*/
 #ifdef VENDOR_EDIT
 /* Qiao.Hu@EXP.BSP.BaseDrv.CHG.Basic, 2017/08/08, Add for charger */
 int fgauge_is_start = 0;
 #endif /* VENDOR_EDIT */
-#ifdef VENDOR_EDIT
+#if defined(VENDOR_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 //PengNan@BSP.CHG.basic,2017/07/27, customizing the battery NTC,modify the resistor.
 #define RBAT_PULL_DOWN_R 24000
 #endif /*VENDOR_EDIT*/
-
+#ifdef ODM_HQ_EDIT
+/*Shouli.Wang@ODM_WT.BSP.CHG 2019/11/11, add for battery fcc property*/
+#define MONET_BATTERY_FCC 5000
+#endif /*ODM_HQ_EDIT*/
 
 
 
@@ -126,7 +133,7 @@ extern bool pmic_chrdet_status(void);
 extern int oppo_get_prop_status(void);
 extern bool oppo_chg_check_chip_is_null(void);
 extern signed int battery_get_bat_voltage(void);
-
+extern signed int battery_meter_get_battery_current(void);
 
 #endif
 static struct class *adc_cali_class;
@@ -784,6 +791,21 @@ static void proc_dump_dtsi(struct seq_file *m)
 		fg_cust_data.aging1_update_soc);
 	seq_printf(m, "AGING1_LOAD_SOC = %d\n",
 		fg_cust_data.aging1_load_soc);
+#ifdef ODM_HQ_EDIT
+/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/4,for gm30 baseline upgrade*/
+	seq_printf(m, "AGING4_UPDATE_SOC = %d\n",
+		fg_cust_data.aging4_update_soc);
+	seq_printf(m, "AGING4_LOAD_SOC = %d\n",
+		fg_cust_data.aging4_load_soc);
+	seq_printf(m, "AGING5_UPDATE_SOC = %d\n",
+		fg_cust_data.aging5_update_soc);
+	seq_printf(m, "AGING5_LOAD_SOC = %d\n",
+		fg_cust_data.aging5_load_soc);
+	seq_printf(m, "AGING6_UPDATE_SOC = %d\n",
+		fg_cust_data.aging6_update_soc);
+	seq_printf(m, "AGING6_LOAD_SOC = %d\n",
+		fg_cust_data.aging6_load_soc);
+#endif /*ODM_HQ_EDIT*/
 	seq_printf(m, "AGING_TEMP_DIFF = %d\n",
 		fg_cust_data.aging_temp_diff);
 	seq_printf(m, "AGING_100_EN = %d\n",
@@ -792,6 +814,15 @@ static void proc_dump_dtsi(struct seq_file *m)
 		fg_cust_data.aging_two_en);
 	seq_printf(m, "AGING_THIRD_EN = %d\n",
 		fg_cust_data.aging_third_en);
+#ifdef ODM_HQ_EDIT
+/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/4,for gm30 baseline upgrade*/
+	seq_printf(m, "AGING_4_EN = %d\n",
+		fg_cust_data.aging_4_en);
+	seq_printf(m, "AGING_5_EN = %d\n",
+		fg_cust_data.aging_5_en);
+	seq_printf(m, "AGING_6_EN = %d\n",
+		fg_cust_data.aging_6_en);
+#endif /*ODM_HQ_EDIT*/
 	seq_printf(m, "DIFF_SOC_SETTING = %d\n",
 		fg_cust_data.diff_soc_setting);
 	seq_printf(m, "DIFF_BAT_TEMP_SETTING = %d\n",
@@ -2002,7 +2033,17 @@ void fg_ocv_query_soc(int ocv)
 
 	bm_trace("[fg_ocv_query_soc] ocv:%d\n", ocv);
 }
+#ifdef ODM_HQ_EDIT
+/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/4,not used gm30 parameter*/
+void fg_test_ag_cmd(int cmd)
+{
+	wakeup_fg_algo_cmd(
+		FG_INTR_KERNEL_CMD, FG_KERNEL_CMD_AG_LOG_TEST, cmd);
 
+	bm_err("[%s]FG_KERNEL_CMD_AG_LOG_TEST:%d\n",
+		__func__, cmd);
+}
+#else
 #ifdef VENDOR_EDIT
 /* Yichun.Chen  PSW.BSP.CHG  2019-07-23  for aging issue */
 void fg_change_aging(int new_aging)
@@ -2037,6 +2078,7 @@ void fg_notify_aglog_latch_done(void)
 		__func__, gm.ag_detect_err);
 }
 #endif
+#endif /*ODM_HQ_EDIT*/
 
 void exec_BAT_EC(int cmd, int param)
 {
@@ -3015,6 +3057,32 @@ void exec_BAT_EC(int cmd, int param)
 				cmd);
 		}
 		break;
+#ifdef ODM_HQ_EDIT
+/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/4,not used gm30 parameter*/
+	case 795:
+		{
+			wakeup_fg_algo_cmd(
+				FG_INTR_KERNEL_CMD,
+				FG_KERNEL_CMD_REQ_CHANGE_AGING_DATA,
+				param * 100);
+
+			bm_err(
+				"exe_BAT_EC cmd %d,change aging to=%d\n",
+				cmd, param);
+		}
+		break;
+	case 796:
+		{
+			bm_err(
+				"exe_BAT_EC cmd %d,FG_KERNEL_CMD_AG_LOG_TEST=%d\n",
+				cmd, param);
+
+			wakeup_fg_algo_cmd(
+				FG_INTR_KERNEL_CMD,
+				FG_KERNEL_CMD_AG_LOG_TEST, param);
+		}
+		break;
+#else
 #ifdef VENDOR_EDIT
 /* Yichun.Chen  PSW.BSP.CHG  2019- */
 	case 888:
@@ -3047,6 +3115,7 @@ void exec_BAT_EC(int cmd, int param)
 		}
 		break;
 #endif
+#endif /*ODM_HQ_EDIT*/
 	default:
 		bm_err(
 			"exe_BAT_EC cmd %d, param %d, default\n",
@@ -4185,7 +4254,7 @@ int meter_fg_30_get_bat_charging_current(void)
 
 static int meter_fg_30_get_battery_fcc(void)
 {
-	return -1;
+	return MONET_BATTERY_FCC;
 }
 
 static int meter_fg_30_get_battery_cc(void)
@@ -4290,6 +4359,8 @@ enum {
 #define BAT_ID (3) //AUXIN3
 static int battery_type_check(void)
 {
+#ifndef ODM_HQ_EDIT
+/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/4,battery type detection*/
 	int value = 0;
 	int data[4] = {0};
 	int i = 0;
@@ -4346,6 +4417,25 @@ static int battery_type_check(void)
 	}
 
 	printk(KERN_ERR "[battery_type_check]: adc_value[%d], battery_type[%d],g_fg_battery_id[%d]\n", value, battery_type, gm.battery_id);
+#endif /*ODM_HQ_EDIT*/
+#ifdef ODM_HQ_EDIT
+/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/4,battery type detection*/
+		int battery_type = BAT_TYPE__UNKNOWN;
+
+		fgauge_get_profile_id();
+		switch(gm.battery_id){
+			case 0:
+				battery_type = BAT_TYPE__ATL_4400mV;
+				break;
+			case 1:
+				battery_type = BAT_TYPE__SDI_4400mV;
+				break;
+			default:
+				battery_type = BAT_TYPE__UNKNOWN;
+				break;
+		}
+#endif /*ODM_HQ_EDIT*/
+	printk(KERN_ERR "[battery_type_check]:battery_type[%d],battery_id[%d]\n", battery_type, gm.battery_id);
 	return battery_type;
 }
 
@@ -4356,8 +4446,14 @@ static bool battery_type_is_4400mv(void)
 	int retry_flag = 0;
 try_again:
 	battery_type = battery_type_check();
-	if (battery_type == BAT_TYPE__SDI_4400mV || battery_type == BAT_TYPE__LG_4400mV || battery_type == BAT_TYPE__ATL_4400mV) {
-		return true;
+#ifdef ODM_HQ_EDIT
+	/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/4,for battery vendor detection*/
+		if (battery_type > BAT_TYPE__UNKNOWN) {
+			return true;
+#else
+		if (battery_type == BAT_TYPE__SDI_4400mV || battery_type == BAT_TYPE__LG_4400mV || battery_type == BAT_TYPE__ATL_4400mV) {
+			return true;
+#endif /*ODM_HQ_EDIT*/
 	} else {
 		if (retry_flag == 0) {
 			retry_flag = 1;
@@ -4471,7 +4567,8 @@ static void get_average_current(struct work_struct *work)
 						&get_average_current_wk,
 						msecs_to_jiffies(delay_time * 1000));
 }
-
+#ifndef ODM_HQ_EDIT
+/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/4,not used gm30 parameter*/
 #ifdef VENDOR_EDIT
 /* Yichun.Chen  PSW.BSP.CHG  2019-07-23  for aging issue */
 static ssize_t aging_log_read(struct file *filp, char __user *buff, size_t count, loff_t *off)
@@ -4557,6 +4654,7 @@ static int init_gauge_aging_log(void)
 	return 0;
 }
 #endif
+#endif /*ODM_HQ_EDIT*/
 
 static struct oppo_gauge_operations battery_meter_fg_30_gauge = {
 	.get_battery_mvolts			= meter_fg_30_get_battery_mvolts,
@@ -4948,13 +5046,14 @@ if(!is_vooc_project()) {
 #endif
 
 	ret = platform_driver_register(&battery_driver_probe);
-
+#ifndef ODM_HQ_EDIT
+/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/4,not used gm30 parameter*/
 #ifdef VENDOR_EDIT
 /* Yichun.Chen  PSW.BSP.CHG  2019-07-29  for aging issue */
 	if(!is_vooc_project())
 		init_gauge_aging_log();
 #endif
-
+#endif /*ODM_HQ_EDIT*/
 	bm_err("[battery_init] Initialization : DONE\n");
 
 	return 0;

@@ -462,7 +462,27 @@ static void lcm_dfps_int(struct LCM_DSI_PARAMS *dsi)
 	dfps_params[1].vertical_frontporch_dyn= 54;
 	dfps_params[1].vertical_frontporch_for_low_power_dyn = 2500;
 
-	dsi->dfps_num = 2;
+        /*DPFS_LEVEL2*/
+        dfps_params[2].level = DFPS_LEVEL2;
+        dfps_params[2].fps = 4500;/*real fps * 100, to support float*/
+        dfps_params[2].vact_timing_fps = 9000;/*real vact timing fps * 100*/
+        /*if mipi clock solution*/
+        /*dfps_params[1].PLL_CLOCK = xx;*/
+        /*dfps_params[1].data_rate = xx; */
+        /*if HFP solution*/
+        /*dfps_params[1].horizontal_frontporch = xx;*/
+        dfps_params[2].vertical_frontporch = 2500;
+        dfps_params[2].vertical_frontporch_for_low_power = 2500;
+
+        /*if need mipi hopping params add here*/
+        dfps_params[2].dynamic_switch_mipi = 1;
+        dfps_params[2].PLL_CLOCK_dyn = 550;
+        dfps_params[2].horizontal_frontporch_dyn = 288;
+        dfps_params[2].vertical_frontporch_dyn= 2500;
+        dfps_params[2].vertical_frontporch_for_low_power_dyn = 2500;
+
+
+	dsi->dfps_num = 3;
 }
 #endif
 

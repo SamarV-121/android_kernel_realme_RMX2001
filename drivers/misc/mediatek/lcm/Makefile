@@ -31,6 +31,10 @@ subdir-ccflags-$(CONFIG_MTK_FB) += -I$(srctree)/drivers/misc/mediatek/video/$(MT
                                        -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/videox \
                                        -I$(srctree)/drivers/misc/mediatek/video/include
 
+ifeq ($(HQ_COMPILE_FACTORY_VERSION),yes)
+subdir-ccflags-y += -DATO_ESD_CHECK_DISABLE
+endif
+
 LCM_DEFINES := $(shell echo $(CONFIG_CUSTOM_KERNEL_LCM) | tr a-z A-Z)
 DEFINES += $(foreach LCM,$(LCM_DEFINES),$(LCM))
 DEFINES += MTK_LCM_PHYSICAL_ROTATION=\"$(MTK_LCM_PHYSICAL_ROTATION)\"

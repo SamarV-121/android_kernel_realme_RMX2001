@@ -2624,6 +2624,11 @@ void clock_force_off(void)
 	clk_writel(CAMSYS_CG_SET, CAMSYS_CG);
 }
 
+void mmsys_cg_check(void)
+{
+	pr_notice("[MMSYS_CG_CON0]=0x%08x\n", clk_readl(MM_CG_CON0));
+}
+
 void pll_force_off(void)
 {
 /*MFGPLL*/

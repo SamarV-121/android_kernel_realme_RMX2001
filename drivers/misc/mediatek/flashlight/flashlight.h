@@ -124,5 +124,10 @@ typedef enum {
 #define FLASH_IOC_GET_HW_FAULT             _IOR(FLASHLIGHT_MAGIC, 250, int)
 #define FLASH_IOC_GET_HW_FAULT2            _IOR(FLASHLIGHT_MAGIC, 251, int)
 
+#ifdef ODM_HQ_EDIT
+/*Houbing.Peng@ODM Cam.Drv 20200319 set flash mode to driver*/
+#define FLASH_IOC_SET_FLASH_MODE            _IOWR(FLASHLIGHT_MAGIC, 256, int)
+#endif
+
 #endif /* _FLASHLIGHT_H */
 

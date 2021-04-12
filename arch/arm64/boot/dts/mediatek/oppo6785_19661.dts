@@ -1079,9 +1079,21 @@
 
 &apuart0 {
 	pinctrl-names = "uart0_rx_gpio",
-			"uart0_tx_gpio";
+			"uart0_tx_gpio",
+//mapenglong@ODM.HQ.BSP.CHG, 2020/05/25, Add for charger
+			"default",
+			"state_uart0_rx_output0",
+			"state_uart0_rx_output1",
+			"state_uart0_tx_output0",
+			"state_uart0_tx_output1";
 	pinctrl-0 = <&uart0_rx_gpio_input>;
 	pinctrl-1 = <&uart0_tx_gpio_input>;
+//mapenglong@ODM.HQ.BSP.CHG, 2020/05/25, Add for charger
+	pinctrl-2 = <&uart0_pins_default>;
+	pinctrl-3 = <&uart0_rx_output0>;
+	pinctrl-4 = <&uart0_rx_output1>;
+	pinctrl-5 = <&uart0_tx_output0>;
+	pinctrl-6 = <&uart0_tx_output1>;
 	status = "okay";
 };
 
@@ -1100,6 +1112,40 @@
 			input-enable;
 			slew-rate = <0>;
 			bias-disable;
+		};
+	};
+//mapenglong@ODM.HQ.BSP.CHG, 2020/05/25, Add for charger
+	uart0_pins_default: uart0default {
+	};
+
+	uart0_rx_output0:rxoutput0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO53__FUNC_GPIO53>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	uart0_rx_output1:rxoutput1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO53__FUNC_GPIO53>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	uart0_tx_output0:txoutput0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO54__FUNC_GPIO54>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	uart0_tx_output1:txoutput1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO54__FUNC_GPIO54>;
+			slew-rate = <1>;
+			output-high;
 		};
 	};
 };

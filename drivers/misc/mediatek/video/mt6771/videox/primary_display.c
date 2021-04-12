@@ -4643,6 +4643,17 @@ static void replace_fb_addr_to_mva(void)
 #endif
 }
 
+#ifdef ODM_HQ_EDIT
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver. */
+static bool is_ilitek_lcd = false;
+
+bool hq_get_is_ilitek_lcd(void)
+{
+	return is_ilitek_lcd;
+}
+EXPORT_SYMBOL(hq_get_is_ilitek_lcd);
+#endif
+
 int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 			 int is_lcm_inited)
 {
@@ -4655,6 +4666,12 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 
 	DISPCHECK("%s: begin, lcm=%s, inited=%d\n",
 		  __func__, lcm_name, is_lcm_inited);
+
+#ifdef ODM_HQ_EDIT
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver. */
+	if(!strcmp(lcm_name, "ili9881_txd_csot"))
+		is_ilitek_lcd = true;
+#endif
 
 	dprec_init();
 	dpmgr_init();
@@ -6025,6 +6042,15 @@ int primary_display_resume(void)
 		if (dsi_force_config)
 			DSI_ForceConfig(1);
 	}
+
+#ifdef ODM_HQ_EDIT
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver. */
+	if (pgc->plcm->drv && pgc->plcm->drv->hw_reset_before_lp11 && pgc->plcm->drv->resume_power){
+		DISPDBG("[WENDELL] Do lcm hw_reset before mipi dsi goes to LP11 state\n");
+		pgc->plcm->drv->resume_power();
+		pgc->plcm->drv->hw_reset_before_lp11();
+	}
+#endif
 
 	DISPDBG("dpmanager path power on[begin]\n");
 	dpmgr_path_power_on(pgc->dpmgr_handle, CMDQ_DISABLE);
@@ -9775,7 +9801,7 @@ int _set_cabc_mode_by_cmdq(unsigned int level)
 		mmprofile_log_ex(ddp_mmp_get_events()->primary_set_cmd, MMPROFILE_FLAG_PULSE, 1, 2);
 		cmdqRecReset(cmdq_handle_lcm_cmd);
 		if(is_project(OPPO_18311) || is_project(OPPO_18011)
-		|| is_project(OPPO_18161) || is_project(OPPO_18561)) {
+		|| is_project(OPPO_18161) || is_project(OPPO_18561) || is_project(OPPO_18601)) {
 			_cmdq_insert_wait_frame_done_token_mira(cmdq_handle_lcm_cmd);
 			disp_lcm_oppo_set_lcm_cabc_cmd(pgc->plcm, cmdq_handle_lcm_cmd, level);
 		}else {

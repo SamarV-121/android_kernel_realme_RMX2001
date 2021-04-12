@@ -134,13 +134,14 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.hs_video = {
 			.pclk = 560000000,
 			.linelength = 5088,
-			.framelength = 3668,
+			.framelength = 917,
 			.startx = 0,
 			.starty = 0,
-			.grabwindow_width = 2320,
-			.grabwindow_height = 1744,
+			.grabwindow_width = 1280,
+			.grabwindow_height = 720,
 			.mipi_data_lp2hs_settle_dc = 85,
-			.max_framerate = 300,  /*1200 */
+			.mipi_pixel_rate = 384000000,
+			.max_framerate = 1200,
 		},
 		.slim_video = {
 			.pclk = 560000000,
@@ -218,9 +219,9 @@ static SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[6] =
 	#else
 	{ 4640, 3488,	  0,	0, 4640, 3488, 2320,  1744, 0000, 0000, 2320,  1744,	  0,	0, 2320, 1744}, /*capture*/
 	#endif
-	{  4640, 3488,	  0,	0, 4640, 3488, 2320,  1744, 0000, 0000, 2320,  1744,	  0,	0, 2320, 1744}, /*video*/
-	{  4640, 3488,	  0,	0, 4640, 3488, 2320,  1744, 0000, 0000, 2320,  1744,	  0,	0, 2320, 1744}, /*hs_video,don't use*/
-	{  4640, 3488,	  0,	0, 4640, 3488, 2320,  1744, 0000, 0000, 2320,  1744,	  0,	0, 2320, 1744}, /* slim video*/
+	{ 4640, 3488,	  0,	0, 4640, 3488, 2320,  1744, 0000, 0000, 2320,  1744,	  0,	0, 2320, 1744}, /*video*/
+	{ 4640, 3488,   400,  664, 3840, 2160, 1280,   720, 0000, 0000, 1280,   720,      0,    0, 1280,  720}, /*hs_video*/
+	{ 4640, 3488,	  0,	0, 4640, 3488, 2320,  1744, 0000, 0000, 2320,  1744,	  0,	0, 2320, 1744}, /* slim video*/
 	{ 4640,  3488,    0,	0, 4640, 3488, 4640,  3488, 0000, 0000, 4640,  3488,      0,	0, 4640, 3488}, // custom4 remosic
 }; /*cpy from preview*/
 
@@ -3940,6 +3941,77 @@ static kal_uint16 addr_data_pair_normal_video[] = {
 	0x0D02, 0x0001,
 };
 
+static kal_uint16 addr_data_pair_hs_video[] = {
+	0x6028, 0x4000,
+	0x6214, 0x7970,
+	0x6218, 0x7150,
+	0x6028, 0x2000,
+	0x602A, 0x0ED6,
+	0x6F12, 0x0000,
+	0x602A, 0x1CF0,
+	0x6F12, 0x0200,
+	0x602A, 0x0E58,
+	0x6F12, 0x0023,
+	0x602A, 0x1694,
+	0x6F12, 0x170F,
+	0x602A, 0x16AA,
+	0x6F12, 0x009D,
+	0x6F12, 0x000F,
+	0x602A, 0x1098,
+	0x6F12, 0x0012,
+	0x602A, 0x2690,
+	0x6F12, 0x0100,
+	0x6F12, 0x0000,
+	0x602A, 0x16A8,
+	0x6F12, 0x38C0,
+	0x602A, 0x108C,
+	0x6F12, 0x0002,
+	0x602A, 0x10CC,
+	0x6F12, 0x0001,
+	0x602A, 0x10D0,
+	0x6F12, 0x000F,
+	0x602A, 0x0F50,
+	0x6F12, 0x0200,
+	0x602A, 0x1758,
+	0x6F12, 0x0000,
+	0x6028, 0x4000,
+	0x0344, 0x0410,
+	0x0346, 0x0408,
+	0x0348, 0x0E1F,
+	0x034A, 0x09A7,
+	0x034C, 0x0500,
+	0x034E, 0x02D0,
+	0x0350, 0x0004,
+	0x0900, 0x0122,
+	0x0380, 0x0002,
+	0x0382, 0x0002,
+	0x0384, 0x0002,
+	0x0386, 0x0002,
+	0x0404, 0x1000,
+	0x0402, 0x1010,
+	0x0400, 0x1010,
+	0x0114, 0x0300,
+	0x0110, 0x1002,
+	0x0136, 0x1800,
+	0x0300, 0x0007,
+	0x0302, 0x0001,
+	0x0304, 0x0006,
+	0x0306, 0x00F5,
+	0x0308, 0x0008,
+	0x030A, 0x0001,
+	0x030C, 0x0000,
+	0x030E, 0x0004,
+	0x0310, 0x00A0,
+	0x0312, 0x0001,
+	0x0340, 0x0395,
+	0x0342, 0x13E0,
+	0x0202, 0x0100,
+	0x0200, 0x0100,
+	0x021E, 0x0000,
+	0x0D00, 0x0000,
+	0x0D02, 0x0001,
+};
+
 
 static kal_uint16 addr_data_pair_custom4[] = {
 	0x6028, 0x4000,
@@ -4200,7 +4272,8 @@ static void normal_video_setting(void)
 
 static void hs_video_setting(void)
 {
-	LOG_INF("E\n");
+	table_write_cmos_sensor(addr_data_pair_hs_video,
+	   sizeof(addr_data_pair_hs_video) / sizeof(kal_uint16));
 }
 
 static void slim_video_setting(void)
@@ -5320,10 +5393,14 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			int type = (kal_uint16)(*feature_data);
 			if (type == FOUR_CELL_CAL_TYPE_ALL) {
 				LOG_INF("SENSOR_FEATURE_GET_4CELL_DATA type=%d\n", type);
+#ifndef CONFIG_MACH_MT6771
 				p24c64e_read_4cell_from_eeprom_s5k3p9sp((char *)(*(feature_data+1)));
+#endif
 			} else if (type == FOUR_CELL_CAL_TYPE_GAIN_TBL) {
 				LOG_INF("SENSOR_FEATURE_GET_4CELL_DATA type=%d\n", type);
+#ifndef CONFIG_MACH_MT6771
 				p24c64e_read_4cell_from_eeprom_s5k3p9sp((char *)(*(feature_data+1)));
+#endif
 			} else {
 				memset((void *)(*(feature_data+1)), 0, 4);
 				LOG_INF("No type %d buffer on this sensor\n", type);

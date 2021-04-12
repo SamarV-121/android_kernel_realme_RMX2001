@@ -22,6 +22,10 @@
 #include "imgsensor_hw.h"
 #include "imgsensor_common.h"
 
+#ifdef MIPI_SWITCH
+#undef MIPI_SWITCH
+#endif
+
 enum GPIO_CTRL_STATE_CAM {
 	/* Main */
 	GPIO_CTRL_STATE_PDN_H,
@@ -66,6 +70,10 @@ struct GPIO {
 	struct pinctrl_state *ppinctrl_state_switch[
 		GPIO_CTRL_STATE_MAX_NUM_SWITCH];
 #endif
+	#ifdef ODM_HQ_EDIT
+	/* Lijian@ODM.Camera.Drv 20200329 for snesor bringup */
+	struct pinctrl_state *ppinctrl_state_i2c_pullup;
+	#endif
 	struct mutex         *pgpio_mutex;
 };
 

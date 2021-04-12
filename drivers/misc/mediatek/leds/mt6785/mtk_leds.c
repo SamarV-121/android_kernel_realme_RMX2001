@@ -892,8 +892,16 @@ void mt_mt65xx_led_set(struct led_classdev *led_cdev, enum led_brightness level)
 		level = (level * CONFIG_LIGHTNESS_MAPPING_VALUE) / 255;
 
 	backlight_debug_log(led_data->level, level);
-	disp_pq_notify_backlight_changed((((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT)
+//#ifdef ODM_HQ_EDIT
+/* Longyajun@ODM.HQ.Multimedia.LCM 2020/05/06 modified for 4095 steps backlight */
+	if((get_project() == 20682)){
+		disp_pq_notify_backlight_changed((((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT_SALA)
+							- 1) * level + 127) / 255);
+	}else{
+		disp_pq_notify_backlight_changed((((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT)
 					    - 1) * level + 127) / 255);
+	}
+//endif /*ODM_HQ_EDIT*/
 #ifdef CONFIG_MTK_AAL_SUPPORT
 #ifdef ODM_HQ_EDIT
 
@@ -906,17 +914,40 @@ void mt_mt65xx_led_set(struct led_classdev *led_cdev, enum led_brightness level)
 /* Liyan@ODM_HQ.MultiMedia.Display.LCD.Feature, 2019/10/26, modify for backlight. */
 	disp_aal_notify_backlight_changed(level);
 #else
-	disp_aal_notify_backlight_changed((((1 <<
+//#ifdef ODM_HQ_EDIT
+/* Longyajun@ODM.HQ.Multimedia.LCM 2020/05/06 modified for 4095 steps backlight */
+	if((get_project() == 20682)){
+		disp_aal_notify_backlight_changed((((1 <<
+						MT_LED_INTERNAL_LEVEL_BIT_CNT_SALA)
+							- 1) * level + 127) / 255);
+
+	}else{
+		disp_aal_notify_backlight_changed((((1 <<
 					MT_LED_INTERNAL_LEVEL_BIT_CNT)
 					    - 1) * level + 127) / 255);
+	}
+//endif /*ODM_HQ_EDIT*/
 #endif
 #else
-	if (led_data->cust.mode == MT65XX_LED_MODE_CUST_BLS_PWM)
-		mt_mt65xx_led_set_cust(&led_data->cust,
-			((((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT)
-				- 1) * level + 127) / 255));
-	else
-		mt_mt65xx_led_set_cust(&led_data->cust, level);
+//#ifdef ODM_HQ_EDIT
+/* Longyajun@ODM.HQ.Multimedia.LCM 2020/05/06 modified for 4095 steps backlight */
+	if((get_project() == 20682)){
+		if (led_data->cust.mode == MT65XX_LED_MODE_CUST_BLS_PWM)
+			mt_mt65xx_led_set_cust(&led_data->cust,
+				((((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT_SALA)
+					- 1) * level + 127) / 255));
+		else
+			mt_mt65xx_led_set_cust(&led_data->cust, level);
+
+	}else{
+		if (led_data->cust.mode == MT65XX_LED_MODE_CUST_BLS_PWM)
+			mt_mt65xx_led_set_cust(&led_data->cust,
+				((((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT)
+					- 1) * level + 127) / 255));
+		else
+			mt_mt65xx_led_set_cust(&led_data->cust, level);
+	}
+//#ifdef ODM_HQ_EDIT
 #endif
 }
 

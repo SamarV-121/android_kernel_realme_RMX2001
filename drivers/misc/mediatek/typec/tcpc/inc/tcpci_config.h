@@ -403,11 +403,19 @@
 #define CONFIG_WD_SBU_CALIB_INIT	1800 /* mV */
 #define CONFIG_WD_SBU_PL_BOUND		200 /* mV */
 #define CONFIG_WD_SBU_PH_AUDDEV		200 /* mV */
-#define CONFIG_WD_SBU_PH_LBOUND		1180 /* mV */
+#ifndef CONFIG_MACH_MT6785
+/* LiYue@BSP.CHG.Basic, 2019/09/27, Modify for WD (1M->600K)*/
+#define CONFIG_WD_SBU_PH_LBOUND		1200 /* mV */
+#else
+#define CONFIG_WD_SBU_PH_LBOUND		982 /* mV */
+#endif
 #define CONFIG_WD_SBU_PH_LBOUND1_C2C	2850 /* mV */
 #define CONFIG_WD_SBU_PH_UBOUND1_C2C	3150 /* mV */
 #define CONFIG_WD_SBU_PH_UBOUND2_C2C	3800 /* mV */
-#define CONFIG_WD_SBU_AUD_UBOUND	1600 /* mV */
+#ifdef ODM_HQ_EDIT
+/*hongzhenglong@ODM.HQ.BSP.CHG 2020/06/28 modify for usb Moisture detection*/
+#define CONFIG_WD_SBU_AUD_UBOUND	1625 /* mV */
+#endif
 #define CONFIG_WD_PROTECT_RETRY_COUNT	3
 #endif /* CONFIG_WATER_DETECTION */
 

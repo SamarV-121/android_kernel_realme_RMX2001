@@ -351,7 +351,7 @@ static void filter_by_yuv_layers(struct disp_layer_info *disp_info)
 				continue;
 			if (is_yuv(info->src_fmt)) {
 				yuv_cnt++;
-				if (yuv_cnt > 2)
+				if (yuv_cnt > 1)
 					rollback_layer_to_GPU(disp_info,
 						disp_idx, i);
 			}

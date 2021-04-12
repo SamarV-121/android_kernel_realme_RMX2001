@@ -295,14 +295,20 @@ static ssize_t cabc_store(struct device *dev,
     * Yongpeng.Yi@PSW.MM.Display.LCD.Machine, 2018/02/01,
     * add dre only use for camera
     */
-    if (CABC_mode == 0) {
-        disp_aal_set_dre_en(1);
-        printk("%s enable dre\n", __func__);
+    /* Longyajun@ODM.HQ.Multimedia.LCM 2020/07/03 modified for dre*/
+    if(get_project() == 20682){
+	disp_aal_set_dre_en(1);
+        printk("%s 20682 enable dre\n", __func__);
+	}else{
+	if (CABC_mode == 0) {
+        	disp_aal_set_dre_en(1);
+        	printk("%s enable dre\n", __func__);
 
-    } else {
-        disp_aal_set_dre_en(0);
-        printk("%s disable dre\n", __func__);
-    }
+    	}else{
+        	disp_aal_set_dre_en(0);
+        	printk("%s disable dre\n", __func__);
+             }
+    	}
 
     /*
     * Yongpeng.Yi@PSW.MM.Display.LCD.Machine, 2018/01/29,

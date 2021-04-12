@@ -33,7 +33,8 @@ enum ALSPS_NOTIFY_TYPE {
 	ALSPS_NOTIFY_PROXIMITY_CHANGE = 0,
 };
 
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 /* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/12/24, Add for als data filter */
 #define ALS_FIR_LEN 5
 struct als_data_filter

@@ -61,6 +61,6 @@ endif
 #source "drivers/input/touchscreen/oppo_touchscreen/Himax/Kconfig"
 #endif
 
-#if TOUCHPANEL_ILITEK
-#source "drivers/input/touchscreen/oppo_touchscreen/ilitek/Kconfig"
-#endif
+if TOUCHPANEL_ILITEK
+source "drivers/input/touchscreen/oppo_touchscreen/ilitek/Kconfig"
+endif

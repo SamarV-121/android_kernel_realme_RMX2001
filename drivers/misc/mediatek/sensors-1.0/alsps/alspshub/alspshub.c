@@ -49,7 +49,8 @@ struct alspshub_ipi_data {
 
 	/*data */
 	u16		als;
-#ifdef ODM_HQ_EDIT
+	/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
     /* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/10/12, add sensor devinfo to proc/devinfo */
 	int		ps;
 	int		ps_state;
@@ -89,7 +90,8 @@ static int ps_get_data(int *value, int *status);
 static int alspshub_local_init(void);
 static int alspshub_local_remove(void);
 static int alspshub_init_flag = -1;
-#ifdef ODM_HQ_EDIT
+	/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
     /* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/10/12, add ps node for factory test */
 static int ps_offset = 0;
 #endif
@@ -313,7 +315,10 @@ static ssize_t alspshub_show_ps_state(struct device_driver *ddri, char *buf)
 	else
 		return snprintf(buf, PAGE_SIZE, "%d\n", obj->ps_state);
 }
-#ifdef ODM_HQ_EDIT
+
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
+
 /* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/10/12, add ps node for factory test */
 static ssize_t alspshub_show_ps_raw(struct device_driver *ddri, char *buf)
 {
@@ -444,7 +449,9 @@ static ssize_t als_store_gain(struct device_driver *ddri, const char *buf, size_
 	sensor_set_cmd_to_hub(ID_LIGHT, CUST_ACTION_SET_CALI, (void*)&gain);
 	return count;
 }
-#ifndef ODM_HQ_EDIT
+
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if !defined(ODM_HQ_EDIT) || defined(TARGET_WATERMELON_Q_PROJECT)
 /* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/10/12, add ps node for factory test */
 static ssize_t alspshub_show_ps_raw(struct device_driver *ddri, char *buf)
 {
@@ -576,7 +583,10 @@ static struct notifier_block scp_utc_sync_notifier_func = {
 #endif /* VENDOR_EDIT */
 static DRIVER_ATTR_RO(als);
 static DRIVER_ATTR_RO(ps);
-#ifdef ODM_HQ_EDIT
+
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
+
     /* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/10/12, add ps node for factory test */
 static DRIVER_ATTR(hq_ps_cali_data, 0644, alspshub_show_ps_cali_data,  NULL );
 static DRIVER_ATTR(als_cali, 0644, alspshub_show_als_cali,  NULL );
@@ -602,7 +612,9 @@ static struct driver_attribute *alspshub_attr_list[] = {
 	&driver_attr_alslv,
 	&driver_attr_alsval,
 	&driver_attr_reg,
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
+
     /* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/10/12, add ps node for factory test */
 	&driver_attr_hq_ps_cali_data,
 	&driver_attr_als_cali,
@@ -654,7 +666,9 @@ static void alspshub_init_done_work(struct work_struct *work)
 	struct alspshub_ipi_data *obj = obj_ipi_data;
 	int err = 0;
 #ifndef MTK_OLD_FACTORY_CALIBRATION
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
 #ifdef ODM_HQ_EDIT
+
 /* zuoqiquan@ODM_HQ.Sensors.SCP.BSP, 2019/10/29,modify sensor code for huaqin */
 	int32_t cfg_data[2] = {0};
 #else
@@ -680,6 +694,7 @@ static void alspshub_init_done_work(struct work_struct *work)
 		pr_err("sensor_set_cmd_to_hub fail,(ID: %d),(action: %d)\n",
 			ID_PROXIMITY, CUST_ACTION_SET_CALI);
 #else
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
 #ifdef ODM_HQ_EDIT
 /* zuoqiquan@ODM_HQ.Sensors.SCP.BSP, 2019/10/29,modify sensor code for huaqin */
 	spin_lock(&calibration_lock);
@@ -769,7 +784,9 @@ static int ps_recv_data(struct data_unit_t *event, void *reserved)
 	}
 	return err;
 }
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
+
 /* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/12/24, Add for als data filter */
 struct als_data_filter alsfir;
 uint16_t als_search_max(unsigned int* sort_array, unsigned int size_n)
@@ -809,7 +826,8 @@ static int als_recv_data(struct data_unit_t *event, void *reserved)
         recv_num = 0;
     }
 #endif
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 	/* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/12/24, Add for als data filter */
 	if (alsfir.number < ALS_FIR_LEN)
 	{
@@ -875,7 +893,9 @@ static int alshub_factory_enable_sensor(bool enable_disable,
 			return -1;
 		}
 	}
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
+
 	/* zuoqiquan@ODM_HQ.Sensors.SCP.BSP, 2019/10/29,modify sensor code for huaqin */
 	err = sensor_enable_to_hub(ID_LIGHT, enable_disable);
 	/* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/12/24, Add for als data filter */
@@ -933,7 +953,8 @@ static int alshub_factory_clear_cali(void)
 {
 	return 0;
 }
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 /* zuoqiquan@ODM_HQ.Sensors.SCP.BSP, 2019/10/29,modify sensor code for huaqin */
 static int alshub_factory_set_cali(int32_t offset)
 {
@@ -955,7 +976,6 @@ static int alshub_factory_set_cali(int32_t offset)
 static int alshub_factory_get_cali(int32_t *offset)
 {
 	struct alspshub_ipi_data *obj = obj_ipi_data;
-
 	*offset = atomic_read(&obj->als_cali);
 	return 0;
 }
@@ -1068,7 +1088,9 @@ static int pshub_factory_clear_cali(void)
 
 	return err;
 }
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
+
 /* zuoqiquan@ODM_HQ.Sensors.SCP.BSP, 2019/10/29,modify sensor code for huaqin */
 static int pshub_factory_set_cali(int32_t offset)
 {
@@ -1080,8 +1102,8 @@ static int pshub_factory_set_cali(int32_t offset)
 static int pshub_factory_get_cali(int32_t *offset)
 {
 	struct alspshub_ipi_data *obj = obj_ipi_data;
-
 	*offset = obj->ps_cali;
+
 	return 0;
 }
 #else
@@ -1119,15 +1141,17 @@ static int pshub_factory_get_cali(int32_t calidata[6])
 {
 	struct alspshub_ipi_data *obj = obj_ipi_data;
 
-	get_sensor_parameter(ID_PROXIMITY, calidata);
+	int ps_data[6] = {0};
+
+	get_sensor_parameter(ID_PROXIMITY ,ps_data);
 
 	mutex_lock(&alspshub_mutex);
-	obj->ps0_offset = calidata[0];
-	obj->ps0_value = calidata[1];
-	obj->ps0_distance_delta = calidata[2];
-	obj->ps1_offset = calidata[3];
-	obj->ps1_value = calidata[4];
-	obj->ps1_distance_delta = calidata[5];
+	calidata[0] = obj->ps0_offset = ps_data[0];
+	calidata[1] = obj->ps0_value = ps_data[1];
+	calidata[2] = obj->ps0_distance_delta = ps_data[2];
+	calidata[3] = obj->ps1_offset = ps_data[3];
+	calidata[4] = obj->ps1_value = ps_data[4];
+	calidata[5] = obj->ps1_distance_delta = ps_data[5];
 	mutex_unlock(&alspshub_mutex);
 
 	pr_err("ps0_offset = %d, ps0_value = %d, ps0_distance_delta = %d\n", obj->ps0_offset, obj->ps0_value, obj->ps0_distance_delta);
@@ -1178,11 +1202,14 @@ static int pshub_factory_set_threshold(int32_t threshold[2])
 static int pshub_factory_get_threshold(int32_t threshold[2])
 {
 	struct alspshub_ipi_data *obj = obj_ipi_data;
-
+//	int data[6]={0,};
+	
+//	get_sensor_parameter(ID_PROXIMITY, data);
 	spin_lock(&calibration_lock);
 	threshold[0] = atomic_read(&obj->ps_thd_val_high) - obj->ps_cali;
 	threshold[1] = atomic_read(&obj->ps_thd_val_low) - obj->ps_cali;
 	spin_unlock(&calibration_lock);
+	printk("ZH pshub get thresholdL = %d	thresholdH = %d\n", threshold[1], threshold[0]);
 	return 0;
 }
 
@@ -1228,7 +1255,8 @@ static int als_enable_nodata(int en)
 		WRITE_ONCE(obj->als_android_enable, true);
 	else
 		WRITE_ONCE(obj->als_android_enable, false);
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 	/* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/12/24, Add for als data filter */
 	if (en == false){
 		alsfir.number = 0;
@@ -1474,7 +1502,8 @@ static struct scp_power_monitor scp_ready_notifier = {
 	.name = "alsps",
 	.notifier_call = scp_ready_event,
 };
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 /* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/11/22, Add for diff TP */
 extern int g_tp_dev_vendor;
 static struct delayed_work psSetSensorConf_work;//zqq
@@ -1508,7 +1537,9 @@ static int alspshub_probe(struct platform_device *pdev)
 	obj_ipi_data = obj;
 
 	INIT_WORK(&obj->init_done_work, alspshub_init_done_work);
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
+
 	/* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/11/22, Add for diff TP */
 	INIT_DELAYED_WORK(&psSetSensorConf_work, do_psSetSensorConf_work);
 #endif /*ODM_HQ_EDIT*/
@@ -1621,7 +1652,8 @@ static int alspshub_probe(struct platform_device *pdev)
 		pr_err("Failed to register PM notifier.\n");
 	}
 #endif//VENDOR_EDIT
-#ifdef ODM_HQ_EDIT
+/* zhoujunwei@ODM_HQ.BSP.Sensors.Config, 2020/04/03, sync sensor data */
+#if defined(ODM_HQ_EDIT) && !defined(TARGET_WATERMELON_Q_PROJECT)
 	/* zuoqiquan@ODM_HQ.BSP.Sensors.Config, 2019/11/22, Add for diff TP */
 	schedule_delayed_work(&psSetSensorConf_work, msecs_to_jiffies(5000));
 #endif /*ODM_HQ_EDIT*/

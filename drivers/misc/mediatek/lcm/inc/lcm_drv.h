@@ -575,10 +575,11 @@ struct dynamic_fps_info {
 enum DynFPS_LEVEL {
 	DFPS_LEVEL0 = 0,
 	DFPS_LEVEL1,
+        DFPS_LEVEL2,
 	DFPS_LEVELNUM,
 };
 
-#define DFPS_LEVELS 2
+#define DFPS_LEVELS 3
 enum FPS_CHANGE_INDEX {
 	DYNFPS_NOT_DEFINED = 0,
 	DYNFPS_DSI_VFP = 1,
@@ -1036,6 +1037,12 @@ struct LCM_DRIVER {
 	void (*init)(void);
 	void (*suspend)(void);
 	void (*resume)(void);
+
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+#if defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6768)
+	void (*hw_reset_before_lp11)(void);
+#endif
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, end. */
 
 	/* for power-on sequence refinement */
 	void (*init_power)(void);

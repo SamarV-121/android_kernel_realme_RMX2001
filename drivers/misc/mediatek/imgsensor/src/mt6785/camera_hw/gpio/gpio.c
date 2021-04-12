@@ -13,6 +13,11 @@
 
 #include "gpio.h"
 
+#ifdef ODM_HQ_EDIT
+/*Chejian@ODM_HQ Cam.Drv 20201112 for sala3*/
+#include <soc/oppo/oppo_project.h>
+#endif
+
 struct GPIO_PINCTRL gpio_pinctrl_list_cam[
 			GPIO_CTRL_STATE_MAX_NUM_CAM] = {
 	/* Main */
@@ -125,6 +130,12 @@ static enum IMGSENSOR_RETURN gpio_set(
 	struct pinctrl_state  *ppinctrl_state;
 	struct GPIO           *pgpio = (struct GPIO *)pinstance;
 	enum   GPIO_STATE      gpio_state;
+
+#ifdef ODM_HQ_EDIT
+    /*Chejian@ODM_HQ Cam.Drv 20201112 for sala3,we use sub2 pinctrl and mclk for ov02b10, use main3 pinctrl and mclk for ov02b1b*/
+    if(get_Operator_Version() >=90 && get_Operator_Version() <=93 && sensor_idx >=2 && sensor_idx <= 3)
+        sensor_idx++;
+#endif
 
 	if (pin < IMGSENSOR_HW_PIN_PDN ||
 #ifdef MIPI_SWITCH

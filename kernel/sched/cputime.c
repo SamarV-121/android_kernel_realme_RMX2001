@@ -7,7 +7,42 @@
 #include <linux/sched/cputime.h>
 #include <linux/cpufreq_times.h>
 #include "sched.h"
+
 #include "walt.h"
+
+#ifdef VENDOR_EDIT
+/* Hailong.Liu@TECH.Kernel.CPU, 2019/10/24, stat cpu usage on each tick. */
+unsigned int sysctl_task_cpustats_enable = 0;
+DEFINE_PER_CPU(struct kernel_task_cpustat, ktask_cpustat);
+static int cputime_one_jiffy;
+static void account_task_time(struct task_struct *p, unsigned int ticks,
+		enum cpu_usage_stat type)
+{
+	struct kernel_task_cpustat *kstat;
+	int idx;
+	struct task_cpustat *s;
+	const struct sched_group_energy *sge = cpu_core_energy(p->cpu);
+	if (!sysctl_task_cpustats_enable)
+		return;
+	if (!cputime_one_jiffy)
+		cputime_one_jiffy = nsecs_to_jiffies(TICK_NSEC);
+	kstat = this_cpu_ptr(&ktask_cpustat);
+	idx = kstat->idx % MAX_CTP_WINDOW;
+	s = &kstat->cpustat[idx];
+	s->pid = p->pid;
+	s->tgid = p->tgid;
+	s->type = type;
+#ifdef CONFIG_MTK_UNIFY_POWER
+	s->cap = sge->cap_states->cap;
+#else
+	s->freq = cpufreq_quick_get(p->cpu);
+#endif
+	s->begin = jiffies - cputime_one_jiffy * ticks;
+	s->end = jiffies;
+	memcpy(s->comm, p->comm, TASK_COMM_LEN);
+	kstat->idx = idx + 1;
+}
+#endif /* VENDOR_EDIT */
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
 
@@ -407,12 +442,24 @@ static void irqtime_account_process_tick(struct task_struct *p, int user_tick,
 		account_system_index_time(p, cputime, CPUTIME_SOFTIRQ);
 	} else if (user_tick) {
 		account_user_time(p, cputime);
+#ifdef VENDOR_EDIT
+/* Hailong.Liu@TECH.Kernel.CPU, 2019/10/24, stat cpu usage on each tick. */
+		account_task_time(p, ticks, CPUTIME_USER);
+#endif /* VENDOR_EDIT */
 	} else if (p == rq->idle) {
 		account_idle_time(cputime);
 	} else if (p->flags & PF_VCPU) { /* System time or guest time */
 		account_guest_time(p, cputime);
+#ifdef VENDOR_EDIT
+/* Hailong.Liu@TECH.Kernel.CPU, 2019/10/24, stat cpu usage on each tick. */
+		account_task_time(p, ticks, CPUTIME_USER);
+#endif /* VENDOR_EDIT */
 	} else {
 		account_system_index_time(p, cputime, CPUTIME_SYSTEM);
+#ifdef VENDOR_EDIT
+/* Hailong.Liu@TECH.Kernel.CPU, 2019/10/24, stat cpu usage on each tick. */
+		account_task_time(p, ticks, CPUTIME_SYSTEM);
+#endif /* VENDOR_EDIT */
 	}
 }
 
@@ -516,12 +563,25 @@ void account_process_tick(struct task_struct *p, int user_tick)
 
 	cputime -= steal;
 
+#ifdef VENDOR_EDIT
+/* Hailong.Liu@TECH.Kernel.CPU, 2019/10/24, stat cpu usage on each tick. */
+	if (user_tick) {
+		account_user_time(p, cputime);
+		account_task_time(p, 1, CPUTIME_USER);
+	} else if ((p != rq->idle) || (irq_count() != HARDIRQ_OFFSET)) {
+		account_system_time(p, HARDIRQ_OFFSET, cputime);
+		account_task_time(p, 1, CPUTIME_SYSTEM);
+	} else {
+		account_idle_time(cputime);
+	}
+#else
 	if (user_tick)
 		account_user_time(p, cputime);
 	else if ((p != rq->idle) || (irq_count() != HARDIRQ_OFFSET))
 		account_system_time(p, HARDIRQ_OFFSET, cputime);
 	else
 		account_idle_time(cputime);
+#endif /* VENDOR_EDIT */
 }
 
 /*

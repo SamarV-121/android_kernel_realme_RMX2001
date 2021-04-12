@@ -638,18 +638,10 @@ int ccu_power(struct ccu_power_s *power)
 
 	} else if (power->bON == 4) {
 		/*CCU boot fail, just enable CG*/
-
-        #ifndef ODM_HQ_EDIT
-        /*fengbin@ODM_HQ Cam.Drv 20200116 ALPS04972951 modify HWT issue*/
-		ccu_clock_disable();
-		ccuInfo.IsCcuPoweredOn = 0;
-        #else
 		if (ccuInfo.IsCcuPoweredOn == 1) {
 			ccu_clock_disable();
 			ccuInfo.IsCcuPoweredOn = 0;
 		}
-        #endif
-
 	} else {
 		LOG_ERR("invalid power option: %d\n", power->bON);
 	}

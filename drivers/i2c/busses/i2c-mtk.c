@@ -914,6 +914,11 @@ static int mt_i2c_do_transfer(struct mt_i2c *i2c)
 		control_reg |= I2C_CONTROL_RS;
 	if (i2c->op == I2C_MASTER_WRRD)
 		control_reg |= I2C_CONTROL_DIR_CHANGE | I2C_CONTROL_RS;
+	#ifdef CONFIG_MACH_MT6768
+	/* zuoqiquan@ODM.BSP.Sensor  2020/03/12 ,fix MT6768 nfc i2c error */
+	if (i2c->dev_comp->control_irq_sel == 1)
+		control_reg |= I2C_CONTROL_IRQ_SEL;
+	#endif /*CONFIG_MACH_MT6768*/
 	i2c_writew(control_reg, i2c, OFFSET_CONTROL);
 
 	/* set start condition */
@@ -962,8 +967,14 @@ static int mt_i2c_do_transfer(struct mt_i2c *i2c)
 		  I2C_TRANSAC_COMP | I2C_ARB_LOST;
 	if (i2c->dev_comp->ver == 0x2)
 		int_reg |= I2C_BUS_ERR | I2C_TIMEOUT;
+	#ifdef CONFIG_MACH_MT6768
+	/* zuoqiquan@ODM.BSP.Sensor  2020/03/12 ,fix MT6768 nfc i2c error */
+	if (i2c->ch_offset || (i2c->dev_comp->control_irq_sel == 1))
+		int_reg &= ~(I2C_HS_NACKERR | I2C_ACKERR);
+	#else
 	if (i2c->ch_offset)
 		int_reg &= ~(I2C_HS_NACKERR | I2C_ACKERR);
+	#endif /*CONFIG_MACH_MT6768*/
 	/* Clear interrupt status */
 	i2c_writew(I2C_INTR_ALL, i2c, OFFSET_INTR_STAT);
 	if (i2c->ch_offset != 0)
@@ -999,6 +1010,13 @@ static int mt_i2c_do_transfer(struct mt_i2c *i2c)
 
 	/* Prepare buffer data to start transfer */
 	if (isDMA == true && (!i2c->is_ccu_trig)) {
+		#ifdef CONFIG_MACH_MT6768
+		/* zuoqiquan@ODM.BSP.Sensor  2020/03/12 ,fix MT6768 nfc i2c error */
+		if (i2c_readl_dma(i2c, OFFSET_EN)) {
+			i2c_writel_dma(I2C_DMA_WARM_RST, i2c, OFFSET_RST);
+			udelay(5);
+		}
+		#endif /*CONFIG_MACH_MT6768*/
 #ifdef CONFIG_MTK_LM_MODE
 		if ((i2c->dev_comp->dma_support == 1) && (enable_4G())) {
 			i2c_writel_dma(0x1, i2c, OFFSET_TX_MEM_ADDR2);
@@ -1179,6 +1197,13 @@ static int mt_i2c_do_transfer(struct mt_i2c *i2c)
 		return -EREMOTEIO;
 	}
 	if (i2c->op != I2C_MASTER_WR && isDMA == false) {
+		#ifdef CONFIG_MACH_MT6768
+		/* zuoqiquan@ODM.BSP.Sensor  2020/03/12 ,fix MT6768 nfc i2c error */
+		if (i2c->op == I2C_MASTER_WRRD)
+			data_size = i2c->msg_aux_len;
+		else
+			data_size = i2c->msg_len;
+		#else
 		if (i2c->ch_offset != 0) {
 			if (i2c->op == I2C_MASTER_WRRD)
 				data_size = i2c->msg_aux_len;
@@ -1187,6 +1212,7 @@ static int mt_i2c_do_transfer(struct mt_i2c *i2c)
 		} else
 			data_size = (i2c_readw(i2c, OFFSET_FIFO_STAT) >> 4)
 				& 0x000F;
+		#endif /*CONFIG_MACH_MT6768*/
 		ptr = i2c->dma_buf.vaddr;
 		while (data_size--) {
 			*ptr = i2c_readw(i2c, OFFSET_DATA_PORT);
@@ -1563,35 +1589,6 @@ static irqreturn_t mt_i2c_irq(int irqno, void *dev_id)
 			if ((i2c->irq_stat & (I2C_IBI | I2C_BUS_ERR))) {
 				dev_info(i2c->dev, "[bxx]cg_cnt:%d,irq_stat:0x%x\n",
 					i2c->cg_cnt, i2c->irq_stat);
-				dev_info(i2c->dev, "0x84=0x%x\n",
-					i2c_readw(i2c, OFFSET_ERROR));
-
-				pr_info("[bxx]0xE0=0x%x,0x1E0=0x%x,0x2E0=0x%x\n",
-					_i2c_readw(i2c, 0xE0),
-					_i2c_readw(i2c, 0x1E0),
-					_i2c_readw(i2c, 0x2E0));
-				pr_info("[bxx]0xE4=0x%x,0x1E4=0x%x,0x2E4=0x%x\n",
-					_i2c_readw(i2c, 0xE4),
-					_i2c_readw(i2c, 0x1E4),
-					_i2c_readw(i2c, 0x2E4));
-				pr_info("[bxx]0xE8=0x%x,0x1E8=0x%x,0x2E8=0x%x\n",
-					_i2c_readw(i2c, 0xE8),
-					_i2c_readw(i2c, 0x1E8),
-					_i2c_readw(i2c, 0x2E8));
-				pr_info("[bxx]0xEC=0x%x,0x1EC=0x%x,0x2EC=0x%x\n",
-					_i2c_readw(i2c, 0xEC),
-					_i2c_readw(i2c, 0x1EC),
-					_i2c_readw(i2c, 0x2EC));
-				pr_info("[bxx]0x58=0x%x,0x158=0x%x,0x258=0x%x\n",
-					_i2c_readw(i2c, 0x58),
-					_i2c_readw(i2c, 0x158),
-					_i2c_readw(i2c, 0x258));
-				/* IBI triggered */
-				pr_info("[bxx]0x54=0x%x,0x154=0x%x,0x254=0x%x\n",
-					_i2c_readw(i2c, 0x54),
-					_i2c_readw(i2c, 0x154),
-					_i2c_readw(i2c, 0x254));
-				/* for bxx debug end */
 			}
 		}
 	} else {/* dump regs info for hw trig i2c if ACK err */
@@ -1700,6 +1697,11 @@ int mt_i2c_parse_comp_data(void)
 		(u8 *)&i2c_common_compat.ver);
 	of_property_read_u8(comp_node, "cnt_constraint",
 		(u8 *)&i2c_common_compat.cnt_constraint);
+	#ifdef CONFIG_MACH_MT6768
+	/* zuoqiquan@ODM.BSP.Sensor  2020/03/12 ,fix MT6768 nfc i2c error */
+	of_property_read_u8(comp_node, "control_irq_sel",
+		(u8 *)&i2c_common_compat.control_irq_sel);
+	#endif /*CONFIG_MACH_MT6768*/
 	return 0;
 }
 

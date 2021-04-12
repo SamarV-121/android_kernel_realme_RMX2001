@@ -130,6 +130,18 @@ int oppo_gauge_get_batt_soh(void)
         }
 }
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+bool oppo_gauge_get_batt_hmac(void)
+{
+	if (!g_gauge_chip) {
+		return false;
+	} else if (!g_gauge_chip->gauge_ops->get_battery_hmac) {
+		return true;
+	} else  {
+		return g_gauge_chip->gauge_ops->get_battery_hmac();
+	}
+}
+#endif
 bool oppo_gauge_get_batt_authenticate(void)
 {
         if (!g_gauge_chip) {

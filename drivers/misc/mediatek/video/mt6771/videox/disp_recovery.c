@@ -139,7 +139,11 @@ void __attribute__((weak)) lcd_trigger_tp_irq_reset(void) {return;}
 
 #ifdef VENDOR_EDIT
 /*Yongpeng.Yi@PSW.MM.Display.LCD.Stability 2017/12/29, Add for lcm ic esd recovery backlight */
+#ifdef ODM_HQ_EDIT
+unsigned int esd_recovery_backlight_level = 1023;
+#else
 unsigned int esd_recovery_backlight_level = 2;
+#endif
 /*Yongpeng.Yi@PSW.MM.Display.LCD.Stability, 2018/07/04, add for hx83112a lcd esd read reg*/
 static atomic_t enable_lcm_recovery = ATOMIC_INIT(0);
 #endif /* VENDOR_EDIT */
@@ -698,6 +702,17 @@ int primary_display_esd_recovery(void)
 
 	DISPDBG("[ESD]dsi power reset[begine]\n");
 	dpmgr_path_dsi_power_off(primary_get_dpmgr_handle(), NULL);
+
+	/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+	#ifdef ODM_HQ_EDIT
+	if (primary_get_lcm()->drv && primary_get_lcm()->drv->hw_reset_before_lp11 && primary_get_lcm()->drv->resume_power){
+		DISPDBG("[recovery]lcm hw_reset before mipi dsi power on\n");
+		primary_get_lcm()->drv->resume_power();
+		primary_get_lcm()->drv->hw_reset_before_lp11();
+	}
+	#endif
+	/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, end. */
+
 	dpmgr_path_dsi_power_on(primary_get_dpmgr_handle(), NULL);
 	if (!primary_display_is_video_mode())
 		dpmgr_path_ioctl(primary_get_dpmgr_handle(), NULL,
@@ -762,6 +777,12 @@ int primary_display_esd_recovery(void)
 		cmdqCoreSetEvent(CMDQ_SYNC_TOKEN_CONFIG_DIRTY);
 		mdelay(40);
 	}
+
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+#ifdef ODM_HQ_EDIT
+	disp_lcm_set_backlight(primary_get_lcm(), NULL, esd_recovery_backlight_level);
+#endif
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, end. */
 
 done:
 	#ifdef VENDOR_EDIT

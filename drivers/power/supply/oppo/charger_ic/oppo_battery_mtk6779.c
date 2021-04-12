@@ -69,6 +69,28 @@
 #include "op_charge.h"
 #include "../../../misc/mediatek/typec/tcpc/inc/tcpci.h"
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/07/07 add QC config for sala A*/
+#include "../../../misc/mediatek/pmic/mt6360/inc/mt6360_pmu.h"
+#endif
+
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.Charger 2020/03/09 modified for HW reset sarter*/
+#include <soc/oppo/oppo_project.h>
+#ifdef VENDOR_EDIT
+/*hupeng@BSP.CHG.Basic,2020/5/21,add for auxadc3 ntc temp check*/
+#include <linux/thermal.h>
+#endif
+
+extern int g_cphy_dphy_gpio_value;
+#endif /* ODM_HQ_EDIT */
+
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+int is_sala_a_project(void);
+extern struct oppo_chg_operations * svooc_oppo_get_chg_ops(void);
+#endif
+
 struct oppo_chg_chip *g_oppo_chip = NULL;
 #ifdef ODM_HQ_EDIT
 /*wangtao@ODM.HQ.BSP.CHG 2019/10/17 modify kernel error*/
@@ -78,9 +100,9 @@ static int battery_meter_get_charger_voltage(void);
 #endif
 static int oppo_mt6360_reset_charger(void);
 static int oppo_mt6360_enable_charging(void);
-static int oppo_mt6360_disable_charging(void);
+int oppo_mt6360_disable_charging(void);
 static int oppo_mt6360_float_voltage_write(int vflaot_mv);
-static int oppo_mt6360_suspend_charger(void);
+int oppo_mt6360_suspend_charger(void);
 static int oppo_mt6360_unsuspend_charger(void);
 static int oppo_mt6360_charging_current_write_fast(int chg_curr);
 static int oppo_mt6360_set_termchg_current(int term_curr);
@@ -99,7 +121,7 @@ void oppo_wake_up_usbtemp_thread(void);
 static int mtk_chgstat_notify(struct charger_manager *info);
 int pd_notify = 0;
 #endif
-
+extern int get_vbatt_num(void);
 //====================================================================//
 #ifdef VENDOR_EDIT
 /* Jianchao.Shi@BSP.CHG.Basic, 2019/01/22, sjc Add for usb status */
@@ -127,6 +149,26 @@ static int oppo_get_usb_status(void)
 #endif /* VENDOR_EDIT */
 //====================================================================//
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*liuting@ODM.HQ.BSP.CHG 2020/06/23 modify for sala_A chgvin off when camera on*/
+#ifdef CONFIG_OPPO_CHARGER_MTK
+struct mtk_hv_flashled_pinctrl {
+	int chgvin_gpio;
+	int pmic_chgfunc_gpio;
+	int bc1_2_done;
+	bool hv_flashled_support;
+
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *chgvin_enable;
+	struct pinctrl_state *chgvin_disable;
+	struct pinctrl_state *pmic_chgfunc_enable;
+	struct pinctrl_state *pmic_chgfunc_disable;
+};
+
+struct mtk_hv_flashled_pinctrl mtkhv_flashled_pinctrl;
+
+#endif
+#endif
 
 static struct charger_manager *pinfo;
 static struct list_head consumer_head = LIST_HEAD_INIT(consumer_head);
@@ -627,18 +669,33 @@ void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 			/* type C is ready */
 			_wake_up_charger(pinfo);
 			break;
-		case MTK_TYPEC_WD_STATUS:
-			chr_err("wd status = %d\n", *(bool *)val);
-			mutex_lock(&pinfo->charger_pd_lock);
-			pinfo->water_detected = *(bool *)val;
-			mutex_unlock(&pinfo->charger_pd_lock);
+        case MTK_TYPEC_WD_STATUS:
+            chr_err("wd status = %d\n", *(bool *)val);
+            mutex_lock(&pinfo->charger_pd_lock);
+            pinfo->water_detected = *(bool *)val;
+            mutex_unlock(&pinfo->charger_pd_lock);
 
-			if (pinfo->water_detected == true)
-				pinfo->notify_code |= CHG_TYPEC_WD_STATUS;
-			else
-				pinfo->notify_code &= ~CHG_TYPEC_WD_STATUS;
-			mtk_chgstat_notify(pinfo);
-			break;
+        if (pinfo->water_detected == true) {
+            pinfo->notify_code |= CHG_TYPEC_WD_STATUS;
+#ifdef ODM_HQ_EDIT
+/* zhenglong.hong@ODM.HQ.BSP.CHG, 2020/08/27, Add for usb status */
+            oppo_set_usb_status(USB_WATER_DETECT);
+            oppo_vooc_set_disable_adapter_output(true);
+            if (g_oppo_chip && g_oppo_chip->usb_psy)
+                power_supply_changed(g_oppo_chip->usb_psy);
+#endif
+        } else {
+            pinfo->notify_code &= ~CHG_TYPEC_WD_STATUS;
+#ifdef ODM_HQ_EDIT
+/* zhenglong.hong@@ODM.HQ.BSP.CHG, 2020/08/27, Add for usb status */
+            oppo_clear_usb_status(USB_WATER_DETECT);
+            oppo_vooc_set_disable_adapter_output(false);
+            if (g_oppo_chip && g_oppo_chip->usb_psy)
+                power_supply_changed(g_oppo_chip->usb_psy);
+#endif
+        }
+        mtk_chgstat_notify(pinfo);
+        break;
 		case MTK_TYPEC_HRESET_STATUS:
 			chr_err("hreset status = %d\n", *(bool *)val);
 			mutex_lock(&pinfo->charger_pd_lock);
@@ -861,8 +918,33 @@ void mtk_charger_int_handler(void)
 #ifdef VENDOR_EDIT
 /* Jianchao.Shi@BSP.CHG.Basic, 2018/11/09, sjc Add for charging */
 	chr_err("mtk_charger_int_handler\n");
-	if (mt_get_charger_type() != CHARGER_UNKNOWN)
-		oppo_wake_up_usbtemp_thread();
+	if (mt_get_charger_type() != CHARGER_UNKNOWN){
+			oppo_wake_up_usbtemp_thread();
+			#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+			if (mtkhv_flashled_pinctrl.hv_flashled_support){
+				mtkhv_flashled_pinctrl.bc1_2_done = true;
+				//chr_err("@@@@@@@@@@@@@@@\n");
+				if (g_oppo_chip->camera_on) {
+					pinctrl_select_state(mtkhv_flashled_pinctrl.pinctrl, mtkhv_flashled_pinctrl.chgvin_disable);
+					chr_err("[%s] camera_on %d\n", __func__, g_oppo_chip->camera_on);
+				}
+			}
+			chr_err("Charger Plug In\n");
+			#endif
+		} else {
+			#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+			if (mtkhv_flashled_pinctrl.hv_flashled_support){
+				mtkhv_flashled_pinctrl.bc1_2_done = false;
+				//chr_err("&&&&&&&&&&&&&&\n");
+				pinctrl_select_state(mtkhv_flashled_pinctrl.pinctrl, mtkhv_flashled_pinctrl.chgvin_enable);
+			}
+			chr_err("Charger Plug Out\n");
+			#endif
+		}
+	charger_dev_set_input_current(g_oppo_chip->chgic_mtk.oppo_info->chg1_dev, 500000);
+	if (g_oppo_chip && g_oppo_chip->vbatt_num == 2) {
+		oppo_mt6360_suspend_charger();
+	}
 #else
 	chr_err("mtk_charger_int_handler\n");
 
@@ -1248,7 +1330,7 @@ static int oppo_mt6360_input_current_limit_write(int value)
 	}
 
 	if (g_oppo_chip->batt_volt > 4100 )
-		aicl_point = 4550;
+		aicl_point = 4500;
 	else
 		aicl_point = 4500;
 
@@ -1401,7 +1483,7 @@ static int oppo_mt6360_enable_charging(void)
 	return 0;
 }
 
-static int oppo_mt6360_disable_charging(void)
+int oppo_mt6360_disable_charging(void)
 {
 	int rc = 0;
 	struct charger_device *chg = NULL;
@@ -1426,7 +1508,7 @@ static int oppo_mt6360_check_charging_enable(void)
 	return mt6360_check_charging_enable();
 }
 
-static int oppo_mt6360_suspend_charger(void)
+int oppo_mt6360_suspend_charger(void)
 {
 	int rc = 0;
 
@@ -1527,7 +1609,12 @@ static int oppo_mt6360_get_chg_current_step(void)
 	return 100;
 }
 
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+int mt_power_supply_type_check(void)
+#else
 static int mt_power_supply_type_check(void)
+#endif
 {
 	int charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
 
@@ -1567,7 +1654,13 @@ static int battery_meter_get_charger_voltage(void)
 }
 
 #endif
+
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+bool oppo_mt6360_get_vbus_status(void)
+#else
 static bool oppo_mt6360_get_vbus_status(void)
+#endif
 {
 	bool vbus_status = false;
 	static bool pre_vbus_status = false;
@@ -1591,17 +1684,32 @@ static bool oppo_mt6360_get_vbus_status(void)
 	return vbus_status;
 }
 
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+int oppo_battery_meter_get_battery_voltage(void)
+#else
 static int oppo_battery_meter_get_battery_voltage(void)
+#endif
 {
 	return 4000;
 }
 
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+int get_rtc_spare_oppo_fg_value(void)
+#else
 static int get_rtc_spare_oppo_fg_value(void)
+#endif
 {
 	return 0;
 }
 
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+int set_rtc_spare_oppo_fg_value(int soc)
+#else
 static int set_rtc_spare_oppo_fg_value(int soc)
+#endif
 {
 	return 0;
 }
@@ -1804,7 +1912,12 @@ static bool is_support_chargerid_check(void)
 #endif
 }
 
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+int mt_get_chargerid_volt(void)
+#else
 static int mt_get_chargerid_volt(void)
+#endif
 {
 	int chargerid_volt = 0;
 
@@ -1819,7 +1932,12 @@ static int mt_get_chargerid_volt(void)
 	return chargerid_volt;
 }
 
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+void mt_set_chargerid_switch_val(int value)
+#else
 static void mt_set_chargerid_switch_val(int value)
+#endif
 {
 	struct oppo_chg_chip *chip = g_oppo_chip;
 
@@ -1853,7 +1971,12 @@ static void mt_set_chargerid_switch_val(int value)
 	return;
 }
 
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+int mt_get_chargerid_switch_val(void)
+#else
 static int mt_get_chargerid_switch_val(void)
+#endif
 {
 	int gpio_status = 0;
 	struct oppo_chg_chip *chip = g_oppo_chip;
@@ -2129,7 +2252,18 @@ static void enter_ship_mode_function(struct oppo_chg_chip *chip)
 
 	if (chip->enable_shipmode) {
 		printk(KERN_ERR "[OPPO_CHG][%s]: enter_ship_mode_function\n", __func__);
-		smbchg_enter_shipmode(chip);
+		/*zhangchao@ODM.HQ.Charger 2020/03/09 modified for HW reset distinguish 1878 1879 and 1877*/
+		pr_err("get_project = %d ,get_Operator_Version = %d, g_cphy_dphy_gpio_value = %d\n",get_project(),get_Operator_Version(),g_cphy_dphy_gpio_value);
+		if((get_project() == 19661) && ((get_Operator_Version() == 111) || (get_Operator_Version() == 112) || (get_Operator_Version() == 113) || (get_Operator_Version() == 114) || (g_cphy_dphy_gpio_value == 1))) {
+			printk(KERN_ERR "[OPPO_CHG][%s]: MTK mt6360 !\n", __func__);
+			mt6360_enter_shipmode();
+		}else if((get_project() == 20682) && ((get_Operator_Version() == 111) || (get_Operator_Version() == 112) || (get_Operator_Version() == 113) || (get_Operator_Version() == 114) || (g_cphy_dphy_gpio_value == 1))) {
+                        printk(KERN_ERR "[OPPO_CHG][%s]: MTK mt6360 !\n", __func__);
+                        mt6360_enter_shipmode(); 
+		}else {
+			printk(KERN_ERR "[OPPO_CHG][%s]: 1878 HW chip !\n", __func__);
+			smbchg_enter_shipmode(chip);
+		}
 	}
 }
 
@@ -2166,6 +2300,102 @@ static int oppo_chg_shipmode_parse_dt(struct oppo_chg_chip *chip)
 }
 #endif /* VENDOR_EDIT */
 //====================================================================//
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*liuting@ODM.HQ.BSP.CHG 2020/06/28 modify for sala camera on when charging*/
+static bool oppo_mtk_hv_flashled_check_is_gpio()
+{
+	if (gpio_is_valid(mtkhv_flashled_pinctrl.chgvin_gpio) /*&& gpio_is_valid(mtkhv_flashled_pinctrl.pmic_chgfunc_gpio)*/) {
+		return true;
+		chg_err("[%s] ok\n", __func__);
+	} else {
+		chg_err("[%s] fail\n", __func__);
+		return false;
+	}
+}
+static int oppo_mtk_hv_flashled_dt(struct oppo_chg_chip *chip)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+
+	if (chip != NULL)
+		node = chip->dev->of_node;
+
+	if (chip == NULL || node == NULL) {
+		chg_err("[%s] oppo_chip or device tree info. missing\n", __func__);
+		return -EINVAL;
+	}
+
+	mtkhv_flashled_pinctrl.hv_flashled_support = of_property_read_bool(node, "qcom,hv_flashled_support");
+	if (mtkhv_flashled_pinctrl.hv_flashled_support == false) {
+		chg_err("[%s] hv_flashled_support not support\n", __func__);
+		return -EINVAL;
+	}
+	chg_err("[%s] hv_flashled_support is support\n", __func__);
+	mtkhv_flashled_pinctrl.chgvin_gpio = of_get_named_gpio(node, "qcom,chgvin", 0);
+	//mtkhv_flashled_pinctrl.pmic_chgfunc_gpio = of_get_named_gpio(node, "qcom,pmic_chgfunc", 0);
+	if (mtkhv_flashled_pinctrl.chgvin_gpio <= 0 /*|| mtkhv_flashled_pinctrl.pmic_chgfunc_gpio <= 0*/) {
+		chg_err("read dts fail %d %d\n", mtkhv_flashled_pinctrl.chgvin_gpio/*, mtkhv_flashled_pinctrl.pmic_chgfunc_gpio*/);
+	} else {
+		if (oppo_mtk_hv_flashled_check_is_gpio() == true) {
+			rc = gpio_request(mtkhv_flashled_pinctrl.chgvin_gpio, "chgvin");
+			chg_err("hupeng 01 enable to request chgvin:%d\n");
+			if (rc ) {
+				chg_err("unable to request chgvin:%d\n",
+						mtkhv_flashled_pinctrl.chgvin_gpio);
+			} else {
+				mtkhv_flashled_pinctrl.pinctrl= devm_pinctrl_get(chip->dev);
+				//chgvin
+				mtkhv_flashled_pinctrl.chgvin_enable =
+					pinctrl_lookup_state(mtkhv_flashled_pinctrl.pinctrl, "chgvin_enable");
+				if (IS_ERR_OR_NULL(mtkhv_flashled_pinctrl.chgvin_enable)) {
+					chg_err("get chgvin_enable fail\n");
+					return -EINVAL;
+				}
+				chg_err("hupeng02 get chgvin_enable ok\n");
+				mtkhv_flashled_pinctrl.chgvin_disable =
+					pinctrl_lookup_state(mtkhv_flashled_pinctrl.pinctrl, "chgvin_disable");
+				if (IS_ERR_OR_NULL(mtkhv_flashled_pinctrl.chgvin_disable)) {
+					chg_err("get chgvin_disable fail\n");
+					return -EINVAL;
+				}
+				chg_err("hupeng03 get chgvin_disable ok\n");
+				pinctrl_select_state(mtkhv_flashled_pinctrl.pinctrl, mtkhv_flashled_pinctrl.chgvin_enable);
+
+
+				/*rc = gpio_request(mtkhv_flashled_pinctrl.chgvin_gpio, "pmic_chgfunc");
+				if (rc ) {
+					chg_err("unable to request pmic_chgfunc:%d\n",
+							mtkhv_flashled_pinctrl.chgvin_gpio);
+				} else {
+
+					//pmic_chgfunc
+					mtkhv_flashled_pinctrl.pmic_chgfunc_enable =
+						pinctrl_lookup_state(mtkhv_flashled_pinctrl.pinctrl, "pmic_chgfunc_enable");
+					if (IS_ERR_OR_NULL(mtkhv_flashled_pinctrl.pmic_chgfunc_enable)) {
+						chg_err("get pmic_chgfunc_enable fail\n");
+						return -EINVAL;
+					}
+
+					mtkhv_flashled_pinctrl.pmic_chgfunc_disable =
+						pinctrl_lookup_state(mtkhv_flashled_pinctrl.pinctrl, "pmic_chgfunc_disable");
+					if (IS_ERR_OR_NULL(mtkhv_flashled_pinctrl.pmic_chgfunc_disable)) {
+						chg_err("get pmic_chgfunc_disable fail\n");
+						return -EINVAL;
+					}
+					pinctrl_select_state(mtkhv_flashled_pinctrl.pinctrl, mtkhv_flashled_pinctrl.pmic_chgfunc_disable);
+				}*/
+
+			}
+		}
+		//chg_err("mtk_hv_flash_led:%d\n", chip->normalchg_gpio.shortc_gpio);
+	}
+
+	chg_err("mtk_hv_flash_led:%d\n", rc);
+	return rc;
+
+}
+#endif
 
 
 //====================================================================//
@@ -2236,6 +2466,8 @@ static int oppo_dischg_gpio_init(struct oppo_chg_chip *chip)
 /* zhangchao@ODM.HQ.Charger 2019/12/06 modified for USB_NTC */
 extern int oppo_usb_ntc_adc1_read(void);
 extern int oppo_usb_ntc_adc2_read(void);
+extern int oppo_flashlight_ntc_adc5_read(void);
+extern int oppo_charger_ntc_adc4_read(void);
 
 #define USB_20C		20//degreeC
 #define USB_40C		40
@@ -2274,6 +2506,7 @@ static void oppo_get_usbtemp_volt(struct oppo_chg_chip *chip)
 	}
 	chip->usbtemp_volt_l = usbtemp_volt;
 
+
 	//chg_err("usbtemp_volt: %d, %d\n", chip->usbtemp_volt_r, chip->usbtemp_volt_l);
 
 	return;
@@ -2287,27 +2520,80 @@ static void get_usb_temp(struct oppo_chg_chip *chip)
 		printk(KERN_ERR "[OPPO_CHG][%s]: oppo_chip not ready!\n", __func__);
 		return;
 	}
+	/*hongzhenglong@ODM.HQ.BSP.CHG 2020/06/15 modify for usb burn-proof port*/
+	if(chip->boot_mode == KERNEL_POWER_OFF_CHARGING_BOOT || chip->boot_mode == LOW_POWER_OFF_CHARGING_BOOT){
+                for (i = ARRAY_SIZE(con_volt_100K_2) - 1; i >= 0; i--) {
+                        if (con_volt_100K_2[i] >= chip->usbtemp_volt_r)
+                                break;
+                        else if (i == 0)
+                                break;
+                }
+                chip->usb_temp_r = con_temp_100K[i];
 
-	for (i = ARRAY_SIZE(con_volt_100K) - 1; i >= 0; i--) {
-		if (con_volt_100K[i] >= chip->usbtemp_volt_r)
-			break;
-		else if (i == 0)
-			break;
+                for (i = ARRAY_SIZE(con_volt_100K_2) - 1; i >= 0; i--) {
+                        if (con_volt_100K_2[i] >= chip->usbtemp_volt_l)
+                                break;
+                        else if (i == 0)
+                                break;
+                }
+                chip->usb_temp_l = con_temp_100K[i];
+
+	} else {
+		for (i = ARRAY_SIZE(con_volt_100K) - 1; i >= 0; i--) {
+			if (con_volt_100K[i] >= chip->usbtemp_volt_r)
+				break;
+			else if (i == 0)
+				break;
+		}
+		chip->usb_temp_r = con_temp_100K[i];
+
+		for (i = ARRAY_SIZE(con_volt_100K) - 1; i >= 0; i--) {
+			if (con_volt_100K[i] >= chip->usbtemp_volt_l)
+				break;
+			else if (i == 0)
+				break;
+		}
+		chip->usb_temp_l = con_temp_100K[i];
 	}
-	chip->usb_temp_r = con_temp_100K[i];
-
-	for (i = ARRAY_SIZE(con_volt_100K) - 1; i >= 0; i--) {
-		if (con_volt_100K[i] >= chip->usbtemp_volt_l)
-			break;
-		else if (i == 0)
-			break;
-	}
-	chip->usb_temp_l = con_temp_100K[i];
-
-	//chg_err("usbtemp: %d, %d\n", chip->usb_temp_r, chip->usb_temp_l);
-
+	//printk(KERN_ERR "[OPPO_CHG][%s]:usbtemp_volt: %d, %d,usbtemp:%d,%d\n",__func__,chip->usbtemp_volt_r, chip->usbtemp_volt_l,chip->usb_temp_r,chip->usb_temp_l);
 	return;
 }
+#ifdef CONFIG_OPPO_HQ_CHARGER
+/*wangtao@ODM.HQ.BSP.CHG 2020/05/08 modify flashlight_temp*/
+void oppo_flashlight_temp_check(struct oppo_chg_chip *chip)
+{
+	int usbtemp_volt = 0;
+	int i = 0;
+	int notify = 0; 
+	if (!chip) {
+		printk(KERN_ERR "[OPPO_CHG][%s]: oppo_chip not ready!\n", __func__);
+		return;
+	}
+	usbtemp_volt = oppo_flashlight_ntc_adc5_read();//get flashlight volt
+	if (usbtemp_volt <= 0) {
+		usbtemp_volt = USB_25C_VOLT;
+	}
+	chip->flashlight_volt = usbtemp_volt;
+	for (i = ARRAY_SIZE(con_volt_100K) - 1; i >= 0; i--) {
+		if (con_volt_100K[i] >= chip->flashlight_volt)
+			break;
+		else if (i == 0)
+			break;
+	}
+	chip->flashlight_temp = con_temp_100K[i];
+
+	if(chip->flashlight_temp < 80)
+		notify = chip->notify_code;
+
+	if(chip->flashlight_temp >= 80)
+		chip->notify_code |= 1 << NOTIFY_FLASHLIGHT_OVER_TEMP;
+	else
+		chip->notify_code = notify;
+	//printk(KERN_ERR "[OPPO_CHG][%s]: flashlight_temp = %d,notify_code =%d\n", __func__,chip->flashlight_temp,chip->notify_code);
+	return;
+}
+#endif
+
 #else
 
 #define USB_20C		20//degreeC
@@ -2383,6 +2669,32 @@ static void get_usb_temp(struct oppo_chg_chip *chip)
 }
 #endif /* ODM_HQ_EDIT */
 
+#ifdef VENDOR_EDIT
+/*hupeng@BSP.CHG.Basic,2020/5/21,add for auxadc5 ntc temp check*/
+static int get_chargerid_ntc_temp(struct thermal_zone_device *tz,
+					int *temp)
+{
+	int i = 0;
+	int charger_ntc_volt = 0; 
+	charger_ntc_volt= oppo_charger_ntc_adc4_read();
+	
+	for (i = ARRAY_SIZE(con_volt_20682) - 1; i >= 0; i--) {
+		if (con_volt_20682[i] >= charger_ntc_volt)
+			break;
+		else if (i == 0)
+			break;
+	}
+	*temp = con_temp_20682[i]; 
+    *temp = *temp * 1000;
+	//printk("wangtao charger_ntc temp:%d\n ",*temp);
+	return 0;
+}
+
+struct thermal_zone_device_ops chargeridntc_thermal_zone_ops = {
+	.get_temp = get_chargerid_ntc_temp,
+};
+#endif
+
 static bool oppo_chg_get_vbus_status(struct oppo_chg_chip *chip)
 {
 	if (!chip) {
@@ -2431,7 +2743,10 @@ static int oppo_usbtemp_monitor_main(void *data)
 			time_count = 8;
 		} else {
 			delay = MIN_MONITOR_INTERVAL;
-			time_count = 30;
+			#ifdef ODM_HQ_EDIT
+			/*hongzhenglong@ODM.HQ.BSP.CHG 2020/06/16 modify for usb burn-proof prot*/
+			time_count = 3;
+			#endif
 		}
 
 		if (chip->usb_temp_r < USB_50C && chip->usb_temp_l < USB_50C && vbus_volt < VBUS_VOLT_THRESHOLD)
@@ -2481,11 +2796,14 @@ static int oppo_usbtemp_monitor_main(void *data)
 		} else if (((chip->usb_temp_r - chip->temperature/10) > 16)
 				|| ((chip->usb_temp_l - chip->temperature/10) > 16)) {
 			if (count <= time_count) {
-				if (count == 0) {
+				#ifdef ODM_HQ_EDIT
+				/*hongzhenglong@ODM.HQ.BSP.CHG 2020/06/1 modify for usb burn-proof prot*/
+				if(count == 0){
 					last_usb_temp_r = chip->usb_temp_r;
 					last_usb_temp_l = chip->usb_temp_l;
+					//printk(KERN_ERR "[OPPO_CHG][%s]:last_usbtemp:%d,%d\n",__func__,last_usb_temp_r,last_usb_temp_l);
 				}
-
+				#endif
 				if (((chip->usb_temp_r - last_usb_temp_r) >= 3 && chip->usb_temp_r >= USB_20C && chip->usb_temp_r <= USB_100C)
 						|| ((chip->usb_temp_l - last_usb_temp_l) >= 3 && chip->usb_temp_l >= USB_20C && chip->usb_temp_l <= USB_100C)) {
 					for (i = 0; i < RETRY_COUNT; i++) {
@@ -2497,6 +2815,7 @@ static int oppo_usbtemp_monitor_main(void *data)
 						if ((chip->usb_temp_l - last_usb_temp_l) >= 3)
 							count_l++;
 					}
+					
 
 					if (count_r >= RETRY_COUNT || count_l >= RETRY_COUNT) {
 						if (!IS_ERR_OR_NULL(chip->normalchg_gpio.dischg_enable)) {
@@ -2635,6 +2954,14 @@ static int oppo_chg_parse_custom_dt(struct oppo_chg_chip *chip)
 		return -EINVAL;
 	}
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+    /*liuting@ODM.HQ.BSP.CHG 2020/06/23 modify for sala_A chgvin off when camera on*/
+	rc = oppo_mtk_hv_flashled_dt(chip);
+	if (rc) {
+		printk(KERN_ERR "[OPPO_CHG][%s]: oppo_mtk_hv_flashled_dt fail!\n", __func__);
+		return -EINVAL;
+	}
+#endif
 	return rc;
 }
 //====================================================================//
@@ -2690,20 +3017,26 @@ static int mt_usb_get_property(struct power_supply *psy,
 			}
 			break;
 		case POWER_SUPPLY_PROP_TYPEC_SBU_VOLTAGE:
-			#ifdef ODM_HQ_EDIT
+			#ifdef CONFIG_MACH_MT6785
 			/*wangtao@ODM.HQ.BSP.CHG 2019/10/17 modify kernel error*/
+			if(get_project() == 20682)
+				val->intval = oppo_get_typec_sbu_voltage();
+			else
 			val->intval = 0;
 			#else
-				val->intval = oppo_get_typec_sbu_voltage();
+				val->intval = 0;
 			#endif
 			break;
 
 		case POWER_SUPPLY_PROP_WATER_DETECT_FEATURE:
-			#ifdef ODM_HQ_EDIT
+			#ifdef CONFIG_MACH_MT6785
 			/*wangtao@ODM.HQ.BSP.CHG 2019/10/17 modify kernel error*/
+			if(get_project() == 20682)
+				val->intval = oppo_get_water_detect();
+			else
 			val->intval = 0;
 			#else
-				val->intval = oppo_get_water_detect();
+				val->intval = 0;
 			#endif
 			break;
 		case POWER_SUPPLY_PROP_USB_STATUS:
@@ -2721,7 +3054,22 @@ static int mt_usb_get_property(struct power_supply *psy,
 			else
 				val->intval = -ENODATA;
 			break;
-
+                #ifdef VENDOR_EDIT
+                /*liuting@ODM.HQ.BSP.CHG 2020/05/15 Add node for factory test*/
+		case POWER_SUPPLY_PROP_FAST_CHG_TYPE:
+			if(((oppo_vooc_get_fastchg_started() == true) ||
+				(oppo_vooc_get_fastchg_dummy_started() == true)) &&
+				(g_oppo_chip->vbatt_num == 1)&&
+				(oppo_vooc_get_fast_chg_type() == FASTCHG_CHARGER_TYPE_UNKOWN)){
+					val->intval = CHARGER_SUBTYPE_FASTCHG_VOOC;
+			} else {
+					val->intval = oppo_vooc_get_fast_chg_type();
+					if (val->intval == 0 && g_oppo_chip && g_oppo_chip->chg_ops->get_charger_subtype) {
+						val->intval = g_oppo_chip->chg_ops->get_charger_subtype();
+					}
+				}
+			break;
+                #endif /* VENDOR_EDIT */
 		default:
 			rc = oppo_usb_get_property(psy, psp, val);
 	}
@@ -2737,16 +3085,18 @@ static int mt_usb_set_property(struct power_supply *psy,
 		case POWER_SUPPLY_PROP_WATER_DETECT_FEATURE:
 			printk(KERN_ERR "[OPPO_CHG][%s]: oppo_set_water_detect[%d]\n", __func__, val->intval);
 			if (val->intval == 0) {
-			#ifdef ODM_HQ_EDIT
+			#ifdef CONFIG_MACH_MT6785
 			/*wangtao@ODM.HQ.BSP.CHG 2019/10/17 modify kernel error*/
-			#else
+			if(get_project() == 20682)
 				oppo_set_water_detect(false);
+			#else
 			#endif
 			} else {
-			#ifdef ODM_HQ_EDIT
+			#ifdef CONFIG_MACH_MT6785
 			/*wangtao@ODM.HQ.BSP.CHG 2019/10/17 modify kernel error*/
-			#else
+			if(get_project() == 20682)
 				oppo_set_water_detect(true);
+			#else
 			#endif
 			}
 			break;
@@ -2799,6 +3149,10 @@ static enum power_supply_property mt_usb_properties[] = {
 	POWER_SUPPLY_PROP_USB_STATUS,
 	POWER_SUPPLY_PROP_USBTEMP_VOLT_L,
 	POWER_SUPPLY_PROP_USBTEMP_VOLT_R,
+	#ifdef VENDOR_EDIT
+	/*liuting@ODM.HQ.BSP.CHG 2020/05/15 Add node for factory test*/
+	POWER_SUPPLY_PROP_FAST_CHG_TYPE,
+	#endif /* VENDOR_EDIT */
 };
 
 static enum power_supply_property battery_properties[] = {
@@ -2837,6 +3191,7 @@ static enum power_supply_property battery_properties[] = {
 #ifdef CONFIG_OPPO_SHIP_MODE_SUPPORT
 	POWER_SUPPLY_PROP_SHIP_MODE,
 #endif
+	POWER_SUPPLY_PROP_FLASHLIGHT_TEMP,
 #ifdef CONFIG_OPPO_CALL_MODE_SUPPORT
 	POWER_SUPPLY_PROP_CALL_MODE,
 #endif
@@ -2855,6 +3210,11 @@ static enum power_supply_property battery_properties[] = {
 #ifdef CONFIG_OPPO_SHORT_HW_CHECK
 	POWER_SUPPLY_PROP_SHORT_C_HW_FEATURE,
 	POWER_SUPPLY_PROP_SHORT_C_HW_STATUS,
+#endif
+#ifdef CONFIG_OPPO_SHORT_IC_CHECK
+        POWER_SUPPLY_PROP_SHORT_C_IC_OTP_STATUS,
+        POWER_SUPPLY_PROP_SHORT_C_IC_VOLT_THRESH,
+        POWER_SUPPLY_PROP_SHORT_C_IC_OTP_VALUE,
 #endif
 #ifdef CONFIG_OPPO_CHIP_SOC_NODE
 	POWER_SUPPLY_PROP_CHIP_SOC,
@@ -2946,7 +3306,22 @@ void oppo_set_otg_switch_status(bool value)
 {
 	if (pinfo != NULL && pinfo->tcpc != NULL) {
 		printk(KERN_ERR "[OPPO_CHG][%s]: otg switch[%d]\n", __func__, value);
-		tcpm_typec_change_role(pinfo->tcpc, value ? TYPEC_ROLE_DRP : TYPEC_ROLE_SNK);
+		if(get_vbatt_num() == 2) {
+			printk(KERN_ERR "[OPPO_CHG][%s]: otg switch[%d],g_oppo_chip->charger_exist =%d\n", __func__, value,g_oppo_chip->charger_exist);
+			if(!g_oppo_chip->charger_exist) {
+				if(value){
+					printk(KERN_ERR "[OPPO_CHG][%s]: otg_enable[%d]\n", __func__, value);
+					g_oppo_chip->chg_ops->otg_enable(); 
+				}
+				else{
+					printk(KERN_ERR "[OPPO_CHG][%s]: otg_disable[%d]\n", __func__, value);
+					g_oppo_chip->chg_ops->otg_disable(); 
+				}
+			}
+		}
+		else {
+			tcpm_typec_change_role(pinfo->tcpc, value ? TYPEC_ROLE_DRP : TYPEC_ROLE_SNK);
+		}
 	}
 }
 EXPORT_SYMBOL(oppo_set_otg_switch_status);
@@ -2977,7 +3352,12 @@ EXPORT_SYMBOL(oppo_chg_get_mmi_status);
 //====================================================================//
 #ifdef VENDOR_EDIT
 /* Jianchao.Shi@BSP.CHG.Basic, 2019/01/11, sjc Add for PD */
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+bool oppo_mt6360_get_pd_type(void)
+#else
 static bool oppo_mt6360_get_pd_type(void)
+#endif
 {
 	if (pinfo != NULL) {
 		printk("oppo_mt6360_get_pd_type pinfo->pd_type =%d,oppo_mtk_pdc_check_charger(pinfo)=%d\n",pinfo->pd_type,mtk_pdc_check_charger(pinfo));
@@ -2987,11 +3367,17 @@ static bool oppo_mt6360_get_pd_type(void)
 	return false;
 }
 
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+int oppo_mt6360_pd_setup(void)
+#else
 static int oppo_mt6360_pd_setup(void)
+#endif
 {
 	int vbus_mv = 0;
 	int ibus_ma = 0;
 	int ret = 0;
+
 #ifdef ODM_HQ_EDIT
 	/*wangtao@ODM.HQ.BSP.CHG 2019/10/17 modify kernel error*/
 	ret = oppo_pdc_setup(&vbus_mv, &ibus_ma);
@@ -3003,6 +3389,317 @@ static int oppo_mt6360_pd_setup(void)
 	return ret;
 }
 #endif /* VENDOR_EDIT */
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+
+/* Jianchao.Shi@BSP.CHG.Basic, 2019/01/11, sjc Add for PD */
+#define VBUS_9V	9000
+#define VBUS_5V	5000
+#define IBUS_2A	2000
+#define IBUS_3A	3000
+bool oppo_chg_get_pd_type(void)
+{
+	if (pinfo != NULL) {
+		if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK ||
+			pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30 ||
+			pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO)
+			return true;
+		//return mtk_pdc_check_charger(pinfo);
+	}
+	return false;
+}
+
+int oppo_chg_set_pd_config(void)
+{
+	int vbus_mv = VBUS_5V;
+	int ibus_ma = IBUS_2A;
+	int ret = 0;
+	
+	
+	struct adapter_power_cap cap;
+	int i;
+
+	cap.nr = 0;
+	cap.pdp = 0;
+	for (i = 0; i < ADAPTER_CAP_MAX_NR; i++) {
+		cap.max_mv[i] = 0;
+		cap.min_mv[i] = 0;
+		cap.ma[i] = 0;
+		cap.type[i] = 0;
+		cap.pwr_limit[i] = 0;
+	}
+
+	printk(KERN_ERR "pd_type: %d\n", pinfo->pd_type);
+	if (g_oppo_chip->vbatt_num == 2) {
+	if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO) {
+		adapter_dev_get_cap(pinfo->pd_adapter, MTK_PD_APDO, &cap);
+		for (i = 0; i < cap.nr; i++) {
+			printk(KERN_ERR "PD APDO cap %d: mV:%d,%d mA:%d type:%d pwr_limit:%d pdp:%d\n", i,
+				cap.max_mv[i], cap.min_mv[i], cap.ma[i],
+				cap.type[i], cap.pwr_limit[i], cap.pdp);
+		}
+
+		for (i = 0; i < cap.nr; i++) {
+			if (cap.min_mv[i] <= VBUS_9V && VBUS_9V <= cap.max_mv[i]) {
+				vbus_mv = VBUS_9V;
+				ibus_ma = cap.ma[i];
+				if (ibus_ma > IBUS_2A)
+					ibus_ma = IBUS_2A;
+				break;
+			}
+		}
+	} else if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK
+		|| pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30) {
+		adapter_dev_get_cap(pinfo->pd_adapter, MTK_PD, &cap);
+		for (i = 0; i < cap.nr; i++) {
+			printk(KERN_ERR "PD cap %d: mV:%d,%d mA:%d type:%d\n", i,
+				cap.max_mv[i], cap.min_mv[i], cap.ma[i], cap.type[i]);
+		}
+
+		for (i = 0; i < cap.nr; i++) {
+			if (VBUS_9V <= cap.max_mv[i]) {
+				vbus_mv = cap.max_mv[i];
+				ibus_ma = cap.ma[i];
+				if (ibus_ma > IBUS_2A)
+					ibus_ma = IBUS_2A;
+				break;
+			}
+		}
+	} else {
+		vbus_mv = VBUS_5V;
+		ibus_ma = IBUS_2A;
+	}
+	}else{
+	if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO) {
+		adapter_dev_get_cap(pinfo->pd_adapter, MTK_PD_APDO, &cap);
+		for (i = 0; i < cap.nr; i++) {
+			printk(KERN_ERR "PD APDO cap %d: mV:%d,%d mA:%d type:%d pwr_limit:%d pdp:%d\n", i,
+				cap.max_mv[i], cap.min_mv[i], cap.ma[i],
+				cap.type[i], cap.pwr_limit[i], cap.pdp);
+		}
+
+		for (i = 0; i < cap.nr; i++) {
+			if (cap.min_mv[i] <= VBUS_5V && VBUS_5V <= cap.max_mv[i]) {
+				vbus_mv = VBUS_5V;
+				ibus_ma = cap.ma[i];
+				if (ibus_ma > IBUS_3A)
+					ibus_ma = IBUS_3A;
+				break;
+			}
+		}
+	} else if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK
+		|| pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30) {
+		adapter_dev_get_cap(pinfo->pd_adapter, MTK_PD, &cap);
+		for (i = 0; i < cap.nr; i++) {
+			printk(KERN_ERR "PD cap %d: mV:%d,%d mA:%d type:%d\n", i,
+				cap.max_mv[i], cap.min_mv[i], cap.ma[i], cap.type[i]);
+		}
+
+		for (i = 0; i < cap.nr; i++) {
+			if (VBUS_5V <= cap.max_mv[i]) {
+				vbus_mv = cap.max_mv[i];
+				ibus_ma = cap.ma[i];
+				if (ibus_ma > IBUS_3A)
+					ibus_ma = IBUS_3A;
+				break;
+			}
+		}
+	} else {
+		vbus_mv = VBUS_5V;
+		ibus_ma = IBUS_2A;
+	}
+	}
+	
+	printk(KERN_ERR "pd_type: %d\n", pinfo->pd_type);
+	
+    if (g_oppo_chip->vbatt_num == 2) {
+        if((oppo_chg_show_vooc_logo_ornot() == 0) && (oppo_vooc_get_fastchg_started() == false)){
+            if (g_oppo_chip->limits.vbatt_pdqc_to_5v_thr > 0 && g_oppo_chip->charger_volt > 7500 && g_oppo_chip->batt_volt > g_oppo_chip->limits.vbatt_pdqc_to_5v_thr) {
+
+                g_oppo_chip->chg_ops->input_current_write(500);
+                oppo_chg_suspend_charger();
+                oppo_chg_config_charger_vsys_threshold(0x03);//set Vsys Skip threshold 101%
+                oppo_chg_enable_burst_mode(true);
+                vbus_mv = VBUS_5V;
+                ibus_ma = IBUS_2A;
+		    } else if (g_oppo_chip->batt_volt < g_oppo_chip->limits.vbatt_pdqc_to_9v_thr) {
+
+                oppo_chg_suspend_charger();
+                oppo_chg_config_charger_vsys_threshold(0x02);//set Vsys Skip threshold 101%
+                oppo_chg_enable_burst_mode(false);
+                vbus_mv = VBUS_9V;
+                ibus_ma = IBUS_2A;
+            }
+        }
+    }else if (g_oppo_chip->vbatt_num == 1){
+		vbus_mv = VBUS_5V;
+		ibus_ma = IBUS_3A;
+
+    }
+	
+	printk(KERN_ERR "set pd_volt pd_curr PD_request: %dmV, %dmA\n", vbus_mv, ibus_ma);
+	ret = oppo_pdc_setup(&vbus_mv, &ibus_ma);
+	msleep(300);
+	printk(KERN_ERR "%s: charger voltage=%d", __func__, battery_meter_get_charger_voltage());
+	oppo_chg_unsuspend_charger();
+	return ret;
+}
+
+
+/* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/07/07 add QC config for sala A*/
+int oppo_chg_set_qc_config_forsvooc(void)
+{
+	int ret = -1;
+	struct oppo_chg_chip *chip = g_oppo_chip;
+
+	if (!chip) {
+		pr_err("oppo_chip is null\n");
+		return -1;
+	}
+	
+	printk(KERN_ERR "%s: qc9v svooc [%d %d %d]", __func__, chip->limits.vbatt_pdqc_to_9v_thr, chip->limits.vbatt_pdqc_to_5v_thr, chip->batt_volt);
+	if (!chip->calling_on && chip->charger_volt < 6500 && chip->soc < 90
+		&& chip->temperature <= 530 && chip->cool_down_force_5v == false
+		&& (chip->batt_volt < chip->limits.vbatt_pdqc_to_9v_thr)) {
+		printk(KERN_ERR "%s: set qc to 9V", __func__);
+
+		msleep(300);
+		mt6360_set_register(MT6360_PMU_DPDM_CTRL, 0x1F, 0x15); //Before request 9V, need to force 5V first.
+		msleep(300);
+
+		oppo_chg_suspend_charger();
+		oppo_chg_config_charger_vsys_threshold(0x02);//set Vsys Skip threshold 101%
+		oppo_chg_enable_burst_mode(false);
+
+		mt6360_set_register(MT6360_PMU_DPDM_CTRL, 0x1F, 0x18);
+		msleep(300);
+		oppo_chg_unsuspend_charger();
+		ret = 0;
+	} else {
+		if (chip->charger_volt > 7500 &&
+			(chip->calling_on || chip->soc >= 90
+			|| chip->batt_volt >= chip->limits.vbatt_pdqc_to_5v_thr || chip->temperature > 530 || chip->cool_down_force_5v == true)) {
+			printk(KERN_ERR "%s: set qc to 5V", __func__);
+
+			chip->chg_ops->input_current_write(500);
+			oppo_chg_suspend_charger();
+			oppo_chg_config_charger_vsys_threshold(0x03);//set Vsys Skip threshold 101%
+			oppo_chg_enable_burst_mode(true);
+
+			mt6360_set_register(MT6360_PMU_DPDM_CTRL, 0x1F, 0x15);
+			msleep(300);
+			oppo_chg_unsuspend_charger();
+			ret = 0;
+		}
+		printk(KERN_ERR "%s: qc9v svooc  default[%d %d]", __func__, chip->batt_volt, chip->batt_volt);
+	}
+
+	return ret;
+}
+
+int oppo_chg_set_qc_config(void)
+{
+	int ret = -1;
+	struct oppo_chg_chip *chip = g_oppo_chip;
+
+	if (!chip) {
+		pr_err("oppo_chip is null\n");
+		return -1;
+	}
+
+	if (is_sala_a_project() == 2) {
+		ret = oppo_chg_set_qc_config_forsvooc();
+	}
+	#if 0
+	else {
+		if (!chip->calling_on && !chip->camera_on && chip->charger_volt < 6500 && chip->soc < 90
+			&& chip->temperature <= 420 && chip->cool_down_force_5v == false) {
+			printk(KERN_ERR "%s: set qc to 9V", __func__);
+			mt6360_set_register(MT6360_PMU_DPDM_CTRL, 0x1F, 0x18);
+			ret = 0;
+		} else {
+			if (chip->charger_volt > 7500 &&
+				(chip->calling_on || chip->camera_on || chip->soc >= 90 || chip->batt_volt >= 4450
+				|| chip->temperature > 420 || chip->cool_down_force_5v == true)) {
+				printk(KERN_ERR "%s: set qc to 5V", __func__);
+				mt6360_set_register(MT6360_PMU_DPDM_CTRL, 0x1F, 0x15);
+				ret = 0;
+			}
+		}
+	}
+	#endif
+	return ret;
+}
+
+int oppo_chg_enable_hvdcp_detect(void);
+int oppo_chg_enable_qc_detect(void)
+{
+	return oppo_chg_enable_hvdcp_detect();
+}
+
+
+int oppo_chg_enable_hvdcp_detect(void)
+{
+	mt6360_enable_hvdcp_detect();
+
+	return 0;
+}
+
+int oppo_chg_get_charger_subtype(void)
+{
+	if (!pinfo)
+		return CHARGER_SUBTYPE_DEFAULT;
+
+	if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK ||
+		pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30 ||
+		pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO)
+		return CHARGER_SUBTYPE_PD;
+		
+	if (mt6360_get_hvdcp_type() == POWER_SUPPLY_TYPE_USB_HVDCP)
+		return CHARGER_SUBTYPE_QC;
+
+	return CHARGER_SUBTYPE_DEFAULT;
+}
+
+/*liuting@ODM.HQ.BSP.CHG 2020/06/23 modify for sala_A chgvin off when camera on*/
+void oppo_chg_set_camera_on(bool val)
+{
+	if (!g_oppo_chip) {
+		return;
+	} else {
+		g_oppo_chip->camera_on = val;
+		//if (g_oppo_chip->dual_charger_support) {
+			if (g_oppo_chip->camera_on == 1 && g_oppo_chip->charger_exist) {
+				if (g_oppo_chip->chg_ops->get_charger_subtype() == CHARGER_SUBTYPE_QC){
+				//if(oppo_vooc_get_fastchg_ing() == true)
+					oppo_chg_set_qc_config();
+				} else if (g_oppo_chip->chg_ops->get_charger_subtype() == CHARGER_SUBTYPE_PD){
+					oppo_chg_set_pd_config();//oppo_mt6360_pd_setup();
+				}
+			}
+		//}
+
+		if (mtkhv_flashled_pinctrl.hv_flashled_support) {
+			chr_err("%s: bc1.2_done = %d camera_on %d \n", __func__, mtkhv_flashled_pinctrl.bc1_2_done, val);
+			if (mtkhv_flashled_pinctrl.bc1_2_done) {
+				if (val) {
+					pinctrl_select_state(mtkhv_flashled_pinctrl.pinctrl, mtkhv_flashled_pinctrl.chgvin_disable);
+					chr_err("hupeng 0001 %s:chgvi_disable:%d\n",__func__,mtkhv_flashled_pinctrl.chgvin_disable);
+				} else {
+					pinctrl_select_state(mtkhv_flashled_pinctrl.pinctrl, mtkhv_flashled_pinctrl.chgvin_enable);
+					if (g_oppo_chip->charger_exist && POWER_SUPPLY_TYPE_USB_DCP == g_oppo_chip->charger_type) {
+					oppo_chg_enable_qc_detect();
+					chr_err("hupeng 0002 %s:chgvi_enable:%d\n",__func__,mtkhv_flashled_pinctrl.chgvin_enable);
+					}
+				}
+			}
+		}
+	}
+}
+EXPORT_SYMBOL(oppo_chg_set_camera_on);
+
+#endif
+
 //====================================================================//
 
 
@@ -3067,6 +3764,26 @@ struct oppo_chg_operations  mtk6360_chg_ops = {
 //====================================================================//
 #endif /* VENDOR_EDIT */
 
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+/* if return 2 is sala_A SVOOC */
+int is_sala_a_project()
+{
+	int ret = 0;
+
+	if((get_project() == 20682)) {
+		if (((get_Operator_Version() == 143) || (get_Operator_Version() == 144) || (get_Operator_Version() == 145) || (get_Operator_Version() == 147)))
+			ret = 2;
+		else
+			ret = 1;
+	} else {
+		ret = 1;
+	}
+	//chg_err("[is_sala_a_project] 20682 sala_A = %d\n",ret);
+
+	return ret;
+}
+#endif
 
 static int mtk_charger_probe(struct platform_device *pdev)
 {
@@ -3079,7 +3796,10 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	struct list_head *phead = &consumer_head;
 	struct charger_consumer *ptr;
 	int ret;
-
+#ifdef VENDOR_EDIT
+/*hupeng@BSP.CHG.Basic,2020/5/21,add for auxadc3 ntc tmep check*/
+	struct thermal_zone_device *tz_dev;
+#endif
 	chr_err("%s: starts\n", __func__);
 
 #ifdef VENDOR_EDIT
@@ -3090,18 +3810,38 @@ static int mtk_charger_probe(struct platform_device *pdev)
 
 	oppo_chip->dev = &pdev->dev;
 	oppo_chg_parse_svooc_dt(oppo_chip);
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+	if ((get_project() == 20682)) {
+		oppo_chip->vbatt_num = is_sala_a_project();
+		chg_err("[oppo_chg_init] vbatt_num = %d\n",oppo_chip->vbatt_num);
+		chg_err("[oppo_chg_init] gauge = %d ,vooc = %d ,adapter = %d\n",oppo_gauge_check_chip_is_null(),oppo_vooc_check_chip_is_null(),oppo_adapter_check_chip_is_null());
+	}
+#endif
 	if (oppo_chip->vbatt_num == 1) {
 		if (oppo_gauge_check_chip_is_null()) {
 			chg_err("[oppo_chg_init] gauge null, will do after bettery init.\n");
-			return -EPROBE_DEFER;
+				return -EPROBE_DEFER;
 		}
 		oppo_chip->chg_ops = &mtk6360_chg_ops;
 	} else {
 		if (oppo_gauge_check_chip_is_null() || oppo_vooc_check_chip_is_null()
 				|| oppo_adapter_check_chip_is_null()) {
 			chg_err("[oppo_chg_init] gauge || vooc || adapter null, will do after bettery init.\n");
-			return -EPROBE_DEFER;
+			#ifdef ODM_HQ_EDIT
+			/*zhangchao@ODM.HQ.BSP.CHG 2020/04/14 temporary bring up SVOOC at EVB*/
+			if((get_project() != 20682))
+				return -EPROBE_DEFER;
+			#endif
 		}
+		#ifdef ODM_HQ_EDIT
+		/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+		if ((get_project() == 20682)) {
+			if (oppo_chip->vbatt_num == 2) {
+				oppo_chip->chg_ops = (svooc_oppo_get_chg_ops());
+			}
+		}
+		#endif
 		//oppo_chip->chg_ops = (oppo_get_chg_ops());
 	}
 #endif /* VENDOR_EDIT */
@@ -3150,20 +3890,58 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	if (oppo_usbtemp_check_is_support() == true)
 		oppo_usbtemp_thread_init();
 #endif
+#ifdef VENDOR_EDIT
+/*hupeng@BSP.CHG.Basic,2020/5/21,add for auxadc3 ntc temp check*/
+	tz_dev = thermal_zone_device_register("mp2762_ntc",
+			0, 0, oppo_chip, &chargeridntc_thermal_zone_ops, NULL, 0, 0);
+ 	if (IS_ERR_OR_NULL(tz_dev)) {
+		pr_err("register thermal zone for mp2762_ntc failed\n");
+		ret = -ENODEV;
+	}
 
+	oppo_chip->tzd = tz_dev; 
+	platform_set_drvdata(pdev,oppo_chip);
+#endif
 	srcu_init_notifier_head(&info->evt_nh);
 	ret = mtk_charger_setup_files(pdev);
 	if (ret)
 		chr_err("Error creating sysfs interface\n");
 
-	pinfo->tcpc = tcpc_dev_get_by_name("type_c_port0");
-	if (pinfo->tcpc != NULL) {
-		pinfo->pd_nb.notifier_call = pd_tcp_notifier_call;
-		ret = register_tcp_dev_notifier(pinfo->tcpc, &pinfo->pd_nb,
-				TCP_NOTIFY_TYPE_USB | TCP_NOTIFY_TYPE_MISC);
-	} else {
-		chg_err("get PD dev fail\n");
-	}
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+    /* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/07/28 slove PD detect error*/
+        if (is_sala_a_project() == 2) {
+    
+            info->pd_adapter = get_adapter_by_name("pd_adapter");
+            if (info->pd_adapter)
+                chr_err("Found PD adapter [%s]\n",
+                    info->pd_adapter->props.alias_name);
+            else
+                chr_err("*** Error : can't find PD adapter ***\n");
+    
+            pinfo->tcpc = tcpc_dev_get_by_name("type_c_port0");
+            if (!pinfo->tcpc) {
+                chr_err("%s get tcpc device type_c_port0 fail\n", __func__);
+            }
+        } else {
+            pinfo->tcpc = tcpc_dev_get_by_name("type_c_port0");
+            if (pinfo->tcpc != NULL) {
+                pinfo->pd_nb.notifier_call = pd_tcp_notifier_call;
+                ret = register_tcp_dev_notifier(pinfo->tcpc, &pinfo->pd_nb,
+                    TCP_NOTIFY_TYPE_USB | TCP_NOTIFY_TYPE_MISC);
+            } else {
+                chg_err("get PD dev fail\n");
+            }
+        }
+#else
+        pinfo->tcpc = tcpc_dev_get_by_name("type_c_port0");
+        if (pinfo->tcpc != NULL) {
+            pinfo->pd_nb.notifier_call = pd_tcp_notifier_call;
+            ret = register_tcp_dev_notifier(pinfo->tcpc, &pinfo->pd_nb,
+                    TCP_NOTIFY_TYPE_USB | TCP_NOTIFY_TYPE_MISC);
+        } else {
+            chg_err("get PD dev fail\n");
+        }
+#endif
 
 	mtk_pdc_init(info);
 
@@ -3194,6 +3972,15 @@ static int mtk_charger_probe(struct platform_device *pdev)
 
 static int mtk_charger_remove(struct platform_device *dev)
 {
+	#ifdef VENDOR_EDIT
+	/*hupeng@BSP.CHG.Basic,2020/5/21,add for auxadc3 ntc temp check*/
+	struct oppo_chg_chip *oppo_chip = platform_get_drvdata(dev);
+	if(oppo_chip){
+		platform_set_drvdata(dev,NULL);
+		thermal_zone_device_unregister(oppo_chip->tzd);
+		kfree(oppo_chip);
+	}
+	#endif
 	return 0;
 }
 

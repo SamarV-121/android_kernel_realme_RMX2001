@@ -39,6 +39,9 @@ struct oppo_gauge_operations {
         int (*get_battery_cc)(void);
         int (*get_battery_soh)(void);
         bool (*get_battery_authenticate)(void);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		bool (*get_battery_hmac)(void);
+		#endif
         void (*set_battery_full)(bool);
         int (*get_prev_battery_mvolts) (void);
         int (*get_prev_battery_temperature) (void);
@@ -77,6 +80,9 @@ int oppo_gauge_get_batt_fcc(void);
 
 int oppo_gauge_get_batt_cc(void);
 int oppo_gauge_get_batt_soh(void);
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+bool oppo_gauge_get_batt_hmac(void);
+#endif
 bool oppo_gauge_get_batt_authenticate(void);
 void oppo_gauge_set_batt_full(bool);
 bool oppo_gauge_check_chip_is_null(void);

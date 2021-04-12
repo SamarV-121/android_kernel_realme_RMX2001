@@ -81,6 +81,10 @@
 //extern void mt_eint_set_polarity(unsigned int eint_num, unsigned int pol);
 extern void mt_eint_registration(unsigned int eint_num, unsigned int flow, void (EINT_FUNC_PTR)(void), unsigned int is_auto_umask);
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+extern int is_sala_a_project(void);
+#endif
 struct pn553_dev	
 {
 	wait_queue_head_t	read_wq;
@@ -587,7 +591,11 @@ static int pn553_platform_pinctrl_init(struct platform_device *pdev)
 		ret = PTR_ERR(gpctrl);
 		goto end;
 	}
-
+	#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*liuting@ODM.HQ.BSP.CHG 2020/06/23 modify for sala_A chgvin off when camera on*/
+	if (is_sala_a_project() == 2) {
+		return 0;
+	}else{
 	st_ven_h = pinctrl_lookup_state(gpctrl, "ven_high");
 	if (IS_ERR(st_ven_h)) {
 		ret = PTR_ERR(st_ven_h);
@@ -599,6 +607,8 @@ static int pn553_platform_pinctrl_init(struct platform_device *pdev)
 		ret = PTR_ERR(st_ven_l);
 		printk("%s: pinctrl err, ven_low\n", __func__);
 	}
+	}
+	#endif
 //modify by tzf@meitu.begin
 	st_dwn_h = pinctrl_lookup_state(gpctrl, "dwn_high");
 	if (IS_ERR(st_dwn_h)) {

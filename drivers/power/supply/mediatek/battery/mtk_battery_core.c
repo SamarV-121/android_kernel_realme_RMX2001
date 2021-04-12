@@ -2871,6 +2871,7 @@ void fg_daemon_comm_INT_data(char *rcv, char *ret)
 		}
 		break;
 #ifdef VENDOR_EDIT
+#if !defined(ODM_HQ_EDIT) && !defined(CONFIG_MACH_MT6768)
 /* Yichun.Chen  PSW.BSP.CHG  2019-07-29  for aging issue */
 	case FG_SET_AG_ERR:
 		{
@@ -2879,6 +2880,7 @@ void fg_daemon_comm_INT_data(char *rcv, char *ret)
 				gm.ag_detect_err);
 		}
 		break;
+#endif
 #endif
 	default:
 		pret->status = -1;
@@ -4103,6 +4105,7 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 		gm.proc_subcmd_para1 = msg->fgd_subcmd_para1;
 
 #ifdef VENDOR_EDIT
+#if !defined(ODM_HQ_EDIT) && !defined(CONFIG_MACH_MT6768)
 /* Yichun.Chen  PSW.BSP.CHG  2019-07-29  for aging issue */
 		if (gm.proc_subcmd_para1 == 888) {
 			memset(gm.ag_log, 0, 2000);
@@ -4111,6 +4114,7 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 			bm_err("[fr]FG_DAEMON_CMD_DUMP_LOG:%s\n",
 				gm.ag_log);
 		}
+#endif
 #endif
 
 		memset(gm.proc_log, 0, 4096);

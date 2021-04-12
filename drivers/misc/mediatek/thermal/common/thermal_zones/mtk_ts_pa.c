@@ -249,7 +249,7 @@ static int mtktspa_get_temp(struct thermal_zone_device *thermal, int *t)
 	*t = mtktspa_get_hw_temp();
 
 	if ((int)*t >= polling_trip_temp1)
-		thermal->polling_delay = interval * 1000;
+		thermal->polling_delay = interval * 2300;
 	else if ((int)*t < polling_trip_temp2)
 		thermal->polling_delay = interval * polling_factor2;
 	else

@@ -672,8 +672,10 @@ extern void oppo_vooc_reset_fastchg_after_usbout(void);
 extern void oppo_chg_clear_chargerid_info(void);
 extern void oppo_chg_set_chargerid_switch_val(int);
 #ifdef VENDOR_EDIT
+#ifndef CONFIG_MACH_MT6768
 //Bingyuan.Liu@BSP.TP.Function, 2019/10/28, Add for informing tp driver of usb state
 extern void switch_usb_state(int usb_state);
+#endif
 #endif /*VENDOR_EDIT*/
 
 #if defined(VENDOR_EDIT) && defined(CONFIG_OPPO_CHARGER_MT6370_TYPEC)
@@ -693,8 +695,10 @@ void chrdet_int_handler(void)
 		return;
 	}
 #ifdef VENDOR_EDIT
+#ifndef CONFIG_MACH_MT6768
     //Bingyuan.Liu@BSP.TP.Function, 2019/10/28, Add for informing tp driver of usb state
 	switch_usb_state(upmu_get_rgs_chrdet());
+#endif
 #endif /*VENDOR_EDIT*/
 	if(oppo_vooc_get_fastchg_started() == true && oppo_vooc_get_adapter_update_status() != 1){
 		pr_err("[do_charger_detect] opchg_get_prop_fast_chg_started = true!\n");

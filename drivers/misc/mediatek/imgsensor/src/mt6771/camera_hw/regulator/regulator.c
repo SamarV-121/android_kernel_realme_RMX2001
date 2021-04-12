@@ -43,7 +43,7 @@ struct REGULATOR_CTRL regulator_control[REGULATOR_TYPE_MAX_NUM] = {
 
 static struct REGULATOR reg_instance;
 
-#ifdef VENDOR_EDIT
+#ifndef VENDOR_EDIT
 /*Femg.Hu@Camera.Driver 20171120 add for flash&lens to use i2c individual*/
 static struct regulator *gVCamIO;
 static struct regulator *gVCamAF;
@@ -76,7 +76,7 @@ static enum IMGSENSOR_RETURN regulator_init(
 			atomic_set(&preg->enable_cnt[idx][type], 0);
 		}
 	}
-	#ifdef VENDOR_EDIT
+	#ifndef VENDOR_EDIT
 	//*Femg.Hu@Camera.Driver 20171120 add for flash&lens to use i2c individual*/
 	gVCamIO = regulator_get(&pcommon->pplatform_device->dev, "vcamio");
 	gVCamAF = regulator_get(&pcommon->pplatform_device->dev, "vldo28");
@@ -120,8 +120,12 @@ static enum IMGSENSOR_RETURN regulator_set(
 	int reg_type_offset;
 	atomic_t             *enable_cnt;
 
-
+	#ifdef ODM_HQ_EDIT
+	/* Lijian@ODM.Camera.Drv 20190827 for sensor bringup */
+	if (pin > IMGSENSOR_HW_PIN_AFVDD   ||
+	#else
 	if (pin > IMGSENSOR_HW_PIN_DOVDD   ||
+	#endif
 	    pin < IMGSENSOR_HW_PIN_AVDD    ||
 	    pin_state < IMGSENSOR_HW_PIN_STATE_LEVEL_0 ||
 	    pin_state >= IMGSENSOR_HW_PIN_STATE_LEVEL_HIGH)
@@ -161,14 +165,15 @@ static enum IMGSENSOR_RETURN regulator_set(
 			}
 			atomic_inc(enable_cnt);
 		} else {
-			if (regulator_is_enabled(pregulator))
-				PK_DBG("[regulator]%d is enabled\n", pin);
+			if (regulator_is_enabled(pregulator)) {
+				/*pr_debug("[regulator]%d is enabled\n", pin);*/
 
-			if (regulator_disable(pregulator)) {
-				PK_PR_ERR(
-				    "[regulator]fail to regulator_disable, powertype: %d\n",
-				    pin);
-				return IMGSENSOR_RETURN_ERROR;
+				if (regulator_disable(pregulator)) {
+					pr_err(
+					    "[regulator] fail to regulator_disable, powertype: %d\n",
+					    pin);
+					return IMGSENSOR_RETURN_ERROR;
+				}
 			}
 			atomic_dec(enable_cnt);
 		}
@@ -215,7 +220,7 @@ static struct IMGSENSOR_HW_DEVICE device = {
 	.dump      = regulator_dump
 };
 
-#ifdef VENDOR_EDIT
+#ifndef VENDOR_EDIT
 /*Femg.Hu@Camera.Driver 20171120 add for flash&lens to use i2c individual*/
 int kdVIOPowerOn(int On)
 {

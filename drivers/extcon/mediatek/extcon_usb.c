@@ -22,7 +22,10 @@
 #include <linux/workqueue.h>
 
 #include "extcon_usb.h"
-
+#ifdef ODM_HQ_EDIT
+extern int get_vbatt_num(void);
+extern void oppo_chg_set_otg_online(bool online);
+#endif
 struct usb_extcon_info {
 	struct device *dev;
 	struct extcon_dev *edev;
@@ -163,7 +166,10 @@ void mt_usbhost_connect(void)
 	mt_usb_dual_role_to_host();
 #endif
 #endif
-
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	if(get_vbatt_num() == 2)
+	oppo_chg_set_otg_online(true);
+#endif
 	pr_info("%s\n", __func__);
 	issue_connection_work(DUAL_PROP_DR_HOST);
 }
@@ -176,7 +182,10 @@ void mt_usbhost_disconnect(void)
 	mt_usb_dual_role_to_none();
 #endif
 #endif
-
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	if(get_vbatt_num() == 2)
+	oppo_chg_set_otg_online(false);
+#endif
 	pr_info("%s\n", __func__);
 	issue_connection_work(DUAL_PROP_DR_NONE);
 }

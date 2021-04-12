@@ -40,6 +40,14 @@
 
 #define RT_PD_MANAGER_VERSION	"1.0.5_MTK"
 
+#ifdef ODM_HQ_EDIT
+/*wangtao@ODM.HQ.BSP.CHG 2020/06/23 close mt6360 charge*/
+extern int is_sala_a_project(void);
+#endif
+#ifdef VENDOR_EDIT
+extern bool oppo_vooc_get_fastchg_allow(void);
+#endif /* VENDOR_EDIT */
+
 static DEFINE_MUTEX(param_lock);
 
 static struct tcpc_device *tcpc_dev;
@@ -200,6 +208,14 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		pr_info("%s sink vbus %dmv %dma type(%d)\n", __func__,
 			pd_sink_voltage_new, pd_sink_current_new, pd_sink_type);
 		mutex_unlock(&param_lock);
+
+		#ifdef ODM_HQ_EDIT
+		/*wangtao@ODM.HQ.BSP.CHG 2020/06/23 close mt6360 charge*/
+		if ((is_sala_a_project() == 2) && (oppo_vooc_get_fastchg_allow() == true)) {
+			printk("in fastchg,close mt6360 charge\n");
+			break;
+		}
+		#endif
 
 		if ((pd_sink_voltage_new != pd_sink_voltage_old) ||
 		    (pd_sink_current_new != pd_sink_current_old)) {

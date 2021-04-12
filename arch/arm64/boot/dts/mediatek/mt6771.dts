@@ -1795,6 +1795,7 @@ firmware_class.path=/vendor/firmware";
 			   <GIC_SPI 291 IRQ_TYPE_LEVEL_LOW>;	/*WDT_EINT */
 		clocks = <&scpsys SCP_SYS_CONN>;
 		clock-names = "conn";
+		wifi_ant_swap_gpio = <&pio 153 0x0>;
 	};
 
 	irtx@1100d000 {
@@ -1852,6 +1853,25 @@ firmware_class.path=/vendor/firmware";
 		reg-names = "sif_base", "ippc";
 		#phy-cells = <1>;
 	};
+//#ifdef VENDOR_EDIT
+//Qingwen.Liu@RM.BSP.Fingerprint.Basic 2019/1/26 add for fpc fingerprint driver start
+	goodix_fp: fingerprint {
+		compatible = "mediatek,goodix-fp";
+	};
+	egis_fp: egis_fp {
+		compatible = "mediatek,finger-fp";
+	};
+	fpc_interrupt:fpc_interrupt {
+		compatible    = "fpc,fpc_irq";
+	};
+	oppo_fp_common:oppo_fp_common {
+		compatible = "oppo,fp_common";
+	};
+	oppo_secure_common:oppo_secure_common {
+		compatible = "oppo,secure_common";
+	};
+//Qingwen.Liu@RM.BSP.Fingerprint.Basic 2019/1/26 add for fpc fingerprint driver end
+//#endif //VENDOR_EDIT
 //#ifdef VENDOR_EDIT
 /*Jianwei.Ye@BSP.CHG.BASIC 2019/11/21 add for phy_tuning*/
 	mediatek_phy_tuning:mediatek_phy_tuning {
@@ -2296,7 +2316,7 @@ firmware_class.path=/vendor/firmware";
 		/* #else */
 		interrupt-parent = <&pio>;
 		interrupts = <44 IRQ_TYPE_LEVEL_HIGH 44 1>;
-		status = "okay";
+		status = "disabled";
 		/* #endif VENDOR_EDIT*/
 	};
 
@@ -3128,8 +3148,8 @@ firmware_class.path=/vendor/firmware";
 		compatible = "mediatek,flashlight_core";
 	};
 
-	flashlights_lm3642: flashlights_lm3642 {
-		compatible = "mediatek,flashlights_lm3642";
+	flashlights_mt6370: flashlights_mt6370 {
+		compatible = "mediatek,flashlights_mt6370";
 		decouple = <1>;
 		channel@1 {
 			type = <0>;
@@ -3144,11 +3164,11 @@ firmware_class.path=/vendor/firmware";
 		interrupts = <GIC_SPI 264 IRQ_TYPE_LEVEL_LOW>;
 
 		clocks = <&camsys CAMSYS_CCU_CGPDN>,
-			 <&mmsys_config MMSYS_GALS_CCU2MM>,
-                         <&scpsys SCP_SYS_CAM>;
+			<&mmsys_config MMSYS_GALS_CCU2MM>,
+			<&scpsys SCP_SYS_CAM>;
 		clock-names = "CCU_CLK_CAM_CCU",
-			      "CCU_CLK_MMSYS_CCU",
-                              "CAM_PWR";
+			    "CCU_CLK_MMSYS_CCU",
+			    "CAM_PWR";
 	};
 
 	alc@60000000 {
@@ -4230,24 +4250,6 @@ firmware_class.path=/vendor/firmware";
 	subpmic_pmu_eint: mt6370_pmu_eint {
 	};
 
-//#ifdef VENDOR_EDIT
-/* Bin.Li@PSW.BSP.Fingerprint.Basic, 2017/11/22, Add for FPC driver baseon trustonic tee */
-	goodix_fp: goodix_fp {
-		compatible = "goodix,goodix_fp";
-                status = "okay";
-	};
-	fpc_interrupt:fpc_interrupt {
-		status        = "ok";
-		compatible    = "fpc,fpc_irq";
-	};
-	oppo_fp_common:oppo_fp_common {
-		compatible = "oppo,fp_common";
-	};
-	oppo_secure_common:oppo_secure_common {
-		compatible = "oppo,secure_common";
-	};
-//#endif //VENDOR_EDIT
-
 	tcpc_pd: mt6370_pd_eint {
 	};
 
@@ -4273,6 +4275,10 @@ firmware_class.path=/vendor/firmware";
 			"clk_pll_5",
 			"clk_pll_6";
 	};
+
+
+
+
 
 	rt5081_pmu_eint: rt5081_pmu_eint {
 	};
@@ -4357,3 +4363,12 @@ firmware_class.path=/vendor/firmware";
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
 #include "trusty.dtsi"
 #endif
+
+#ifdef CONFIG_TOUCHPANEL_HQ
+/* liunianliang@ODM.BSP.TP 2020/02/17, Add for Tp driver. */
+#include "tddi_tp_oppo6771.dtsi"
+#endif
+
+#ifdef CONFIG_SET_LCD_BIAS_ODM_HQ
+#include "lcd_bias.dtsi"
+#endif // CONFIG_SET_LCD_BIAS_ODM_HQ

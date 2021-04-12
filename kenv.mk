@@ -123,6 +123,9 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
   ifdef KERNEL_HOSTCXX
     KERNEL_MAKE_OPTION += HOSTCXX=$(KERNEL_HOSTCXX)
   endif
+  ifneq ($(OPPO_TARGET_DEVICE),)
+    KERNEL_MAKE_OPTION += OPPO_TARGET_DEVICE=$(OPPO_TARGET_DEVICE)
+  endif
   ifeq ($(KERNEL_TARGET_ARCH),arm64)
       ifeq ($(strip $(TARGET_KERNEL_USE_CLANG)),true)
           # for CONFIG_LTO_CLANG to find clang llvm-dis & llvm-ar & LLVMgold.so

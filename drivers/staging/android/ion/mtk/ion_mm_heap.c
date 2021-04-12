@@ -236,6 +236,7 @@ static int ion_mm_pool_total(struct ion_system_heap *heap,
 static int ion_get_domain_id(int from_kernel, int *port)
 {
 	int domain_idx = 0;
+	unsigned int port_id = *port;
 
 #ifdef CONFIG_MTK_IOMMU_V2
 	if (port_id >= M4U_PORT_UNKNOWN) {
@@ -269,7 +270,14 @@ static int ion_get_domain_id(int from_kernel, int *port)
 	domain_idx = 0;
 #endif //CONFIG_MTK_IOMMU_PGTABLE_EXT
 #else  //CONFIG_MTK_IOMMU_V2
+#if defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6785)
+	if (port_id >= M4U_PORT_VPU)
+		domain_idx = 1;
+	else
+		domain_idx = 0;
+#else
 	domain_idx = 0;
+#endif
 #endif //CONFIG_MTK_IOMMU_V2
 
 	return domain_idx;

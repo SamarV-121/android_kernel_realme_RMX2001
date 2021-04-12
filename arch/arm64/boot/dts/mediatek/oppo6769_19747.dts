@@ -914,7 +914,7 @@
 		io-channels = <&auxadc 2>;
 		io-channel-names = "batteryID-channel";	
 };
-#include "rt9471_single.dtsi"
+//#include "rt9471_single.dtsi"
 /*Shouli.Wang@ODM_WT.BSP.CHG 2019/9/25, charger bringup end*/
 //#ifdef ODM_WT_EDIT
 /*Shouli.Wang@ODM_WT.BSP.CHG 2019/10/07, modify monet charger params*/

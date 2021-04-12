@@ -126,7 +126,12 @@
 #define RG_AUD_MICBIAS1_LOWP_EN		(1<<2)
 
 /* AUDENC_ANA_CON11: */
+#ifdef ODM_HQ_EDIT
+//sunjingtao@ODM.HQ.Multimedia.Audio 2020/03/18 modified accdet RG_EINTCOMPVTH to 2V
+#define RG_ACCDET_MODE_ANA11_MODE1	(0x0C07)
+#else
 #define RG_ACCDET_MODE_ANA11_MODE1	(0x0807)
+#endif
 #define RG_ACCDET_MODE_ANA11_MODE2	(0x0887)
 #define RG_ACCDET_MODE_ANA11_MODE6	(0x0887)
 

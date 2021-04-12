@@ -38,12 +38,14 @@ struct REGULATOR_CTRL regulator_control[REGULATOR_TYPE_MAX_NUM] = {
 	{"vcama"},
 	{"vcamd"},
 	{"vcamio"},
+	{"vcamaf"},
 };
 
 static const int int_oc_type[REGULATOR_TYPE_MAX_NUM] = {
 	INT_VCAMA1_OC,
 	INT_VCAMD_OC,
 	INT_VCAMIO_OC,
+	INT_VLDO28_OC,
 };
 
 
@@ -80,6 +82,34 @@ static void imgsensor_oc_handler2(void)
 static void imgsensor_oc_handler3(void)
 {
 	pr_debug("[regulator]%s enter vcamio oc %d\n",
+		__func__,
+		gimgsensor.status.oc);
+	gimgsensor.status.oc = 1;
+	aee_kernel_warning("Imgsensor OC", "Over current");
+	if (reg_instance.pid != -1 &&
+		pid_task(find_get_pid(reg_instance.pid), PIDTYPE_PID) != NULL)
+		force_sig(SIGKILL,
+				pid_task(find_get_pid(reg_instance.pid),
+						PIDTYPE_PID));
+}
+
+static void imgsensor_oc_handler4(void)
+{
+	pr_debug("[regulator]%s enter vcamaf oc %d\n",
+		__func__,
+		gimgsensor.status.oc);
+	gimgsensor.status.oc = 1;
+	aee_kernel_warning("Imgsensor OC", "Over current");
+	if (reg_instance.pid != -1 &&
+		pid_task(find_get_pid(reg_instance.pid), PIDTYPE_PID) != NULL)
+		force_sig(SIGKILL,
+				pid_task(find_get_pid(reg_instance.pid),
+						PIDTYPE_PID));
+}
+
+static void imgsensor_oc_handler5(void)
+{
+	pr_debug("[regulator]%s enter vcama2 oc %d\n",
 		__func__,
 		gimgsensor.status.oc);
 	gimgsensor.status.oc = 1;
@@ -159,6 +189,8 @@ enum IMGSENSOR_RETURN imgsensor_oc_init(void)
 	pmic_register_interrupt_callback(INT_VCAMA1_OC, imgsensor_oc_handler1);
 	pmic_register_interrupt_callback(INT_VCAMD_OC, imgsensor_oc_handler2);
 	pmic_register_interrupt_callback(INT_VCAMIO_OC, imgsensor_oc_handler3);
+	pmic_register_interrupt_callback(INT_VLDO28_OC, imgsensor_oc_handler4);
+	pmic_register_interrupt_callback(INT_VCAMA2_OC, imgsensor_oc_handler5);
 
 	gimgsensor.status.oc  = 0;
 	gimgsensor.imgsensor_oc_irq_enable = imgsensor_oc_interrupt;
@@ -181,7 +213,6 @@ static enum IMGSENSOR_RETURN regulator_init(void *pinstance)
 		of_find_compatible_node(NULL, NULL, "mediatek,camera_hw");
 
 	if (pdevice->of_node == NULL) {
-		pr_debug("regulator get cust camera node failed!\n");
 		pdevice->of_node = pof_node;
 		return IMGSENSOR_RETURN_ERROR;
 	}
@@ -199,7 +230,7 @@ static enum IMGSENSOR_RETURN regulator_init(void *pinstance)
 			    regulator_get(pdevice, str_regulator_name);
 
 			if (preg->pregulator[j][i] == NULL)
-				pr_debug("regulator[%d][%d]  %s fail!\n",
+				pr_info("regulator[%d][%d]  %s fail!\n",
 					j, i, str_regulator_name);
 
 			atomic_set(&preg->enable_cnt[j][i], 0);
@@ -245,8 +276,12 @@ static enum IMGSENSOR_RETURN regulator_set(
 	int reg_type_offset;
 	atomic_t	*enable_cnt;
 
-
+#ifdef ODM_HQ_EDIT
+/* Lijian@ODM.Camera.Drv 20190827 for snesor bringup */
+	if (pin > IMGSENSOR_HW_PIN_AFVDD   ||
+#else
 	if (pin > IMGSENSOR_HW_PIN_DOVDD   ||
+#endif
 		pin < IMGSENSOR_HW_PIN_AVDD    ||
 		pin_state < IMGSENSOR_HW_PIN_STATE_LEVEL_0 ||
 		pin_state >= IMGSENSOR_HW_PIN_STATE_LEVEL_HIGH)
@@ -273,14 +308,14 @@ static enum IMGSENSOR_RETURN regulator_set(
 				 pin_state - IMGSENSOR_HW_PIN_STATE_LEVEL_0])) {
 
 				pr_err(
-				    "[regulator]fail to regulator_set_voltage, powertype:%d powerId:%d\n",
+				    "[regulator] fail to regulator_set_voltage, powertype:%d powerId:%d\n",
 				    pin,
 				    regulator_voltage[
 				   pin_state - IMGSENSOR_HW_PIN_STATE_LEVEL_0]);
 			}
 			if (regulator_enable(pregulator)) {
 				pr_err(
-				    "[regulator]fail to regulator_enable, powertype:%d powerId:%d\n",
+				    "[regulator] fail to regulator_enable, powertype:%d powerId:%d\n",
 				    pin,
 				    regulator_voltage[
 				   pin_state - IMGSENSOR_HW_PIN_STATE_LEVEL_0]);
@@ -294,7 +329,7 @@ static enum IMGSENSOR_RETURN regulator_set(
 
 				if (regulator_disable(pregulator)) {
 					pr_err(
-					    "[regulator]fail to regulator_disable, powertype: %d\n",
+					    "[regulator] fail to regulator_disable, powertype: %d\n",
 					    pin);
 					return IMGSENSOR_RETURN_ERROR;
 				}

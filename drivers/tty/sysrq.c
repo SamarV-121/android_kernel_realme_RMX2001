@@ -337,10 +337,6 @@ static struct sysrq_key_op sysrq_ftrace_dump_op = {
 #else
 #define sysrq_ftrace_dump_op (*(struct sysrq_key_op *)NULL)
 #endif
-/*weihuan.zhao@ODM_WT.BSP.Kernel.stability, 2019/12/05,print process pss to kernel log when memory below 200M*/
-#define CONVERT_ADJ(x) ((x * OOM_SCORE_ADJ_MAX) / -OOM_DISABLE)
-#define REVERT_ADJ(x)  (x * (-OOM_DISABLE + 1) / OOM_SCORE_ADJ_MAX)
-
 
 static void sysrq_handle_showmem(int key)
 {

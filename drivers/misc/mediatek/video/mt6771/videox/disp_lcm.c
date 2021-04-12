@@ -1447,8 +1447,15 @@ int disp_lcm_resume(struct disp_lcm_handle *plcm)
 	if (_is_lcm_inited(plcm)) {
 		lcm_drv = plcm->drv;
 
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+#ifdef ODM_HQ_EDIT
+		if (lcm_drv->resume_power && !lcm_drv->hw_reset_before_lp11)
+			lcm_drv->resume_power();
+#else
 		if (lcm_drv->resume_power)
 			lcm_drv->resume_power();
+#endif
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, end. */
 
 #ifdef VENDOR_EDIT
 		if (is_project(18561) || is_project(18161) \

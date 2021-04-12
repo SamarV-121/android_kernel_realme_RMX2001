@@ -115,13 +115,30 @@
 			mt,bled_name = "mt6370_pmu_bled";
 			//mt,ext_en_pin;
 			mt,chan_en  = <0xf>; /* bit 0 1 2 3 -> chan 1 2 3 4 */
+/* panxiaolong@ODM.,Multimedia. 2020/03/20, modify for oppo6771 LCD backlight. */
+#ifdef CONFIG_MACH_MT6771
+			//mt,map_linear;
+#else
 			mt,map_linear;
+#endif
 			mt,bl_ovp_level = <3>; /* 0 17v, 1 21v, 2 25v, 3 29v */
 			mt,bl_ocp_level = <2>; /* 0 900mA, 1 1200mA, 2 1500mA, 3 1800mA */
 			mt,use_pwm;
 			mt,pwm_fsample = <2>; /* 0 1MHz, 1 4MHz, 2 or 3 24mHz */
 			mt,pwm_deglitch = <1>; /* 0 no filter, 1 100ns, 2 160ns, 3 200ns */
 			mt,pwm_hys_en = <1>; /* PWM Input Hysteresis */
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+#ifdef CONFIG_MACH_MT6771
+			mt,pwm_hys = <2>;	/* 0: 1 bit, 1: 2 bit */
+						/* 2: 4 bit, 3: 6 bit */
+			mt,pwm_avg_cycle = <0>; /* 0 disable avg, 1 avg 2 cycle, 2 avg 4 cycle */
+						/* 3 avg 8 cycle, 4 avg 16 cycle, 5 avg 32 cycle */
+			mt,bled_ramptime = <9>; /* 0, 500us, 750us, 1ms, 2ms, 5ms, 10ms, 20ms */
+						/* 50ms, 100ms, 250ms, 800ms, 1s, 2s, 4s, 8s */
+			mt,bled_flash_ramp = <1>; /* 0, 500us, 750us, 1ms, 2ms, 5ms */
+			mt,max_bled_brightness = <1685>; /* we have 11 bit resolution, quantize in driver */
+							/* maximum 2047 */
+#else
 			mt,pwm_hys = <0>;	/* 0: 1 bit, 1: 2 bit */
 						/* 2: 4 bit, 3: 6 bit */
 			mt,pwm_avg_cycle = <0>; /* 0 disable avg, 1 avg 2 cycle, 2 avg 4 cycle */
@@ -131,6 +148,8 @@
 			mt,bled_flash_ramp = <1>; /* 0, 500us, 750us, 1ms, 2ms, 5ms */
 			mt,max_bled_brightness = <512>; /* we have 11 bit resolution, quantize in driver */
 							/* maximum 2047 */
+#endif
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, end. */
 			/* 0: 30mA, 1: 22.5mA, 2: 20mA, 3: 17.5mA */
 			mt,bled_curr_scale = <0>;
 			/* If use bled lpf,

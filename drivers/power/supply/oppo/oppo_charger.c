@@ -83,6 +83,15 @@
 #include <soc/oppo/oppo_emmclog.h>
 #endif /*CONFIG_OPPO_EMMC_LOG*/
 
+#ifdef ODM_HQ_EDIT
+/*hongzhenglong@ODM.HQ.Charger 2020/03/26 modified for input current of warm for SARTER */
+#include <soc/oppo/oppo_project.h>
+#endif
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+#include "charger_ic/oppo_mp2650.h"
+#endif
+
 static struct oppo_chg_chip *g_charger_chip = NULL;
 
 #define OPPO_CHG_UPDATE_INTERVAL_SEC        5
@@ -91,10 +100,31 @@ static struct oppo_chg_chip *g_charger_chip = NULL;
 
 #define OPPO_CHG_DEFAULT_CHARGING_CURRENT        512
 
+#ifdef ODM_HQ_EDIT
+/*hongzhenglong@ODM.HQ.Charger 2020/04/02 modified for input current for SARTER */
+#define LIMIT_INPUT_CURRENT_MA_HIGH_1879 900
+#endif
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*hongzhenglong@ODM.HQ.BSP.CHG 2020/07/11 modify for OVP in salaA*/
+#define VCHG_CNT_salaA 3
+#endif
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+extern int is_sala_a_project(void);
+extern int oppo_mt6360_disable_charging(void);
+extern int oppo_mt6360_suspend_charger(void);
+
+//Hongbin.Chen@ODM_LQ.BSP.CHG,	2020/08/19 ,Modify precharge voltage for pd/qc current little
+extern int mp2650_set_prechg_voltage_threshold(void);
+extern int set_prechg_tag;
+#endif
+
 int enable_charger_log = 2;
 int charger_abnormal_log = 0;
 int tbatt_pwroff_enable = 1;
-
+int vooc_high_temp = 0;
 /* wenbin.liu@SW.Bsp.Driver, 2016/03/01  Add for log tag*/
 #define charger_xlog_printk(num, fmt, ...) \
         do { \
@@ -115,11 +145,22 @@ static void oppo_chg_get_chargerid_voltage(struct oppo_chg_chip *chip);
 static void oppo_chg_set_input_current_limit(struct oppo_chg_chip *chip);
 static void oppo_chg_battery_update_status(struct oppo_chg_chip *chip);
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*baodongmei@ODM.HQ.BSP.CHG 2020/06/26 Add for sala_A PD */
+static void oppo_chg_pd_config(struct oppo_chg_chip *chip);
+static void oppo_chg_qc_config(struct oppo_chg_chip *chip);
+#endif
 
+#ifndef CONFIG_OPPO_HQ_EULER_CHARGER
 #ifdef ODM_HQ_EDIT
 /*Benshan.Cheng@ODM_HQ.BSP.TP.Function, 2019/11/22 add for tp charge mode*/
 extern void switch_usb_state(bool usb_state);
 #endif  /* ODM_HQ_EDIT */
+#endif
+#ifdef CONFIG_OPPO_HQ_CHARGER
+/*wangtao@ODM.HQ.BSP.CHG 2020/05/08 modify flashlight_temp*/
+extern void oppo_flashlight_temp_check(struct oppo_chg_chip *chip);
+#endif
 
 #ifdef  CONFIG_FB
 static int fb_notifier_callback(struct notifier_block *nb, unsigned long event, void *data);
@@ -181,6 +222,7 @@ enum power_supply_property oppo_batt_props[] = {
 #ifdef CONFIG_OPPO_SHIP_MODE_SUPPORT
         POWER_SUPPLY_PROP_SHIP_MODE,
 #endif
+		POWER_SUPPLY_PROP_FLASHLIGHT_TEMP,
 #ifdef CONFIG_OPPO_CALL_MODE_SUPPORT
         POWER_SUPPLY_PROP_CALL_MODE,
 #endif
@@ -336,7 +378,7 @@ int oppo_ac_get_property(struct power_supply *psy,
         if (chip->charger_exist) {
                 if ((chip->charger_type == POWER_SUPPLY_TYPE_USB_DCP) || (oppo_vooc_get_fastchg_started() == true)
                         || (oppo_vooc_get_fastchg_to_normal() == true) || (oppo_vooc_get_fastchg_to_warm() == true)
-                        || (oppo_vooc_get_adapter_update_status() == ADAPTER_FW_NEED_UPDATE) || (oppo_vooc_get_btb_temp_over() == true)) {
+                        || (oppo_vooc_get_adapter_update_status() == ADAPTER_FW_NEED_UPDATE) || (oppo_vooc_get_btb_temp_over() == true) || (oppo_vooc_get_fastchg_dummy_started() == true)) {
                         chip->ac_online = true;
                 } else {
                         chip->ac_online = false;
@@ -344,7 +386,7 @@ int oppo_ac_get_property(struct power_supply *psy,
         } else {
                 if ((oppo_vooc_get_fastchg_started() == true) || (oppo_vooc_get_fastchg_to_normal() == true)
                         || (oppo_vooc_get_fastchg_to_warm() == true) || (oppo_vooc_get_adapter_update_status() == ADAPTER_FW_NEED_UPDATE)
-                        || (oppo_vooc_get_btb_temp_over() == true) || chip->mmi_fastchg == 0) {
+                        || (oppo_vooc_get_btb_temp_over() == true) || chip->mmi_fastchg == 0 || (oppo_vooc_get_fastchg_dummy_started() == true)) {
 						chip->ac_online = true;
                 } else {
                         chip->ac_online = false;
@@ -568,8 +610,9 @@ int oppo_battery_get_property(struct power_supply *psy,
                         val->intval = POWER_SUPPLY_STATUS_CHARGING;
                 } else if (!chip->authenticate) {
                         val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
-				/*wangtao@ODM.HQ.BSP.CHG 2020/01/04 change over vbat charging status*/
-                } else if (chip->vbatt_over) {
+		/*wangtao@ODM.HQ.BSP.CHG 2020/01/04 change over vbat charging status*/
+		/*hongzhenglong@ODM.HQ.BSP.CHG 2020/07/01 modify for not showing Lightning icon if baterry over and full*/
+                } else if (chip->vbatt_over && (!is_project(20682))) {
                         val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
                 } else {
                         val->intval = chip->prop_status;
@@ -600,7 +643,12 @@ int oppo_battery_get_property(struct power_supply *psy,
 #endif
                 break;
 		case POWER_SUPPLY_PROP_VOLTAGE_MIN:
+/*liuting@ODM.HQ.BSP.CHG 2020/05/15 Add node for factory test*/
+#ifdef CONFIG_OPPO_CHARGER_MTK
+				val->intval = chip->batt_volt_min;
+#else
 				val->intval = chip->batt_volt_min * 1000;
+#endif
 				break; 
         case POWER_SUPPLY_PROP_CURRENT_NOW:
                 if (oppo_vooc_get_fastchg_started() == true) {
@@ -692,6 +740,16 @@ int oppo_battery_get_property(struct power_supply *psy,
                 val->intval = chip->enable_shipmode;
                 break;
 #endif
+#ifdef ODM_HQ_EDIT
+	 //wangtao@ODM_HQ.BSP.CHG, 2020/04/17, add flashlight ntc temp
+		case POWER_SUPPLY_PROP_FLASHLIGHT_TEMP:
+			if (chip)
+				val->intval = chip->flashlight_temp;
+			else
+				val->intval = 25;
+			break;
+#endif
+
 #ifdef CONFIG_OPPO_CALL_MODE_SUPPORT
         case POWER_SUPPLY_PROP_CALL_MODE:
                 val->intval = chip->calling_on;
@@ -757,6 +815,7 @@ int oppo_battery_get_property(struct power_supply *psy,
 			}
 			break;
 #endif
+
         default:
                 pr_err("get prop %d is not supported in batt\n", psp);
                 ret = -EINVAL;
@@ -963,6 +1022,16 @@ static ssize_t chg_cycle_write(struct file *file, const char __user *buff, size_
                 charger_xlog_printk(CHG_LOG_CRTI, "allow charging.\n");
                 g_charger_chip->chg_ops->charger_unsuspend();
                 g_charger_chip->chg_ops->charging_enable();
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+ 				if (is_project(OPPO_20671)) {
+
+					if(g_charger_chip->is_double_charger_support){
+						g_charger_chip->sub_chg_ops->charger_unsuspend();
+						g_charger_chip->sub_chg_ops->charging_enable();	
+					}
+				}
+#endif
                 g_charger_chip->mmi_chg = 1;
 				g_charger_chip->stop_chg= 1;
 		oppo_chg_set_input_current_limit(g_charger_chip);
@@ -974,6 +1043,17 @@ static ssize_t chg_cycle_write(struct file *file, const char __user *buff, size_
                 charger_xlog_printk(CHG_LOG_CRTI, "not allow charging.\n");
                 g_charger_chip->chg_ops->charging_disable();
                 g_charger_chip->chg_ops->charger_suspend();
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+ 			if (is_project(OPPO_20671)) {
+
+					if(g_charger_chip->is_double_charger_support){
+						g_charger_chip->sub_chg_ops->charging_disable();
+						g_charger_chip->sub_chg_ops->charger_suspend(); 
+					}
+			}
+#endif
+
                 g_charger_chip->mmi_chg = 0;
 				g_charger_chip->stop_chg= 0;
 		} else if (strncmp(proc_chg_cycle_data, "wakelock", 8) == 0) {
@@ -982,12 +1062,33 @@ static ssize_t chg_cycle_write(struct file *file, const char __user *buff, size_
 				oppo_chg_set_awake(g_charger_chip, true);
                 g_charger_chip->chg_ops->charger_unsuspend();
                 g_charger_chip->chg_ops->charging_enable();
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+ 			if (is_project(OPPO_20671)) {
+
+					if(g_charger_chip->is_double_charger_support){
+						g_charger_chip->sub_chg_ops->charger_unsuspend();
+						g_charger_chip->sub_chg_ops->charging_enable(); 
+					}
+			}
+#endif
+
                 g_charger_chip->mmi_chg = 1;
 				g_charger_chip->stop_chg= 1;
 		} else if (strncmp(proc_chg_cycle_data, "unwakelock", 10) == 0) {
 				charger_xlog_printk(CHG_LOG_CRTI, "set unwakelock.\n");
                 g_charger_chip->chg_ops->charging_disable();
                 //g_charger_chip->chg_ops->charger_suspend();
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+ 			if (is_project(OPPO_20671)) {
+
+					if(g_charger_chip->is_double_charger_support){
+						g_charger_chip->sub_chg_ops->charging_disable();
+						//g_charger_chip->sub_chg_ops->charger_suspend(); 
+					}
+			}
+#endif
                 g_charger_chip->mmi_chg = 0;
 				g_charger_chip->stop_chg= 0;
                 g_charger_chip->unwakelock_chg = 1;
@@ -1162,6 +1263,157 @@ static void init_proc_vbat_low_det(void)
 }
 
 #endif /* CONFIG_OPPO_RTC_DET_SUPPORT */
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*baodongmei@ODM.HQ.BSP.CHG 2020/06/26 Add for sala_A PD */
+int oppo_get_vbatt_pdqc_to_9v_thr(void)
+{
+	struct oppo_chg_chip *chip = g_charger_chip;
+	int rc, ret;
+
+	if (chip->dev->of_node) {
+		rc = of_property_read_u32(chip->dev->of_node, "qcom,vbatt_pdqc_to_9v_thr",
+			&ret);
+		if (rc < 0) {
+			ret = 4000;
+		}
+	}else{
+		ret = 4000;
+	}
+	return ret;
+}
+static ssize_t proc_charger_factorymode_test_write
+				(struct file *file, const char __user *buf,
+					size_t count, loff_t *lo)
+{
+	char buffer[2] = { 0 };
+	struct oppo_chg_chip *chip = g_charger_chip;
+
+	if (chip == NULL) {
+		chg_err("%s: g_charger_chip driver is not ready\n", __func__);
+		return -1;
+	}
+
+	if (count > 2) {
+		return -1;
+	}
+	if (copy_from_user(buffer, buf, 1)) {
+		chg_err("%s: error.\n", __func__);
+		return -1;
+	}
+
+	if(buffer[0] == '1'){
+		chip->limits.vbatt_pdqc_to_9v_thr = 4100;
+		chg_err("vbatt_pdqc_to_9v_thr=%d\n", chip->limits.vbatt_pdqc_to_9v_thr);
+		oppo_chg_pd_config(chip);
+		oppo_chg_qc_config(chip);
+	}
+	if(buffer[0] == '0'){
+		chip->limits.vbatt_pdqc_to_9v_thr = oppo_get_vbatt_pdqc_to_9v_thr();
+		chg_err("vbatt_pdqc_to_9v_thr=%d\n", chip->limits.vbatt_pdqc_to_9v_thr);
+	}
+
+	return count;
+}
+
+static const struct file_operations proc_charger_factorymode_test_ops =
+{
+    .write  = proc_charger_factorymode_test_write,
+    .open  = simple_open,
+    .owner = THIS_MODULE,
+};
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+static ssize_t proc_hmac_write(struct file *filp,
+		const char __user *buf, size_t len, loff_t *data)
+{
+	struct oppo_chg_chip *chip = g_charger_chip;
+	char buffer[2] = {0};
+	if (NULL == chip)
+		return  -EFAULT;
+	if (len > 2) {
+		return -EFAULT;
+	}
+	if (copy_from_user(buffer, buf, 2)) {
+		chg_err("%s:  error.\n", __func__);
+		return -EFAULT;
+	}
+	if (buffer[0] == '0') {
+		chip->hmac = false;
+	} else {
+		chip->hmac = true;
+	}
+	return len;
+}
+static ssize_t proc_hmac_read(struct file *filp,
+		char __user *buff, size_t count, loff_t *off)
+{
+	struct oppo_chg_chip *chip = g_charger_chip;
+	char page[256] = {0};
+	char read_data[3] = {0};
+	int len = 0;
+	if (NULL == chip)
+		return  -EFAULT;
+	if (true == chip->hmac) {
+		read_data[0] = '1';
+	} else {
+		read_data[0] = '0';
+	}
+	read_data[1] = '\0';
+	len = sprintf(page, "%s", read_data);
+	if (len > *off) {
+		len -= *off;
+	} else {
+		len = 0;
+	}
+	if (copy_to_user(buff, page, (len < count ? len : count))) {
+		chg_err("%s: copy_to_user error hmac = %d.\n", __func__, chip->hmac);
+		return -EFAULT;
+	}
+	*off += len < count ? len : count;
+	chg_err("%s:hmac = %d %d %d %d.\n", __func__, chip->hmac, *off, len, count);
+	return (len < count ? len : count);
+}
+static const struct file_operations hmac_proc_fops = {
+	.write = proc_hmac_write,
+	.read = proc_hmac_read,
+	.owner = THIS_MODULE,
+};
+#endif
+static int init_charger_proc(struct oppo_chg_chip *chip)
+{
+	int ret = 0;
+	struct proc_dir_entry *prEntry_da = NULL;
+	struct proc_dir_entry *prEntry_tmp = NULL;
+
+	prEntry_da = proc_mkdir("charger", NULL);
+	if (prEntry_da == NULL) {
+		ret = -1;
+		chg_debug("%s: Couldn't create charger proc entry\n",
+			  __func__);
+	}
+
+	prEntry_tmp = proc_create_data("charger_factorymode_test", 0666, prEntry_da,
+				       &proc_charger_factorymode_test_ops, chip);
+	if (prEntry_tmp == NULL) {
+		ret = -1;
+		chg_debug("%s: Couldn't create proc entry, %d\n", __func__,
+			  __LINE__);
+	}
+	#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	if(get_project() == 20682 && is_sala_a_project() == 2){
+		prEntry_tmp = proc_create_data("hmac", 0666, prEntry_da,
+				       &hmac_proc_fops, chip);
+		if (prEntry_tmp == NULL) {
+			ret = -1;
+			chg_debug("%s: Couldn't create hmac proc entry, %d\n", __func__,
+				__LINE__);
+		}
+	}
+	#endif
+	return 0;
+}
+#endif
 
 /*ye.zhang@BSP.Sensor.Function, 2017-03-30, add interface for charging special feature in different projects*/
 static int charging_limit_time_show(struct seq_file *seq_filp, void *v)
@@ -1423,6 +1675,13 @@ int oppo_chg_init(struct oppo_chg_chip *chip)
         /*ye.zhang@BSP.Sensor.Function, 2017-03-30, add interface for charging special feature in different projects*/
         init_proc_charging_feature();
         /*ye.zhang add end*/
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        /*baodongmei@ODM.HQ.BSP.CHG 2020/06/26 Add for sala_A PD */
+        if (is_sala_a_project() == 2)
+            rc = init_charger_proc(chip);
+#endif
+
         schedule_delayed_work(&chip->update_work, OPPO_CHG_UPDATE_INIT_DELAY);
         INIT_DELAYED_WORK(&chip->mmi_adapter_in_work, mmi_adapter_in_work_func);
         charger_xlog_printk(CHG_LOG_CRTI, " end\n");
@@ -1456,8 +1715,14 @@ int oppo_chg_parse_svooc_dt(struct oppo_chg_chip *chip)
         if (rc) {
                 chip->vbatt_num = 1;
         }
-		
+
 		rc = of_property_read_u32(node, "qcom,vooc_project", &chip->vooc_project);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*wangtao@ODM.HQ.BSP.CHG 2020/05/27 modify for vooc ffc*/
+		if (is_sala_a_project() == 2) {
+			 chip->vooc_project = 3;
+		}
+		#endif
         if (rc < 0) {
                 chip->vooc_project = 0;
         }
@@ -1471,6 +1736,10 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
 	int rc;
 	struct device_node *node = chip->dev->of_node;
 	int batt_cold_degree_negative, batt_removed_degree_negative;
+#ifdef ODM_HQ_EDIT
+/*hongzhenglong@ODM.HQ.Charger 2020/04/02 modified for input current of warm for SARTER */
+	int boot_mode = get_boot_mode();
+#endif
 
 	if (!node) {
 		dev_err(chip->dev, "device tree info. missing\n");
@@ -1487,6 +1756,12 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
 		chip->limits.input_current_charger_ma = OPCHG_INPUT_CURRENT_LIMIT_CHARGER_MA;
 	}
     rc = of_property_read_u32(node, "qcom,pd_input_current_charger_ma", &chip->limits.pd_input_current_charger_ma);
+	#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*wangtao@ODM.HQ.BSP.CHG 2020/06/25 modify for vooc*/
+	if (is_sala_a_project() == 2) {
+			chip->limits.pd_input_current_charger_ma = OPCHG_INPUT_CURRENT_LIMIT_CHARGER_MA;
+		}
+	#endif	
 	if (rc) {
 		chip->limits.pd_input_current_charger_ma = OPCHG_INPUT_CURRENT_LIMIT_CHARGER_MA;
 	}
@@ -1529,7 +1804,14 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
 	if (rc) {
 		chip->limits.input_current_led_ma_high = chip->limits.input_current_led_ma;
 	}
-
+#ifdef ODM_HQ_EDIT
+	/*hongzhenglong@ODM.HQ.Charger 2020/04/02 modified for input current  for SARTER */
+	if((get_project() == 19661) && ((get_Operator_Version() == 111) || (get_Operator_Version() == 112) || (get_Operator_Version() == 113) || (get_Operator_Version() == 114))){
+		if (boot_mode == KERNEL_POWER_OFF_CHARGING_BOOT || boot_mode == LOW_POWER_OFF_CHARGING_BOOT){
+			chip->limits.input_current_led_ma_high = LIMIT_INPUT_CURRENT_MA_HIGH_1879;
+		}
+	}
+#endif
 	rc = of_property_read_u32(node, "qcom,input_current_led_ma_limit_high", &chip->limits.input_current_led_ma_limit_high);
 	if (rc) {
 		chip->limits.input_current_led_ma_limit_high = chip->limits.input_current_led_ma;
@@ -1570,6 +1852,12 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
 #endif
 
         rc = of_property_read_u32(node, "qcom,input_current_camera_ma", &chip->limits.input_current_camera_ma);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		 /* liuting@ODM.HQ.BSP.CHG 2020/08/07 modify for camera current*/
+		 if (is_sala_a_project() == 2) {
+			 chip->limits.input_current_camera_ma = 2000;
+		 }
+		#endif
         if (rc) {
                 chip->limits.input_current_camera_ma = OPCHG_INPUT_CURRENT_LIMIT_CAMERA_MA;
         }
@@ -1577,6 +1865,12 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
         chip->limits.iterm_disabled = of_property_read_bool(node, "qcom,iterm_disabled");
 
         rc = of_property_read_u32(node, "qcom,iterm_ma", &chip->limits.iterm_ma);
+        #if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        /* wangtao@BSP.BaseDrv.CHG.Basic, 2020/07/06 modify for sala A*/
+        if (is_sala_a_project() == 2) {
+            chip->limits.iterm_ma = 115;
+        }
+        #endif
         if (rc < 0) {
                 chip->limits.iterm_ma = -EINVAL;
         }
@@ -1587,6 +1881,11 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
         }
 
         rc = of_property_read_u32(node, "qcom,recharge-mv", &chip->limits.recharge_mv);
+        #if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        if( is_sala_a_project() == 2){
+               chip->limits.recharge_mv = 105;
+        }
+        #endif
         if (rc < 0) {
                 chip->limits.recharge_mv = -EINVAL;
         }
@@ -1623,6 +1922,13 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
         if (rc < 0) {
                 chg_err(" temp_cold_fastchg_current_ma fail\n");
         }
+        #if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        /*wangchao@ODM.HQ.BSP.CHG 2020/07/29 modify for sala A charger current*/
+        if (is_sala_a_project() == 2) {
+            chip->limits.temp_cold_fastchg_current_ma = 300;
+            chg_debug(" salaA temp_cold_fastchg_current_ma:%d\n", chip->limits.temp_cold_fastchg_current_ma);
+        }
+        #endif
 /*0~5 C*/
         rc = of_property_read_u32(node, "qcom,little_cold_bat_decidegc", &chip->limits.little_cold_bat_decidegc);
         if (rc < 0) {
@@ -1646,6 +1952,16 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
         if (rc < 0) {
                 chip->limits.temp_little_cold_fastchg_current_ma_low = chip->limits.temp_little_cold_fastchg_current_ma;
         }
+        #if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        /*wangchao@ODM.HQ.BSP.CHG 2020/07/29 modify for sala A charger current*/
+        if (is_sala_a_project() == 2) {
+            chip->limits.temp_little_cold_fastchg_current_ma = 950;
+            chip->limits.temp_little_cold_fastchg_current_ma_low = 950;
+            chip->limits.temp_little_cold_fastchg_current_ma_high = 950;
+            chg_debug(" salaA temp_little_cold_fastchg_current_ma:%d\n", chip->limits.temp_little_cold_fastchg_current_ma);
+        }
+        #endif
+
         rc = of_property_read_u32(node, "qcom,pd_temp_little_cold_fastchg_current_ma_high", &chip->limits.pd_temp_little_cold_fastchg_current_ma_high);
         if (rc < 0) {
                 chip->limits.pd_temp_little_cold_fastchg_current_ma_high = chip->limits.temp_little_cold_fastchg_current_ma_high;
@@ -1682,6 +1998,14 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
         if (rc < 0) {
                 chip->limits.temp_cool_fastchg_current_ma_low = -EINVAL;
         }
+        #if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        /*wangchao@ODM.HQ.BSP.CHG 2020/07/29 modify for sala A charger current*/
+        if (is_sala_a_project() == 2) {
+            chip->limits.temp_cool_fastchg_current_ma_high = 1000;
+            chip->limits.temp_cool_fastchg_current_ma_low = 1000;
+            chg_debug(" salaA temp_cool_fastchg_current_ma_high:%d\n", chip->limits.temp_cool_fastchg_current_ma_high);
+        }
+        #endif
         rc = of_property_read_u32(node, "qcom,pd_temp_cool_fastchg_current_ma_high", &chip->limits.pd_temp_cool_fastchg_current_ma_high);
         if (rc < 0) {
                 chip->limits.pd_temp_cool_fastchg_current_ma_high = chip->limits.temp_cool_fastchg_current_ma_high;
@@ -1716,12 +2040,27 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
         if (rc < 0) {
                 chip->limits.temp_little_cool_fastchg_current_ma = -EINVAL;
         }
+        #if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        /*wangchao@ODM.HQ.BSP.CHG 2020/07/29 modify for sala A charger current*/
+        if (is_sala_a_project() == 2) {
+            chip->limits.temp_little_cool_fastchg_current_ma = 1000;
+            chg_debug(" salaA temp_little_cool_fastchg_current_ma:%d\n", chip->limits.temp_little_cool_fastchg_current_ma);
+        }
+        #endif
+
         rc = of_property_read_u32(node, "qcom,pd_temp_little_cool_fastchg_current_ma",
                                                         &chip->limits.pd_temp_little_cool_fastchg_current_ma);
-        if (rc < 0) {
-                chip->limits.pd_temp_little_cool_fastchg_current_ma = chip->limits.temp_little_cool_fastchg_current_ma;
+        #if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        /*wangtao@ODM.HQ.BSP.CHG 2020/07/25 modify for sala pd current*/
+        if (is_sala_a_project() != 2) {
+            chip->limits.pd_temp_little_cool_fastchg_current_ma = 3300;
         }
-	rc = of_property_read_u32(node, "qcom,qc_temp_little_cool_fastchg_current_ma",
+        #endif
+        if (rc < 0) {
+            chip->limits.pd_temp_little_cool_fastchg_current_ma = 3300;
+        }
+
+		rc = of_property_read_u32(node, "qcom,qc_temp_little_cool_fastchg_current_ma",
                                                         &chip->limits.qc_temp_little_cool_fastchg_current_ma);
         if (rc < 0) {
                 chip->limits.qc_temp_little_cool_fastchg_current_ma = chip->limits.temp_little_cool_fastchg_current_ma;
@@ -1736,12 +2075,25 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
         if (rc) {
                 chip->limits.temp_normal_fastchg_current_ma = OPCHG_FAST_CHG_MAX_MA;
         }
+        #if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        /*wangchao@ODM.HQ.BSP.CHG 2020/07/29 modify for sala A charger current*/
+        if (is_sala_a_project() == 2) {
+            chip->limits.temp_normal_fastchg_current_ma = 1000;
+            chg_debug(" salaA temp_normal_fastchg_current_ma:%d\n", chip->limits.temp_normal_fastchg_current_ma);
+        }
+        #endif
 
         rc = of_property_read_u32(node, "qcom,temp_normal_vfloat_mv", &chip->limits.temp_normal_vfloat_mv);
         if (rc < 0) {
                 chip->limits.temp_normal_vfloat_mv = 4320;
         }
         rc = of_property_read_u32(node, "qcom,pd_temp_normal_fastchg_current_ma", &chip->limits.pd_temp_normal_fastchg_current_ma);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*wangtao@ODM.HQ.BSP.CHG 2020/06/25 modify for vooc*/
+		if (is_sala_a_project() == 2) {
+			 chip->limits.pd_temp_normal_fastchg_current_ma = 2000;
+		}
+		#endif
         if (rc) {
                 chip->limits.pd_temp_normal_fastchg_current_ma = OPCHG_FAST_CHG_MAX_MA;
         }
@@ -1754,8 +2106,25 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
         if (rc < 0) {
                 chip->limits.warm_bat_decidegc = -EINVAL;
         }
+        #if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        /*wangchao@ODM.HQ.BSP.CHG 2020/07/29 modify for sala A charger current*/
+        if (is_sala_a_project() == 2) {
+            chip->limits.warm_bat_decidegc = 440;
+            chg_debug(" salaA warm_bat_decidegc:%d\n", chip->limits.warm_bat_decidegc);
+        }
+        #endif
 
         rc = of_property_read_u32(node, "qcom,temp_warm_vfloat_mv", &chip->limits.temp_warm_vfloat_mv);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*wangchao@ODM.HQ.BSP.CHG 2020/07/29 modify for sala A charger current*/
+		if (is_sala_a_project() == 2) {
+			chip->limits.temp_warm_vfloat_mv = 4120;
+			chg_debug(" salaA temp_warm_vfloat_mv:%d\n", chip->limits.temp_warm_vfloat_mv);
+		} else {
+			chip->limits.temp_warm_vfloat_mv = 4130;
+			chg_debug(" sala temp_warm_vfloat_mv:%d\n", chip->limits.temp_warm_vfloat_mv);
+		}
+		#endif
         if (rc < 0) {
                 chip->limits.temp_warm_vfloat_mv = -EINVAL;
         }
@@ -1765,6 +2134,14 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
         if (rc < 0) {
                 chip->limits.temp_warm_fastchg_current_ma = -EINVAL;
         }
+        #if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        /*wangchao@ODM.HQ.BSP.CHG 2020/07/29 modify for sala A charger current*/
+        if (is_sala_a_project() == 2) {
+            chip->limits.temp_warm_fastchg_current_ma = 550;
+            chg_debug(" salaA temp_warm_fastchg_current_ma:%d\n", chip->limits.temp_warm_fastchg_current_ma);
+        }
+        #endif
+
         rc = of_property_read_u32(node, "qcom,pd_temp_warm_fastchg_current_ma",
                                                         &chip->limits.pd_temp_warm_fastchg_current_ma);
         if (rc < 0) {
@@ -1904,16 +2281,37 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
 
 		rc = of_property_read_u32(node, "qcom,warm_vfloat_over_sw_limit",
 								&chip->limits.warm_vfloat_over_sw_limit);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+		if (is_sala_a_project() == 2) {
+			chip->limits.warm_vfloat_over_sw_limit = 4135;
+			chg_debug(" salaA limits.warm_vfloat_over_sw_limit:%d\n", chip->limits.warm_vfloat_over_sw_limit);
+		}
+		#endif
 	    if (rc < 0) {
 	        chip->limits.warm_vfloat_over_sw_limit = 4080;
 	    }
         rc = of_property_read_u32(node, "qcom,max_chg_time_sec",
                                                 &chip->limits.max_chg_time_sec);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+		if (is_sala_a_project() == 2) {
+			chip->limits.max_chg_time_sec = 60624;
+			chg_debug(" salaA limits.max_chg_time_sec:%d\n", chip->limits.max_chg_time_sec);
+		}
+		#endif
         if (rc < 0) {
                 chip->limits.max_chg_time_sec = 36000;
         }
         rc = of_property_read_u32(node, "qcom,charger_hv_thr",
                                                 &chip->limits.charger_hv_thr);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+		if (is_sala_a_project() == 2) {
+			chip->limits.charger_hv_thr = 9900;
+			chg_debug(" salaA limits.charger_hv_thr:%d\n", chip->limits.charger_hv_thr);
+		}
+		#endif
         if (rc < 0) {
                 chip->limits.charger_hv_thr = 5800;
         }
@@ -1923,6 +2321,13 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
         if (rc < 0) {
                 chip->limits.charger_recv_thr = 5800;
         }
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+		if (is_sala_a_project() == 2) {
+			chip->limits.charger_recv_thr = 9500;
+			chg_debug(" salaA charger_recv_thr:%d\n", chip->limits.charger_recv_thr);
+		}
+		#endif
 
         rc = of_property_read_u32(node, "qcom,charger_lv_thr",
                                                 &chip->limits.charger_lv_thr);
@@ -1941,6 +2346,13 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
         }
         rc = of_property_read_u32(node, "qcom,vfloat_step_mv",
                                                 &chip->limits.vfloat_step_mv);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*zhangchao@ODM.HQ.BSP.CHG 2020/04/22 modify for sala_A charging bring up*/
+		if (is_sala_a_project() == 2) {
+			chip->limits.vfloat_step_mv = 8;
+			chg_debug(" salaA vfloat_step_mv:%d\n", chip->limits.vfloat_step_mv);
+		}
+		#endif
         if (rc < 0) {
                 chip->limits.vfloat_step_mv = 16;
         }
@@ -1954,7 +2366,14 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
         if (rc < 0) {
                 chip->vbatt_soc_1 = 3410;
         }
-		
+        #if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        /*wangchao@ODM.HQ.BSP.CHG 2020/08/04 modify for sala A power off vbatt*/
+        if (is_sala_a_project() == 2) {
+            chip->vbatt_soc_1 = 3310;
+            chg_debug(" salaA vbatt_soc_1:%d\n", chip->vbatt_soc_1);
+        }
+        #endif
+
 		rc = of_property_read_u32(node, "qcom,normal_vterm_hw_inc", &chip->limits.normal_vterm_hw_inc);
         if (rc < 0) {
                 chip->limits.normal_vterm_hw_inc = 18;
@@ -1966,16 +2385,47 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
         }
 	 rc = of_property_read_u32(node, "qcom,vbatt_pdqc_to_5v_thr", &chip->limits.vbatt_pdqc_to_5v_thr);
         if (rc < 0) {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        /*baodongmei@ODM.HQ.BSP.CHG 2020/06/26 Add for sala_A PD */
+            if (is_sala_a_project() == 2) 
+                chip->limits.vbatt_pdqc_to_5v_thr = 4100;
+            else
+#endif
                 chip->limits.vbatt_pdqc_to_5v_thr = -EINVAL;
         }
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        /*baodongmei@ODM.HQ.BSP.CHG 2020/06/26 Add for sala_A PD */
+        if (is_sala_a_project() == 2) {
+            rc = of_property_read_u32(node, "qcom,vbatt_pdqc_to_9v_thr", &chip->limits.vbatt_pdqc_to_9v_thr);
+            if (rc < 0) {
+		        chip->limits.vbatt_pdqc_to_9v_thr = 4000;
+	        }
+        }
+#endif
+
 		charger_xlog_printk(CHG_LOG_CRTI, "vbatt_power_off = %d, vbatt_soc_1 = %d,normal_vterm_hw_inc = %d,, non_normal_vterm_hw_inc = %d,  vbatt_pdqc_to_5v_thr = %d\n",
 			chip->vbatt_power_off, chip->vbatt_soc_1,chip->limits.normal_vterm_hw_inc, chip->limits.non_normal_vterm_hw_inc, chip->limits.vbatt_pdqc_to_5v_thr);
 
 		rc = of_property_read_u32(node, "qcom,ff1_normal_fastchg_ma", &chip->limits.ff1_normal_fastchg_ma);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*wangtao@ODM.HQ.BSP.CHG 2020/05/27 modify for vooc ffc*/
+		if (is_sala_a_project() == 2) {
+			chip->limits.ff1_normal_fastchg_ma = 550;
+			chg_debug(" salaA limits.ff1_normal_fastchg_ma:%d\n", chip->limits.ff1_normal_fastchg_ma);
+		}
+		#endif
         if (rc) {
                 chip->limits.ff1_normal_fastchg_ma = 1000;
         }
         rc = of_property_read_u32(node, "qcom,ff1_warm_fastchg_ma", &chip->limits.ff1_warm_fastchg_ma);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*wangtao@ODM.HQ.BSP.CHG 2020/05/27 modify for vooc ffc*/
+		if (is_sala_a_project() == 2) {
+			chip->limits.ff1_warm_fastchg_ma = 550;
+			chg_debug(" salaA limits.ff1_warm_fastchg_ma:%d\n", chip->limits.ff1_warm_fastchg_ma);
+		}
+		#endif
         if (rc) {
                 chip->limits.ff1_warm_fastchg_ma = chip->limits.ff1_normal_fastchg_ma;
         }
@@ -1992,36 +2442,92 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
                 chip->limits.ffc2_temp_low_decidegc = 160;
         }
 		rc = of_property_read_u32(node, "qcom,ffc2_normal_fastchg_ma", &chip->limits.ffc2_normal_fastchg_ma);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*wangtao@ODM.HQ.BSP.CHG 2020/05/27 modify for vooc ffc*/
+		if (is_sala_a_project() == 2) {
+			chip->limits.ffc2_normal_fastchg_ma = 350;
+			chg_debug(" salaA limits.ffc2_normal_fastchg_ma:%d\n", chip->limits.ffc2_normal_fastchg_ma);
+		}
+		#endif
         if (rc < 0) {
                 chip->limits.ffc2_normal_fastchg_ma = 700;
         }
 		rc = of_property_read_u32(node, "qcom,ffc2_warm_fastchg_ma", &chip->limits.ffc2_warm_fastchg_ma);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*wangtao@ODM.HQ.BSP.CHG 2020/05/27 modify for vooc ffc*/
+		if (is_sala_a_project() == 2) {
+			chip->limits.ffc2_warm_fastchg_ma = 350;
+			chg_debug(" salaA limits.ffc2_warm_fastchg_ma:%d\n", chip->limits.ffc2_warm_fastchg_ma);
+		}
+		#endif
         if (rc < 0) {
                 chip->limits.ffc2_warm_fastchg_ma = 750;
         }
 		rc = of_property_read_u32(node, "qcom,ffc2_exit_step_ma", &chip->limits.ffc2_exit_step_ma);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*wangtao@ODM.HQ.BSP.CHG 2020/05/27 modify for vooc ffc*/
+		if (is_sala_a_project() == 2) {
+			chip->limits.ffc2_exit_step_ma = 150;
+			chg_debug(" salaA limits.ffc2_exit_step_ma:%d\n", chip->limits.ffc2_exit_step_ma);
+		}
+		#endif
         if (rc < 0) {
                 chip->limits.ffc2_exit_step_ma = 100;
         }
 		rc = of_property_read_u32(node, "qcom,ffc2_warm_exit_step_ma", &chip->limits.ffc2_warm_exit_step_ma);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*wangtao@ODM.HQ.BSP.CHG 2020/05/27 modify for vooc ffc*/
+		if (is_sala_a_project() == 2) {
+			chip->limits.ffc2_warm_exit_step_ma = 150;
+			chg_debug(" salaA limits.ffc2_warm_exit_step_ma:%d\n", chip->limits.ffc2_warm_exit_step_ma);
+		}
+		#endif
         if (rc < 0) {
                 chip->limits.ffc2_warm_exit_step_ma = chip->limits.ffc2_exit_step_ma;
         }
 
 		rc = of_property_read_u32(node, "qcom,ff1_exit_step_ma", &chip->limits.ff1_exit_step_ma);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*wangtao@ODM.HQ.BSP.CHG 2020/05/27 modify for vooc ffc*/
+		if (is_sala_a_project() == 2) {
+			chip->limits.ff1_exit_step_ma = 150;
+			chg_debug(" salaA limits.ff1_exit_step_ma:%d\n", chip->limits.ff1_exit_step_ma);
+		}
+		#endif
         if (rc < 0) {
                 chip->limits.ff1_exit_step_ma = 400;
         }
 		rc = of_property_read_u32(node, "qcom,ff1_warm_exit_step_ma", &chip->limits.ff1_warm_exit_step_ma);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*wangtao@ODM.HQ.BSP.CHG 2020/05/27 modify for vooc ffc*/
+		if (is_sala_a_project() == 2) {
+			chip->limits.ff1_warm_exit_step_ma = 150;
+			chg_debug(" salaA limits.ff1_warm_exit_step_ma:%d\n", chip->limits.ff1_warm_exit_step_ma);
+		}
+		#endif
         if (rc < 0) {
                 chip->limits.ff1_warm_exit_step_ma = 350;
         }
 
 		rc = of_property_read_u32(node, "qcom,ffc_normal_vfloat_sw_limit", &chip->limits.ffc1_normal_vfloat_sw_limit);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*wangtao@ODM.HQ.BSP.CHG 2020/05/27 modify for vooc ffc*/
+		if (is_sala_a_project() == 2) {
+			chip->limits.ffc1_normal_vfloat_sw_limit = 4455;
+			chg_debug(" salaA limits.ffc1_normal_vfloat_sw_limit:%d\n", chip->limits.ffc1_normal_vfloat_sw_limit);
+		}
+		#endif
         if (rc < 0) {
                 chip->limits.ffc1_normal_vfloat_sw_limit = 4450;
         }
 		rc = of_property_read_u32(node, "qcom,ffc2_normal_vfloat_sw_limit", &chip->limits.ffc2_normal_vfloat_sw_limit);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*wangtao@ODM.HQ.BSP.CHG 2020/06/09 modify for vooc ffc*/
+		if (is_sala_a_project() == 2) {
+			chip->limits.ffc2_normal_vfloat_sw_limit = 4445;
+			chg_debug(" salaA limits.ffc2_normal_vfloat_sw_limit:%d\n", chip->limits.ffc2_normal_vfloat_sw_limit);
+		}
+		#endif
         if (rc < 0) {
                 chip->limits.ffc2_normal_vfloat_sw_limit = chip->limits.ffc1_normal_vfloat_sw_limit;
         }
@@ -2065,7 +2571,14 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
 			                            chip->limits.qc_input_current_charger_ma);
 
 
-		rc = of_property_read_u32(node, "qcom,default_iterm_ma", &chip->limits.default_iterm_ma);
+        rc = of_property_read_u32(node, "qcom,default_iterm_ma", &chip->limits.default_iterm_ma);
+        #if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        /*wangtao@ODM.HQ.BSP.CHG 2020/07/06 modify for charger current*/
+        if (is_sala_a_project() == 2) {
+            chip->limits.default_iterm_ma = 115;
+            chg_debug(" salaA default_iterm_ma:%d\n", chip->limits.default_iterm_ma);
+        }
+        #endif
         if (rc < 0) {
                 chip->limits.default_iterm_ma = 100;
         }
@@ -2115,10 +2628,90 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
 		chip->limits.default_input_current_charger_ma = chip->limits.input_current_charger_ma;
 
         rc = of_property_read_u32(node, "qcom,batt_capacity_mah", &chip->batt_capacity_mah);
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*wangtao@ODM.HQ.BSP.CHG 2020/05/27 modify for vooc ffc*/
+		if (is_sala_a_project() == 2) {
+			chip->batt_capacity_mah = 4500;
+			chg_debug(" salaA batt_capacity_mah:%d\n", chip->batt_capacity_mah);
+		}
+		#endif
         if (rc < 0) {
                 chip->batt_capacity_mah = 2000;
         }
 
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		if (is_sala_a_project() == 2) {
+			chip->chg_ctrl_by_vooc = 1;
+			chip->chg_ctrl_by_vooc_default = 1;
+		}else {
+			chip->chg_ctrl_by_vooc = of_property_read_bool(node, "qcom,chg_ctrl_by_vooc");
+			chip->chg_ctrl_by_vooc_default = of_property_read_bool(node, "qcom,chg_ctrl_by_vooc");
+		}
+		#else
+		chip->chg_ctrl_by_vooc = of_property_read_bool(node, "qcom,chg_ctrl_by_vooc");
+		chip->chg_ctrl_by_vooc_default = of_property_read_bool(node, "qcom,chg_ctrl_by_vooc");
+		#endif
+	rc = of_property_read_u32(node, "qcom,input_current_vooc_ma_normal",
+			&chip->limits.input_current_vooc_ma_normal);
+	if (rc) {
+		chip->limits.input_current_vooc_ma_normal = 3600;
+	}
+	rc = of_property_read_u32(node, "qcom,input_current_vooc_led_ma_high",
+			&chip->limits.input_current_vooc_led_ma_high);
+	if (rc) {
+		chip->limits.input_current_vooc_led_ma_high = 1200;
+	}
+	rc = of_property_read_u32(node, "qcom,input_current_vooc_led_ma_warm",
+			&chip->limits.input_current_vooc_led_ma_warm);
+	if (rc) {
+		chip->limits.input_current_vooc_led_ma_warm = 1800;
+	}
+	rc = of_property_read_u32(node, "qcom,input_current_vooc_led_ma_normal",
+			&chip->limits.input_current_vooc_led_ma_normal);
+	if (rc) {
+		chip->limits.input_current_vooc_led_ma_normal = 3600;
+	}
+	rc = of_property_read_u32(node, "qcom,vooc_temp_bat_normal_decidegc",
+		&chip->limits.vooc_normal_bat_decidegc);
+	if (rc) {
+		chip->limits.vooc_normal_bat_decidegc = 350;
+	}
+	rc = of_property_read_u32(node, "qcom,input_current_vooc_ma_warm",
+			&chip->limits.input_current_vooc_ma_warm);
+	if (rc) {
+		chip->limits.input_current_vooc_ma_warm = 3200;
+	}
+	rc = of_property_read_u32(node, "qcom,vooc_temp_bat_warm_decidegc",
+			&chip->limits.vooc_warm_bat_decidegc);
+	if (rc) {
+		chip->limits.vooc_warm_bat_decidegc = 370;
+	}
+	rc = of_property_read_u32(node, "qcom,input_current_vooc_ma_high",
+			&chip->limits.input_current_vooc_ma_high);
+	if (rc) {
+		chip->limits.input_current_vooc_ma_high = 2200;
+	}
+	rc = of_property_read_u32(node, "qcom,vooc_temp_bat_hot_decidegc",
+			&chip->limits.vooc_high_bat_decidegc);
+	if (rc) {
+		chip->limits.vooc_high_bat_decidegc = 440;
+	}
+	rc = of_property_read_u32(node, "qcom,charger_current_vooc_ma_normal",
+			&chip->limits.charger_current_vooc_ma_normal);
+	if (rc) {
+		chip->limits.charger_current_vooc_ma_normal = 1800;
+	}
+	chip->limits.default_input_current_vooc_ma_high
+			= chip->limits.input_current_vooc_ma_high;
+	chip->limits.default_input_current_vooc_ma_warm
+			= chip->limits.input_current_vooc_ma_warm;
+	chip->limits.default_input_current_vooc_ma_normal
+			= chip->limits.input_current_vooc_ma_normal;
+	chip->limits.default_pd_input_current_charger_ma
+			= chip->limits.pd_input_current_charger_ma;
+	chip->limits.default_qc_input_current_charger_ma
+			= chip->limits.qc_input_current_charger_ma;
+#if 0
 	chip->chg_ctrl_by_vooc = of_property_read_bool(node, "qcom,chg_ctrl_by_vooc");
 	chip->chg_ctrl_by_vooc_default = of_property_read_bool(node, "qcom,chg_ctrl_by_vooc");
 	rc = of_property_read_u32(node, "qcom,input_current_vooc_ma_normal", &chip->limits.input_current_vooc_ma_normal);
@@ -2149,7 +2742,7 @@ int oppo_chg_parse_charger_dt(struct oppo_chg_chip *chip)
         if (rc) {
                 chip->limits.charger_current_vooc_ma_normal = 1000;
         }
-
+#endif
         chip->suspend_after_full = of_property_read_bool(node, "qcom,suspend_after_full");
 
         chip->check_batt_full_by_sw = of_property_read_bool(node, "qcom,check_batt_full_by_sw");
@@ -2272,12 +2865,25 @@ static void oppo_chg_set_charging_current(struct oppo_chg_chip *chip)
         default:
                 break;
         }
-
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	if(get_project() == 20682 && is_sala_a_project() == 2){
+        if (((!chip->authenticate) || (!chip->hmac))
+		&& (charging_current > chip->limits.non_standard_fastchg_current_ma)) {
+                charging_current = chip->limits.non_standard_fastchg_current_ma;
+                charger_xlog_printk(CHG_LOG_CRTI, "no high battery, set charging current = %d\n", chip->limits.non_standard_fastchg_current_ma);
+        }
+	} else {
         if ((!chip->authenticate) && (charging_current > chip->limits.non_standard_fastchg_current_ma)) {
                 charging_current = chip->limits.non_standard_fastchg_current_ma;
                 charger_xlog_printk(CHG_LOG_CRTI, "no high battery, set charging current = %d\n", chip->limits.non_standard_fastchg_current_ma);
         }
-
+	}
+#else
+        if ((!chip->authenticate) && (charging_current > chip->limits.non_standard_fastchg_current_ma)) {
+                charging_current = chip->limits.non_standard_fastchg_current_ma;
+                charger_xlog_printk(CHG_LOG_CRTI, "no high battery, set charging current = %d\n", chip->limits.non_standard_fastchg_current_ma);
+        }
+#endif
         if (oppo_short_c_batt_is_prohibit_chg(chip)) {
                 if (charging_current > chip->limits.short_c_bat_fastchg_current_ma) {
                         charging_current = chip->limits.short_c_bat_fastchg_current_ma;
@@ -2319,7 +2925,7 @@ static void oppo_chg_set_input_current_limit(struct oppo_chg_chip *chip)
 	default:
 		return;
 	}
-
+	printk("wangtao current_limit=%d\n",current_limit);
 	if ((chip->chg_ctrl_by_lcd) && (chip->led_on)) {
 		if (chip->led_temp_status == LED_TEMP_STATUS__HIGH) {
 			if (current_limit > chip->limits.input_current_led_ma_high)
@@ -2334,7 +2940,7 @@ static void oppo_chg_set_input_current_limit(struct oppo_chg_chip *chip)
 			if (current_limit > chip->limits.input_current_led_ma_normal)
 				current_limit = chip->limits.input_current_led_ma_normal;
 		}
-		charger_xlog_printk(CHG_LOG_CRTI, "[BATTERY]LED STATUS CHANGED, IS ON\n");
+		charger_xlog_printk(CHG_LOG_CRTI, "[BATTERY]LED STATUS CHANGED, IS ON current_limit =%d\n",current_limit);
 		if ((chip->chg_ctrl_by_camera) && (chip->camera_on) && (current_limit > chip->limits.input_current_camera_ma)) {
 			current_limit = chip->limits.input_current_camera_ma;
 			charger_xlog_printk(CHG_LOG_CRTI, "[BATTERY]CAMERA STATUS CHANGED, IS ON\n");
@@ -2348,12 +2954,18 @@ static void oppo_chg_set_input_current_limit(struct oppo_chg_chip *chip)
 		current_limit = chip->limits.input_current_calling_ma;
 		charger_xlog_printk(CHG_LOG_CRTI, "[BATTERY]calling STATUS CHANGED, IS ON\n");
 	}
-
+printk("wangtao current_limit1=%d\n",current_limit);
 	 if (chip->chg_ctrl_by_vooc && chip->vbatt_num == 2 
 		&& oppo_vooc_get_fast_chg_type() == CHARGER_SUBTYPE_FASTCHG_VOOC && oppo_vooc_get_fastchg_started() == true) {
 		if(chip->led_on) {
-			current_limit = 1800;
-		} else {
+			if(chip->vooc_temp_status == VOOC_TEMP_STATUS__HIGH) {
+				current_limit = chip->limits.input_current_vooc_led_ma_high;
+			} else if(chip->vooc_temp_status == VOOC_TEMP_STATUS__WARM) {
+				current_limit = chip->limits.input_current_vooc_led_ma_warm;
+			} else if(chip->vooc_temp_status == VOOC_TEMP_STATUS__NORMAL) {
+				current_limit = chip->limits.input_current_vooc_led_ma_normal;
+			}
+		} else if (!(chip->chg_ctrl_by_calling && chip->calling_on)) {
 			if(chip->vooc_temp_status == VOOC_TEMP_STATUS__HIGH) {
 				current_limit = chip->limits.input_current_vooc_ma_high;
 			} else if(chip->vooc_temp_status == VOOC_TEMP_STATUS__WARM) {
@@ -2369,7 +2981,14 @@ static void oppo_chg_set_input_current_limit(struct oppo_chg_chip *chip)
 			return;
 		}
 	}
-
+	printk("wangtao current_limit2=%d\n",current_limit);
+	#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	//wangtao@ODM_HQ.BSP.CHG, 2020/06/25, svooc disable mt6360 charge
+	if (is_sala_a_project() == 2) {
+		oppo_mt6360_disable_charging();
+		oppo_mt6360_suspend_charger();
+	}
+	#endif
 	charger_xlog_printk(CHG_LOG_CRTI, " led_on = %d, current_limit = %d, led_temp_status = %d\n", chip->led_on, current_limit, chip->led_temp_status);
 	chip->chg_ops->input_current_write(current_limit);
 }
@@ -2415,12 +3034,38 @@ static void oppo_chg_set_float_voltage(struct oppo_chg_chip *chip)
 {
         int flv = oppo_chg_get_float_voltage(chip);
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	if(get_project() == 20682 && is_sala_a_project() == 2){
+        if (((!chip->authenticate) ||(!chip->hmac)) && (flv > chip->limits.non_standard_vfloat_mv)) {
+                flv = chip->limits.non_standard_vfloat_mv;
+                charger_xlog_printk(CHG_LOG_CRTI, "no authenticate or no hmac battery, set float voltage = %d\n", chip->limits.non_standard_vfloat_mv);
+        }
+	} else {
+	        if ((!chip->authenticate) && (flv > chip->limits.non_standard_vfloat_mv)) {
+                flv = chip->limits.non_standard_vfloat_mv;
+                charger_xlog_printk(CHG_LOG_CRTI, "no high battery, set float voltage = %d\n", chip->limits.non_standard_vfloat_mv);
+        }
+	}
+#else
         if ((!chip->authenticate) && (flv > chip->limits.non_standard_vfloat_mv)) {
                 flv = chip->limits.non_standard_vfloat_mv;
                 charger_xlog_printk(CHG_LOG_CRTI, "no high battery, set float voltage = %d\n", chip->limits.non_standard_vfloat_mv);
         }
+#endif
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+ 			if (is_project(OPPO_20671)) {
 
-        chip->chg_ops->float_voltage_write(flv * chip->vbatt_num);
+				if(chip->is_double_charger_support){
+					chip->chg_ops->float_voltage_write(flv * chip->vbatt_num);
+					chip->sub_chg_ops->float_voltage_write(flv * chip->vbatt_num);
+				}else{
+					chip->chg_ops->float_voltage_write(flv * chip->vbatt_num);
+				}
+			}
+			else
+        	chip->chg_ops->float_voltage_write(flv * chip->vbatt_num);
+#endif
         chip->limits.vfloat_sw_set = flv;
 }
 
@@ -2445,8 +3090,75 @@ static void oppo_chg_vfloat_over_check(struct oppo_chg_chip *chip)
 		}
 
 		//if (!((oppo_vooc_get_fastchg_to_normal()== true) || (oppo_vooc_get_fastchg_to_warm() == true))) {
-
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	if(get_project() == 20682 && is_sala_a_project() == 2){
 			if(chip->limits.sw_vfloat_over_protect_enable) {
+					if ((chip->batt_volt >= chip->limits.cold_vfloat_over_sw_limit
+						&& chip->tbatt_status == BATTERY_STATUS__COLD_TEMP) ||
+					(chip->batt_volt >= chip->limits.little_cold_vfloat_over_sw_limit
+						&& chip->tbatt_status == BATTERY_STATUS__LITTLE_COLD_TEMP) ||
+					(chip->batt_volt >= chip->limits.cool_vfloat_over_sw_limit
+						&& chip->tbatt_status == BATTERY_STATUS__COOL_TEMP) ||
+					(chip->batt_volt >= chip->limits.little_cool_vfloat_over_sw_limit
+						&& chip->tbatt_status == BATTERY_STATUS__LITTLE_COOL_TEMP) ||
+					(chip->batt_volt >= chip->limits.normal_vfloat_over_sw_limit
+						&& chip->tbatt_status == BATTERY_STATUS__NORMAL) ||
+					(chip->batt_volt >= chip->limits.warm_vfloat_over_sw_limit
+						&& chip->tbatt_status == BATTERY_STATUS__WARM_TEMP)	||
+					(((!chip->authenticate)||(!chip->hmac)) && (chip->batt_volt >= chip->limits.non_standard_vfloat_over_sw_limit))) {
+					chip->limits.vfloat_over_counts++;
+					if (chip->limits.vfloat_over_counts > VFLOAT_OVER_NUM) {
+						chip->limits.vfloat_over_counts = 0;
+						chip->limits.vfloat_sw_set -= chip->limits.vfloat_step_mv;
+						chip->chg_ops->float_voltage_write(chip->limits.vfloat_sw_set * chip->vbatt_num);
+#ifdef ODM_HQ_EDIT
+ 			if (is_project(OPPO_20671)) {
+				if(chip->is_double_charger_support)
+				chip->sub_chg_ops->float_voltage_write(chip->limits.vfloat_sw_set * chip->vbatt_num);
+			}
+#endif /*ODM_WT_EDIT*/
+						charger_xlog_printk(CHG_LOG_CRTI, "bat_volt:%d, tbatt:%d, sw_vfloat_set:%d\n",chip->batt_volt, chip->tbatt_status, chip->limits.vfloat_sw_set);
+					}
+				} else {
+					chip->limits.vfloat_over_counts = 0;
+				}
+				return;
+			}
+		} else {
+			if(chip->limits.sw_vfloat_over_protect_enable) {
+					if ((chip->batt_volt >= chip->limits.cold_vfloat_over_sw_limit
+						&& chip->tbatt_status == BATTERY_STATUS__COLD_TEMP) ||
+					(chip->batt_volt >= chip->limits.little_cold_vfloat_over_sw_limit
+						&& chip->tbatt_status == BATTERY_STATUS__LITTLE_COLD_TEMP) ||
+					(chip->batt_volt >= chip->limits.cool_vfloat_over_sw_limit
+						&& chip->tbatt_status == BATTERY_STATUS__COOL_TEMP) ||
+					(chip->batt_volt >= chip->limits.little_cool_vfloat_over_sw_limit
+						&& chip->tbatt_status == BATTERY_STATUS__LITTLE_COOL_TEMP) ||
+					(chip->batt_volt >= chip->limits.normal_vfloat_over_sw_limit
+						&& chip->tbatt_status == BATTERY_STATUS__NORMAL) ||
+					(chip->batt_volt >= chip->limits.warm_vfloat_over_sw_limit
+						&& chip->tbatt_status == BATTERY_STATUS__WARM_TEMP)	||
+					(!chip->authenticate && (chip->batt_volt >= chip->limits.non_standard_vfloat_over_sw_limit))) {
+					chip->limits.vfloat_over_counts++;
+					if (chip->limits.vfloat_over_counts > VFLOAT_OVER_NUM) {
+						chip->limits.vfloat_over_counts = 0;
+						chip->limits.vfloat_sw_set -= chip->limits.vfloat_step_mv;
+						if(chip->tbatt_status == BATTERY_STATUS__COLD_TEMP)
+							chip->limits.vfloat_sw_set = 3980;
+						else if(chip->tbatt_status == BATTERY_STATUS__WARM_TEMP)
+							chip->limits.vfloat_sw_set = 4130;
+						chip->chg_ops->float_voltage_write(chip->limits.vfloat_sw_set * chip->vbatt_num);
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+						charger_xlog_printk(CHG_LOG_CRTI, "bat_volt:%d, tbatt:%d, sw_vfloat_set:%d\n",chip->batt_volt, chip->tbatt_status, chip->limits.vfloat_sw_set);
+					}
+				} else {
+					chip->limits.vfloat_over_counts = 0;
+				}
+				return;
+			}
+		}
+#else
+		if(chip->limits.sw_vfloat_over_protect_enable) {
 					if ((chip->batt_volt >= chip->limits.cold_vfloat_over_sw_limit
 						&& chip->tbatt_status == BATTERY_STATUS__COLD_TEMP) ||
 					(chip->batt_volt >= chip->limits.little_cold_vfloat_over_sw_limit
@@ -2472,6 +3184,7 @@ static void oppo_chg_vfloat_over_check(struct oppo_chg_chip *chip)
 				}
 				return;
 			}
+#endif
 		
 }
 
@@ -2590,9 +3303,21 @@ static void oppo_chg_check_ffc_temp_status(struct oppo_chg_chip *chip)
 
 void oppo_chg_turn_on_ffc1(struct oppo_chg_chip *chip)
 {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	if(get_project() == 20682 && is_sala_a_project() == 2){
+		if ((!chip->authenticate) ||(!chip->hmac)) {
+			return;
+		}
+	} else {
+		if ((!chip->authenticate)) {
+		return;
+		}
+	}
+#else
 	if (!chip->authenticate) {
 		return;
 	}
+#endif
 
 	if (!chip->mmi_chg) {
 		return;
@@ -2604,12 +3329,30 @@ void oppo_chg_turn_on_ffc1(struct oppo_chg_chip *chip)
 
 	chip->chg_ops->hardware_init();
 
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+	if (is_project(OPPO_20671)) {
+
+		if(chip->is_double_charger_support){
+			chip->sub_chg_ops->hardware_init();	
+		}
+	}
+#endif
 	if (chip->stop_chg == 0 && (chip->charger_type == POWER_SUPPLY_TYPE_USB || chip->charger_type == POWER_SUPPLY_TYPE_USB_CDP)) {
 		chip->chg_ops->charger_suspend();
 	}
 
 	if (chip->check_batt_full_by_sw) {
 		chip->chg_ops->set_charging_term_disable();
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+	if (is_project(OPPO_20671)) {
+
+		if(chip->is_double_charger_support){
+			chip->sub_chg_ops->set_charging_term_disable();
+        }
+	}
+#endif		
 	}
 
 	pr_err("oppo_chg_turn_on_ffc1--------\r\n");
@@ -2638,14 +3381,43 @@ void oppo_chg_turn_on_ffc1(struct oppo_chg_chip *chip)
 	oppo_chg_set_float_voltage(chip);
 	oppo_chg_set_charging_current(chip);
 	oppo_chg_set_input_current_limit(chip);
+	
+	#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/* wangtao@BSP.BaseDrv.CHG.Basic, 2020/07/06, modify cold iterm current */
+	if(get_project() == 20682 && is_sala_a_project() != 2){
+		if ((chip->tbatt_status == BATTERY_STATUS__COLD_TEMP)||(chip->tbatt_status == BATTERY_STATUS__COOL_TEMP)||(chip->tbatt_status == BATTERY_STATUS__LITTLE_COLD_TEMP))
+			chip->limits.iterm_ma = 250;
+	}
+	#endif
+	
 	chip->chg_ops->term_current_set(chip->limits.iterm_ma);
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+	if (is_project(OPPO_20671)) {
+		if(chip->is_double_charger_support){
+			chip->sub_chg_ops->term_current_set(chip->limits.iterm_ma+200);	
+		}
+	}
+#endif
 }
 
 void oppo_chg_turn_on_ffc2(struct oppo_chg_chip *chip)
 {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	if(get_project() == 20682 && is_sala_a_project() == 2){
+		if ((!chip->authenticate) ||(!chip->hmac)) {
+			return;
+		}
+	} else {
+		if ((!chip->authenticate)) {
+		return;
+		}
+	}
+#else
 	if (!chip->authenticate) {
 		return;
 	}
+#endif
 
 	if (!chip->mmi_chg) {
 		return;
@@ -2656,9 +3428,25 @@ void oppo_chg_turn_on_ffc2(struct oppo_chg_chip *chip)
 	}
 
 	chip->chg_ops->hardware_init();
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+	if (is_project(OPPO_20671)) {
+		if(chip->is_double_charger_support){
+			chip->sub_chg_ops->hardware_init();	
+		}
+	}
+#endif
 
 	if (chip->check_batt_full_by_sw) {
 		chip->chg_ops->set_charging_term_disable();
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+	if (is_project(OPPO_20671)) {
+		if(chip->is_double_charger_support){
+			chip->sub_chg_ops->set_charging_term_disable();
+        }
+	}
+#endif
 	}
 
 	pr_err("oppo_chg_turn_on_ffc2--------\r\n");
@@ -2687,7 +3475,23 @@ void oppo_chg_turn_on_ffc2(struct oppo_chg_chip *chip)
 	oppo_chg_set_float_voltage(chip);
 	oppo_chg_set_charging_current(chip);
 	oppo_chg_set_input_current_limit(chip);
+	#ifdef ODM_HQ_EDIT
+	/* wangtao@BSP.BaseDrv.CHG.Basic, 2020/06/25, modify cold iterm current */
+	if(get_project() == 20682){
+		if ((chip->tbatt_status == BATTERY_STATUS__COLD_TEMP)||(chip->tbatt_status == BATTERY_STATUS__COOL_TEMP)||(chip->tbatt_status == BATTERY_STATUS__LITTLE_COLD_TEMP))
+			chip->limits.iterm_ma = 250;
+	}
+	#endif
 	chip->chg_ops->term_current_set(chip->limits.iterm_ma);
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+	if (is_project(OPPO_20671)) {
+
+		if(chip->is_double_charger_support){
+			chip->sub_chg_ops->term_current_set(chip->limits.iterm_ma+200);	
+		}
+	}
+#endif
 }
 
 void oppo_chg_turn_on_charging(struct oppo_chg_chip *chip)
@@ -2702,17 +3506,57 @@ void oppo_chg_turn_on_charging(struct oppo_chg_chip *chip)
                 return;
         }
         chip->chg_ops->hardware_init();
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+	if (is_project(OPPO_20671)) {
+		if(chip->is_double_charger_support){
+			chip->sub_chg_ops->hardware_init();	
+		}
+	}
+#endif
         if (chip->stop_chg == 0 && (chip->charger_type == POWER_SUPPLY_TYPE_USB || chip->charger_type == POWER_SUPPLY_TYPE_USB_CDP)) {
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+		if (is_project(OPPO_20671)) {
+
+                oppo_chg_turn_off_charging(chip);
+		}
+#endif /*ODM_WT_EDIT*/
                 chip->chg_ops->charger_suspend();
         }
         if (chip->check_batt_full_by_sw) {
                 chip->chg_ops->set_charging_term_disable();
+				#ifdef ODM_HQ_EDIT
+				//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+				if (is_project(OPPO_20671)) {
+					if(chip->is_double_charger_support){
+						chip->sub_chg_ops->set_charging_term_disable();
+        			}
+				}
+				#endif
         }
         oppo_chg_check_tbatt_status(chip);
         oppo_chg_set_float_voltage(chip);
         oppo_chg_set_charging_current(chip);
         oppo_chg_set_input_current_limit(chip);
+	#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/* wangtao@BSP.BaseDrv.CHG.Basic, 2020/06/25, modify cold iterm current */
+	if(get_project() == 20682 && is_sala_a_project() != 2){
+		if ((chip->tbatt_status == BATTERY_STATUS__COLD_TEMP)||(chip->tbatt_status == BATTERY_STATUS__COOL_TEMP)||(chip->tbatt_status == BATTERY_STATUS__LITTLE_COLD_TEMP))
+		chip->limits.iterm_ma = 250;
+	}
+	#endif
         chip->chg_ops->term_current_set(chip->limits.iterm_ma);
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+		if (is_project(OPPO_20671)) {
+
+			if(chip->is_double_charger_support){
+				chip->sub_chg_ops->term_current_set(chip->limits.iterm_ma+200); 
+			}
+		}
+#endif
+
 }
 
 void oppo_chg_turn_off_charging(struct oppo_chg_chip *chip)
@@ -2749,6 +3593,15 @@ void oppo_chg_turn_off_charging(struct oppo_chg_chip *chip)
                 break;
         }
         chip->chg_ops->charging_disable();
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+		if (is_project(OPPO_20671)) {
+
+			if(chip->is_double_charger_support){
+				chip->sub_chg_ops->charging_disable();
+			}
+		}
+#endif
         /*charger_xlog_printk(CHG_LOG_CRTI, "[BATTERY] oppo_chg_turn_off_charging !!\n");*/
 }
 /*
@@ -2840,11 +3693,21 @@ static void oppo_chg_voter_charging_stop(struct oppo_chg_chip *chip, OPPO_CHG_ST
                 break;
         case CHG_STOP_VOTER__VCHG_ABNORMAL:
                 chip->charging_state = CHARGING_STATUS_FAIL;
-                chip->total_time = 0;
+		chip->total_time = 0;	
                 if (oppo_vooc_get_allow_reading() == true) {
-                        chip->chg_ops->charger_suspend();
+			/*hongzhenglong@ODM.HQ.BSP.CHG 2020/07/27 modeify for showing OVP picture when power off*/
+			if(is_project(20682)){
+				if(is_sala_a_project() != 2){
+					if(chip->boot_mode != KERNEL_POWER_OFF_CHARGING_BOOT && chip->boot_mode != LOW_POWER_OFF_CHARGING_BOOT)
+						chip->chg_ops->charger_suspend();
+				} else {
+					chip->chg_ops->charger_suspend();
+				}
+			} else {
+                        	chip->chg_ops->charger_suspend();
+			}
                 }
-                oppo_chg_turn_off_charging(chip);
+		oppo_chg_turn_off_charging(chip);
                 break;
         case CHG_STOP_VOTER__BATTTEMP_ABNORMAL:
         case CHG_STOP_VOTER__VBAT_TOO_HIGH:
@@ -3082,11 +3945,26 @@ static bool oppo_chg_check_vchg_is_good(struct oppo_chg_chip *chip)
 
         if (chg_volt > chip->limits.charger_hv_thr) {
                 vchg_counts++;
-                if (vchg_counts >= VCHG_CNT) {
-                        vchg_counts = 0;
-                        ret = false;
-                        vchg_status = CHARGER_STATUS__VOL_HIGH;
-                }
+		/*hongzhenglong@ODM.HQ.BSP.CHG 2020/07/11 modify for OVP*/
+		if(!is_project(20682)){
+                	if (vchg_counts >= VCHG_CNT) {
+                        	vchg_counts = 0;
+                        	ret = false;
+                        	vchg_status = CHARGER_STATUS__VOL_HIGH;
+                	}
+		} else if(is_sala_a_project() == 2){
+			if(vchg_counts >= VCHG_CNT_salaA){
+			 	vchg_counts = 0;
+			 	ret = false;
+				vchg_status = CHARGER_STATUS__VOL_HIGH;
+			}
+		} else {
+                        if (vchg_counts >= VCHG_CNT) {
+                                vchg_counts = 0;
+                                ret = false;
+                                vchg_status = CHARGER_STATUS__VOL_HIGH;
+                        }
+		}
         } else  if (chg_volt <= chip->limits.charger_recv_thr){
                 vchg_counts = 0;
                 ret = true;
@@ -3200,15 +4078,19 @@ static int fb_notifier_callback(struct notifier_block *nb, unsigned long event, 
                         if (blank == FB_BLANK_UNBLANK) {
                                 g_charger_chip->led_on = true;
                                 g_charger_chip->led_on_change = true;
-								/*zhangchao@ODM.HQ.Charger 2019/12/04 modified for limit charging current in vooc when calling*/
-								//if (g_charger_chip->calling_on)
-									g_charger_chip->cool_down = 1;
+								if(is_project(19661)){
+									/*zhangchao@ODM.HQ.Charger 2019/12/04 modified for limit charging current in vooc when calling*/
+									//if (g_charger_chip->calling_on)
+										g_charger_chip->cool_down = 1;
+								}
                         } else if (blank == FB_BLANK_POWERDOWN) {
                                 g_charger_chip->led_on = false;
                                 g_charger_chip->led_on_change = true;
-                                /* zhangchao@ODM.HQ.Charger 2019/12/04 modified for limit charging current in vooc when calling */
-                                if (!g_charger_chip->calling_on)
-                                   g_charger_chip->cool_down = 0;
+								if(is_project(19661)){
+									/* zhangchao@ODM.HQ.Charger 2019/12/04 modified for limit charging current in vooc when calling */
+									if (!g_charger_chip->calling_on)
+									g_charger_chip->cool_down = 0;
+								}
                         }
                 }
         }
@@ -3349,6 +4231,7 @@ static void oppo_chg_check_led_on_ichging(struct oppo_chg_chip *chip)
 }
 
 #define  TVOOC_COUNTS 2
+#define TVOOC_HYSTERISIS_DECIDEGC	10
 static void oppo_chg_check_vooc_temp_status(struct oppo_chg_chip *chip)
 {
         int batt_temp = chip->temperature;
@@ -3363,8 +4246,8 @@ static void oppo_chg_check_vooc_temp_status(struct oppo_chg_chip *chip)
         if (batt_temp > chip->limits.vooc_high_bat_decidegc) {                               /*>45C*/
                 if (oppo_vooc_get_fastchg_started() == true) {
                             chg_err("tbatt > 45, quick out vooc");
-                            oppo_chg_set_chargerid_switch_val(0);
-                            oppo_vooc_switch_mode(NORMAL_CHARGER_MODE);
+                            //oppo_chg_set_chargerid_switch_val(0);
+                           // oppo_vooc_switch_mode(NORMAL_CHARGER_MODE);
                 }
         } else if (batt_temp > chip->limits.vooc_warm_bat_decidegc) {                               /*>38C && <= 45*/
                 high_counts ++;
@@ -3395,6 +4278,50 @@ static void oppo_chg_check_vooc_temp_status(struct oppo_chg_chip *chip)
 
                 }
         }
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	chg_err("tbat_vooc_status[%d],chip->vooc_temp_status[%d] ",
+		tbat_vooc_status, chip->vooc_temp_status);
+	if (vooc_first_set_input_current_flag == false) {
+		chip->limits.temp_little_cool_fastchg_current_ma
+			= chip->limits.charger_current_vooc_ma_normal;
+		chip->limits.temp_normal_fastchg_current_ma
+			= chip->limits.charger_current_vooc_ma_normal;
+		oppo_chg_set_charging_current(chip);
+		chg_err("set charger current ctrl by vooc[%d]\n",
+			chip->limits.temp_little_cool_fastchg_current_ma);
+	}
+	if (tbat_vooc_status != chip->vooc_temp_status
+			|| vooc_first_set_input_current_flag == false) {
+		chip->limits.vooc_warm_bat_decidegc_antishake
+			= chip->limits.vooc_warm_bat_decidegc;
+		chip->limits.vooc_normal_bat_decidegc_antishake
+			= chip->limits.vooc_normal_bat_decidegc;
+		if (tbat_vooc_status > chip->vooc_temp_status
+				&& tbat_vooc_status == VOOC_TEMP_STATUS__WARM) {
+			chip->limits.vooc_normal_bat_decidegc_antishake
+				= chip->limits.vooc_normal_bat_decidegc - TVOOC_HYSTERISIS_DECIDEGC;
+		} else if (tbat_vooc_status > chip->vooc_temp_status
+				&& tbat_vooc_status == VOOC_TEMP_STATUS__HIGH) {
+			chip->limits.vooc_warm_bat_decidegc_antishake
+				= chip->limits.vooc_warm_bat_decidegc - TVOOC_HYSTERISIS_DECIDEGC;
+		} else if (tbat_vooc_status < chip->vooc_temp_status
+				&& tbat_vooc_status == VOOC_TEMP_STATUS__NORMAL) {
+			chip->limits.vooc_normal_bat_decidegc_antishake
+				= chip->limits.vooc_normal_bat_decidegc + TVOOC_HYSTERISIS_DECIDEGC;
+		} else if (tbat_vooc_status < chip->vooc_temp_status
+				&& tbat_vooc_status == VOOC_TEMP_STATUS__WARM) {
+			chip->limits.vooc_warm_bat_decidegc_antishake
+				= chip->limits.vooc_warm_bat_decidegc + TVOOC_HYSTERISIS_DECIDEGC;
+		}
+		chg_debug("tled status change, [%d %d %d %d]\n",
+			tbat_vooc_status, chip->vooc_temp_status,
+		chip->limits.vooc_warm_bat_decidegc_antishake,
+			chip->limits.vooc_normal_bat_decidegc_antishake);
+		vooc_first_set_input_current_flag = true;
+		chip->vooc_temp_change = true;
+		chip->vooc_temp_status = tbat_vooc_status;
+	}
+#else
 
         chg_err("tbat_vooc_status[%d],chip->vooc_temp_status[%d] ", tbat_vooc_status, chip->vooc_temp_status);
         if (vooc_first_set_input_current_flag == false) {
@@ -3409,6 +4336,7 @@ static void oppo_chg_check_vooc_temp_status(struct oppo_chg_chip *chip)
                 chip->vooc_temp_change = true;
                 chip->vooc_temp_status = tbat_vooc_status;
         }
+#endif
 }
 
 static void oppo_chg_check_vooc_ichging(struct oppo_chg_chip *chip)
@@ -3485,15 +4413,30 @@ void oppo_chg_variables_reset(struct oppo_chg_chip *chip, bool in)
                 vbatt_higherthan_4180mv = false;
         }
 
+#ifndef CONFIG_OPPO_HQ_EULER_CHARGER
 #ifdef ODM_HQ_EDIT
 /*Benshan.Cheng@ODM_HQ.BSP.TP.Function, 2019/11/22 add for tp charge mode*/
+#ifndef CONFIG_MACH_MT6768
        switch_usb_state(chip->charger_exist);
+#endif
 #endif  /* ODM_HQ_EDIT */
+#endif
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+    /*baodongmei@ODM.HQ.BSP.CHG 2020/06/26 Add for sala_A PD */
+    if (is_sala_a_project() == 2)
+        chip->limits.vbatt_pdqc_to_9v_thr = oppo_get_vbatt_pdqc_to_9v_thr();
+#endif
 
         /*chip->charger_volt = 5000;*/
         chip->vchg_status = CHARGER_STATUS__GOOD;
 
         chip->batt_full = false;
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		if(get_project() == 20682){
+			chip->waiting_for_ffc = false;
+		}
+#endif
         chip->tbatt_status = BATTERY_STATUS__NORMAL;
         chip->tbatt_pre_shake = TBATT_PRE_SHAKE_INVALID;
         chip->vbatt_over = 0;
@@ -3516,8 +4459,10 @@ void oppo_chg_variables_reset(struct oppo_chg_chip *chip, bool in)
         chip->unwakelock_chg = 0;
         chip->notify_code = 0;
         chip->notify_flag = 0;
-        //chip->cool_down = 0;
+		
+        chip->cool_down = 0;
         chip->cool_down_done = false;
+		chip->cool_down_force_5v = false;
         chip->limits.cold_bat_decidegc = chip->anti_shake_bound.cold_bound;
         chip->limits.little_cold_bat_decidegc = chip->anti_shake_bound.little_cold_bound;
         chip->limits.cool_bat_decidegc = chip->anti_shake_bound.cool_bound;
@@ -3549,6 +4494,15 @@ void oppo_chg_variables_reset(struct oppo_chg_chip *chip, bool in)
         chip->vooc_temp_status = VOOC_TEMP_STATUS__NORMAL;
 	 
         chip->limits.iterm_ma = chip->limits.default_iterm_ma;
+        #if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        /* wangtao@BSP.BaseDrv.CHG.Basic, 2020/07/06, modify cold iterm current */
+        if(get_project() == 20682 && is_sala_a_project() != 2){
+            if ((chip->tbatt_status == BATTERY_STATUS__COLD_TEMP)||(chip->tbatt_status == BATTERY_STATUS__COOL_TEMP)||(chip->tbatt_status == BATTERY_STATUS__LITTLE_COLD_TEMP))
+                chip->limits.iterm_ma = 250;
+            else
+                chip->limits.iterm_ma = chip->limits.default_iterm_ma;
+        }
+        #endif
         chip->limits.temp_normal_fastchg_current_ma = chip->limits.default_temp_normal_fastchg_current_ma;
         chip->limits.normal_vfloat_sw_limit = chip->limits.default_normal_vfloat_sw_limit;
         chip->limits.temp_normal_vfloat_mv = chip->limits.default_temp_normal_vfloat_mv;
@@ -3566,7 +4520,13 @@ void oppo_chg_variables_reset(struct oppo_chg_chip *chip, bool in)
         chip->limits.temp_warm_fastchg_current_ma = chip->limits.default_temp_warm_fastchg_current_ma;
 
         chip->limits.input_current_charger_ma = chip->limits.default_input_current_charger_ma;
-
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		chip->limits.input_current_vooc_ma_high = chip->limits.default_input_current_vooc_ma_high;
+		chip->limits.input_current_vooc_ma_warm  = chip->limits.default_input_current_vooc_ma_warm;
+		chip->limits.input_current_vooc_ma_normal = chip->limits.default_input_current_vooc_ma_normal;
+		chip->limits.pd_input_current_charger_ma = chip->limits.default_pd_input_current_charger_ma;
+		chip->limits.qc_input_current_charger_ma = chip->limits.default_qc_input_current_charger_ma;
+		#endif
         reset_mcu_delay = 0;
 #ifndef CONFIG_OPPO_CHARGER_MTK
         chip->pmic_spmi.aicl_suspend = false;
@@ -3611,7 +4571,7 @@ static void oppo_chg_variables_init(struct oppo_chg_chip *chip)
         chip->ui_soc = 50;
         chip->notify_code = 0;
         chip->notify_flag = 0;
-        //chip->cool_down = 0;
+        chip->cool_down = 0;
         chip->tbatt_pre_shake = TBATT_PRE_SHAKE_INVALID;
 
         chip->led_on = true;
@@ -3635,15 +4595,34 @@ static void oppo_chg_variables_init(struct oppo_chg_chip *chip)
         if(chip->external_gauge) {
             chg_debug("use oppo_gauge_get_batt_authenticate\n");
             chip->authenticate = oppo_gauge_get_batt_authenticate();
+			#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+			if(get_project() == 20682 && is_sala_a_project() == 2){
+				chip->hmac = oppo_gauge_get_batt_hmac();
+			}
+			#endif
         } else {
             chg_debug("use get_oppo_high_battery_status\n");
             //chip->authenticate = get_oppo_high_battery_status();
             chip->authenticate = oppo_gauge_get_batt_authenticate();
+			#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+			if(get_project() == 20682 && is_sala_a_project() == 2){
+				chip->hmac = true;
+			}
+			#endif
         }
 		
 		if (!chip->authenticate) {
 			//chip->chg_ops->charger_suspend();
 			chip->chg_ops->charging_disable();
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+		if (is_project(OPPO_20671)) {
+
+			if(chip->is_double_charger_support){
+				chip->sub_chg_ops->charging_disable();
+			}
+		}
+#endif
 		}
 
         chip->otg_switch = false;
@@ -3693,6 +4672,7 @@ static void oppo_chg_variables_init(struct oppo_chg_chip *chip)
         chip->short_c_batt.disable_rechg = false;
         chip->short_c_batt.limit_chg = false;
         chip->short_c_batt.limit_rechg = false;
+		chip->cool_down_force_5v = false;
 }
 
 static void oppo_chg_fail_action(struct oppo_chg_chip *chip)
@@ -3723,10 +4703,21 @@ static void oppo_chg_check_rechg_status(struct oppo_chg_chip *chip)
                 }
                 recharging_vol = recharging_vol - chip->limits.recharge_mv;
         }
-
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	if(get_project() == 20682 && is_sala_a_project() == 2){
+        if ((!chip->authenticate) ||(!chip->hmac)) {
+            recharging_vol = chip->limits.non_standard_vfloat_mv - 400;//3.80
+        }
+	} else {
+	    if (!chip->authenticate) {
+            recharging_vol = chip->limits.non_standard_vfloat_sw_limit - 400;//3.93
+        }
+	}
+#else
         if (!chip->authenticate) {
             recharging_vol = chip->limits.non_standard_vfloat_sw_limit - 400;//3.93
         }
+#endif
         if (nbat_vol <= recharging_vol) {
                 rechging_cnt++;
         } else {
@@ -3864,7 +4855,21 @@ static void oppo_chg_get_battery_data(struct oppo_chg_chip *chip)
                 chip->batt_soh = oppo_gauge_get_batt_soh();
                 chip->batt_rm = oppo_gauge_get_remaining_capacity() * chip->vbatt_num;
         }
-        chip->charger_volt = chip->chg_ops->get_charger_volt();
+        #if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		/*wangtao@ODM.HQ.BSP.CHG 2020/06/29 modify for svooc */
+		if (chip->vbatt_num == 2){
+	    	if (chip->charger_exist){
+				chip->charger_volt = chip->chg_ops->get_charger_volt();
+			}
+			else{
+				chip->charger_volt = charger_get_vbus();
+			}
+		}else{
+			chip->charger_volt = chip->chg_ops->get_charger_volt();
+		}
+		#else
+			chip->charger_volt = chip->chg_ops->get_charger_volt();
+		#endif
 
         if (ui_soc_cp_flag == 0) {
                 if ((chip->soc < 0 || chip->soc > 100) && retry_counts < RETRY_COUNTS) {
@@ -3922,6 +4927,13 @@ static void oppo_chg_set_aicl_point(struct oppo_chg_chip *chip)
 {
         if (oppo_vooc_get_allow_reading() == true) {
                 chip->chg_ops->set_aicl_point(chip->batt_volt);
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+		if (is_project(OPPO_20671)) {
+			if(chip->is_double_charger_support)
+				chip->sub_chg_ops->set_aicl_point(chip->batt_volt);
+		}
+#endif				
         }
 }
 
@@ -4084,11 +5096,14 @@ static void battery_notify_tbat_check(struct oppo_chg_chip *chip)
         if (BATTERY_STATUS__REMOVED == chip->tbatt_status) {
                 count_removed ++;
                 charger_xlog_printk(CHG_LOG_CRTI, "[BATTERY] bat_temp(%d), BATTERY_STATUS__REMOVED count[%d]\n", chip->temperature, count_removed);
-                if (count_removed > 10) {
-                        count_removed = 11;
-                        chip->notify_code |= 1 << NOTIFY_BAT_NOT_CONNECT;
-                        charger_xlog_printk(CHG_LOG_CRTI, "[BATTERY] bat_temp(%d) < -19'C\n", chip->temperature);
-                }
+		/*hongzhenglong@ODM.HQ.BSP.CHG 2020/07/10 modify for not showing bat_not_connect picture if vbat-over*/
+		if((chip->notify_code & (1 << NOTIFY_BAT_OVER_VOL)) == 0){
+                	if (count_removed > 10) {
+                        	count_removed = 11;
+                        	chip->notify_code |= 1 << NOTIFY_BAT_NOT_CONNECT;
+                        	charger_xlog_printk(CHG_LOG_CRTI, "[BATTERY] bat_temp(%d) < -19'C\n", chip->temperature);
+               		}
+		}
         } else {
                 count_removed = 0;
         }
@@ -4096,12 +5111,23 @@ static void battery_notify_tbat_check(struct oppo_chg_chip *chip)
 
 static void battery_notify_authenticate_check(struct oppo_chg_chip *chip)
 {
-        if (!chip->authenticate) {
-                chip->notify_code |= 1 << NOTIFY_BAT_NOT_CONNECT;
-                charger_xlog_printk(CHG_LOG_CRTI, "[BATTERY] bat_authenticate is false!\n");
-        }
+	/*hongzhenglong@ODM.HQ.BSP.CHG 2020/07/10 modify for not showing bat_not_connect picture if vbat-over*/
+	if((chip->notify_code & (1 << NOTIFY_BAT_OVER_VOL)) == 0){
+		if (!chip->authenticate) {
+                	chip->notify_code |= 1 << NOTIFY_BAT_NOT_CONNECT;
+                	charger_xlog_printk(CHG_LOG_CRTI, "[BATTERY] bat_authenticate is false!\n");
+        	}
+	}
 }
-
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+static void battery_notify_hmac_check(struct oppo_chg_chip *chip)
+{
+	if (!chip->hmac) {
+		chip->notify_code |= 1 << NOTIFY_BAT_FULL_THIRD_BATTERY;
+		charger_xlog_printk(CHG_LOG_CRTI, "[BATTERY] bat_hmac is false!\n");
+	}
+}
+#endif
 static void battery_notify_vcharger_check(struct oppo_chg_chip *chip)
 {
         if (CHARGER_STATUS__VOL_HIGH == chip->vchg_status) {
@@ -4129,13 +5155,17 @@ static void battery_notify_vbat_check(struct oppo_chg_chip *chip)
                 }
         } else {
                 count = 0;
+			#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+			if(get_project() == 20682 && is_sala_a_project() == 2){	
                 if ((chip->batt_full) && (chip->charger_exist)) {
                         if (chip->tbatt_status == BATTERY_STATUS__WARM_TEMP && chip->ui_soc != 100) {
                                 chip->notify_code |=  1 << NOTIFY_BAT_FULL_PRE_HIGH_TEMP;
                         } else if ((chip->tbatt_status == BATTERY_STATUS__COLD_TEMP) && (chip->ui_soc != 100)) {
                                 chip->notify_code |=  1 << NOTIFY_BAT_FULL_PRE_LOW_TEMP;
                         } else if (!chip->authenticate) {
-                                /*chip->notify_code |=  1 << NOTIFY_BAT_FULL_THIRD_BATTERY;*/
+                                chip->notify_code |=  1 << NOTIFY_BAT_NOT_CONNECT;
+						} else if (!chip->hmac) {
+								chip->notify_code |=  1 << NOTIFY_BAT_FULL_THIRD_BATTERY;
                         } else {
                                 if (chip->ui_soc == 100) {
                                         chip->notify_code |=  1 << NOTIFY_BAT_FULL;
@@ -4144,6 +5174,38 @@ static void battery_notify_vbat_check(struct oppo_chg_chip *chip)
                         charger_xlog_printk(CHG_LOG_CRTI, "[BATTERY] FULL,tbatt_status:%d,notify_code:%d\n",
                                 chip->tbatt_status, chip->notify_code);
                 }
+			} else{
+                if ((chip->batt_full) && (chip->charger_exist)) {
+                        if (chip->tbatt_status == BATTERY_STATUS__WARM_TEMP && chip->ui_soc != 100) {
+                                chip->notify_code |=  1 << NOTIFY_BAT_FULL_PRE_HIGH_TEMP;
+                        } else if ((chip->tbatt_status == BATTERY_STATUS__COLD_TEMP) && (chip->ui_soc != 100)) {
+                                chip->notify_code |=  1 << NOTIFY_BAT_FULL_PRE_LOW_TEMP;
+                        } else if (!chip->authenticate) {
+                        } else {
+                                if (chip->ui_soc == 100) {
+                                        chip->notify_code |=  1 << NOTIFY_BAT_FULL;
+                                }
+                        }
+                        charger_xlog_printk(CHG_LOG_CRTI, "[BATTERY] FULL,tbatt_status:%d,notify_code:%d\n",
+                                chip->tbatt_status, chip->notify_code);
+                }			
+			}
+			#else
+                if ((chip->batt_full) && (chip->charger_exist)) {
+                        if (chip->tbatt_status == BATTERY_STATUS__WARM_TEMP && chip->ui_soc != 100) {
+                                chip->notify_code |=  1 << NOTIFY_BAT_FULL_PRE_HIGH_TEMP;
+                        } else if ((chip->tbatt_status == BATTERY_STATUS__COLD_TEMP) && (chip->ui_soc != 100)) {
+                                chip->notify_code |=  1 << NOTIFY_BAT_FULL_PRE_LOW_TEMP;
+                        } else if (!chip->authenticate) {
+                        } else {
+                                if (chip->ui_soc == 100) {
+                                        chip->notify_code |=  1 << NOTIFY_BAT_FULL;
+                                }
+                        }
+                        charger_xlog_printk(CHG_LOG_CRTI, "[BATTERY] FULL,tbatt_status:%d,notify_code:%d\n",
+                                chip->tbatt_status, chip->notify_code);
+                }				
+			#endif
         }
 }
 
@@ -4198,6 +5260,8 @@ static void battery_notify_flag_check(struct oppo_chg_chip *chip)
                 chip->notify_flag = NOTIFY_BAT_LOW_TEMP;
         } else if (chip->notify_code & (1 << NOTIFY_BAT_NOT_CONNECT)) {
                 chip->notify_flag = NOTIFY_BAT_NOT_CONNECT;
+		} else if (chip->notify_code & (1 << NOTIFY_BAT_FULL_THIRD_BATTERY)) {
+				chip->notify_flag = NOTIFY_BAT_FULL_THIRD_BATTERY;
         } else if (chip->notify_code & (1 << NOTIFY_BAT_OVER_VOL)) {
                 chip->notify_flag = NOTIFY_BAT_OVER_VOL;
         } else if (chip->notify_code & (1 << NOTIFY_BAT_FULL_PRE_HIGH_TEMP)) {
@@ -4209,6 +5273,14 @@ static void battery_notify_flag_check(struct oppo_chg_chip *chip)
         } else {
                 chip->notify_flag = 0;
         }
+	#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*hongzhenglong@ODM.HQ.BSP.CHG 2020/07/10 modify for not showing bat_not_connect picture if vbat-over*/
+	if(is_project(20682)){
+		if(chip->notify_flag == NOTIFY_BAT_OVER_VOL){
+			chip->notify_flag = 0;
+		}
+	}
+	#endif
 }
 
 static void battery_notify_charge_terminal_check(struct oppo_chg_chip *chip)
@@ -4224,7 +5296,11 @@ static void oppo_chg_battery_notify_check(struct oppo_chg_chip *chip)
         battery_notify_tbat_check(chip);
 
         battery_notify_authenticate_check(chip);
-
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	if(get_project() == 20682 && is_sala_a_project() == 2){
+		battery_notify_hmac_check(chip);
+	}
+#endif
         battery_notify_vcharger_check(chip);
 
         battery_notify_vbat_check(chip);
@@ -4304,6 +5380,9 @@ static void oppo_chg_update_ui_soc(struct oppo_chg_chip *chip)
         int soc_down_limit = 0, soc_up_limit = 0;
         unsigned long sleep_tm = 0 , soc_reduce_margin = 0;
         bool vbatt_too_low = false;
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		static int cnt = 0;
+#endif
         vbatt_lowerthan_3300mv = false;
 
         if (chip->ui_soc == 100) {
@@ -4330,7 +5409,35 @@ static void oppo_chg_update_ui_soc(struct oppo_chg_chip *chip)
                 soc_up_limit = SOC_SYNC_UP_RATE_10S;
         }
         if (chip->charger_exist && chip->batt_exist && chip->batt_full && chip->mmi_chg && (chip->stop_chg == 1 || chip->charger_type == 5)) {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+				if(get_project() == 20682){
+					cnt = 0;
+				}
+#endif
                 chip->sleep_tm_sec = 0;
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+			if(get_project() == 20682 && is_sala_a_project() == 2){
+                if (oppo_short_c_batt_is_prohibit_chg(chip)) {
+                        chip->prop_status = POWER_SUPPLY_STATUS_NOT_CHARGING;
+				} else if ((chip->hmac) &&((chip->tbatt_status == BATTERY_STATUS__NORMAL)
+						|| (chip->tbatt_status == BATTERY_STATUS__LITTLE_COOL_TEMP)
+                        || (chip->tbatt_status == BATTERY_STATUS__COOL_TEMP) || (chip->tbatt_status == BATTERY_STATUS__LITTLE_COLD_TEMP))) {
+                        soc_down_count = 0;
+                        soc_up_count++;
+                        if (soc_up_count >= soc_up_limit) {
+                                soc_up_count = 0;
+                                chip->ui_soc++;
+                        }
+                        if (chip->ui_soc >= 100) {
+                                chip->ui_soc = 100;
+                                chip->prop_status = POWER_SUPPLY_STATUS_FULL;
+                        } else {
+                                chip->prop_status = POWER_SUPPLY_STATUS_CHARGING;
+                        }
+                } else {
+                        chip->prop_status = POWER_SUPPLY_STATUS_FULL;
+                }
+			} else{
                 if (oppo_short_c_batt_is_prohibit_chg(chip)) {
                         chip->prop_status = POWER_SUPPLY_STATUS_NOT_CHARGING;
                 } else if ((chip->tbatt_status == BATTERY_STATUS__NORMAL) || (chip->tbatt_status == BATTERY_STATUS__LITTLE_COOL_TEMP)
@@ -4350,6 +5457,28 @@ static void oppo_chg_update_ui_soc(struct oppo_chg_chip *chip)
                 } else {
                         chip->prop_status = POWER_SUPPLY_STATUS_FULL;
                 }
+			}
+#else
+			    if (oppo_short_c_batt_is_prohibit_chg(chip)) {
+                        chip->prop_status = POWER_SUPPLY_STATUS_NOT_CHARGING;
+				} else if ((chip->tbatt_status == BATTERY_STATUS__NORMAL) || (chip->tbatt_status == BATTERY_STATUS__LITTLE_COOL_TEMP)
+                        || (chip->tbatt_status == BATTERY_STATUS__COOL_TEMP) || (chip->tbatt_status == BATTERY_STATUS__LITTLE_COLD_TEMP)) {
+                        soc_down_count = 0;
+                        soc_up_count++;
+                        if (soc_up_count >= soc_up_limit) {
+                                soc_up_count = 0;
+                                chip->ui_soc++;
+                        }
+                        if (chip->ui_soc >= 100) {
+                                chip->ui_soc = 100;
+                                chip->prop_status = POWER_SUPPLY_STATUS_FULL;
+                        } else {
+                                chip->prop_status = POWER_SUPPLY_STATUS_CHARGING;
+                        }
+                } else {
+                        chip->prop_status = POWER_SUPPLY_STATUS_FULL;
+                }
+#endif
                 if (chip->ui_soc != ui_soc_pre) {
                         charger_xlog_printk(CHG_LOG_CRTI, "full ui_soc:%d,soc:%d,up_limit:%d\n", chip->ui_soc, chip->soc, soc_up_limit);
                 }
@@ -4378,7 +5507,32 @@ static void oppo_chg_update_ui_soc(struct oppo_chg_chip *chip)
                         charger_xlog_printk(CHG_LOG_CRTI, "charging ui_soc:%d,soc:%d,down_limit:%d,up_limit:%d\n",
                                 chip->ui_soc, chip->soc, soc_down_limit, soc_up_limit);
                 }
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+				if(get_project() == 20682){
+					charger_xlog_printk(CHG_LOG_CRTI, "ui_soc:%d,waiting_for_ffc:%d,fastchg_to_ffc:%d,fastchg_start:%d,chg_type=0x%x\n",
+						chip->ui_soc, chip->waiting_for_ffc == false, chip->fastchg_to_ffc == false,
+						oppo_vooc_get_fastchg_started(), oppo_vooc_get_fast_chg_type());
+					if (chip->ui_soc == 100&& chip->fastchg_to_ffc == false&& (oppo_vooc_get_fastchg_started() == false
+							|| oppo_vooc_get_fast_chg_type() == CHARGER_SUBTYPE_FASTCHG_VOOC)) {
+						if (++cnt >= 12) {
+							chip->batt_full = true;
+							chip->total_time = 0;
+							chip->in_rechging = false;
+							chip->limits.vfloat_over_counts = 0;
+							oppo_chg_check_rechg_status(chip);
+							charger_xlog_printk(CHG_LOG_CRTI, "charge full !!!\n");
+						}
+					} else {
+							cnt = 0;
+					}
+				}
+#endif
         } else {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+				if(get_project() == 20682){
+					cnt = 0;
+				}
+#endif
                 chip->prop_status = POWER_SUPPLY_STATUS_NOT_CHARGING;
                 soc_up_count = 0;
                 if (chip->soc <= chip->ui_soc || vbatt_too_low) {
@@ -4419,6 +5573,11 @@ static void oppo_chg_update_ui_soc(struct oppo_chg_chip *chip)
         }
 
         if (chip->ui_soc < 2) {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+				if(get_project() == 20682){
+					cnt = 0;
+				}
+#endif
                 if (oppo_chg_soc_reduce_slow_when_1(chip) == true) {
                         chip->ui_soc = 0;
                 } else {
@@ -4558,11 +5717,24 @@ static void oppo_chg_fast_switch_check(struct oppo_chg_chip *chip)
 		return;
 	}
 
+	#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	if(get_project() == 20682 && is_sala_a_project() == 2){
+		if ((!chip->authenticate) ||(!chip->hmac)) {
+			charger_xlog_printk(CHG_LOG_CRTI, "non authenticate or hmac,switch return\n");
+			return;
+		}
+	} else {
 	if (!chip->authenticate) {
 		charger_xlog_printk(CHG_LOG_CRTI, "non authenticate,switch return\n");
 		return;
 	}
-
+	}
+#else
+	if (!chip->authenticate) {
+		charger_xlog_printk(CHG_LOG_CRTI, "non authenticate,switch return\n");
+		return;
+	}
+#endif
 	if (chip->notify_flag == NOTIFY_BAT_OVER_VOL) {
 		charger_xlog_printk(CHG_LOG_CRTI, " battery over voltage,return\n");
 		return;
@@ -4573,6 +5745,15 @@ static void oppo_chg_fast_switch_check(struct oppo_chg_chip *chip)
 			oppo_vooc_switch_fast_chg();
 		}
 
+	#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/*wangtao@ODM.HQ.BSP.CHG 2020/08/17 add oppo patch*/
+		if(get_project() == 20682 && is_sala_a_project() == 2){	
+			if(get_rk826_update_status())
+			{
+				reset_mcu_delay = 0;
+			}
+		}
+	#endif
 		if (!oppo_vooc_get_fastchg_started() && !oppo_vooc_get_fastchg_dummy_started() &&
 			!oppo_vooc_get_fastchg_to_normal() && !oppo_vooc_get_fastchg_to_warm()) {
 			reset_mcu_delay++;
@@ -4585,7 +5766,8 @@ static void oppo_chg_fast_switch_check(struct oppo_chg_chip *chip)
 				charger_xlog_printk(CHG_LOG_CRTI, "  RESET_MCU_DELAY_30S\n");
 				if (chip->charger_volt <= 7500) {
 					oppo_vooc_reset_fastchg_after_usbout();
-					chip->chg_ops->set_chargerid_switch_val(0);
+					if(chip->chg_ops->set_chargerid_switch_val)
+						chip->chg_ops->set_chargerid_switch_val(0);
 					if (chip->chg_ops->enable_qc_detect)
 						chip->chg_ops->enable_qc_detect();
 				}
@@ -4624,11 +5806,35 @@ static int oppo_chg_check_sw_full(struct oppo_chg_chip *chip)
                 ret_sw = 0;
                 return false;
         }
+		/*wangchao@ODM.HQ.BSP.CHG 2020/07/18 modify for charging cut-off voltage in sala-A*/
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+				printk("fastchg_ffc_status =%d\n",chip->fastchg_ffc_status);
+				if (is_sala_a_project() == 2 && (chip->fastchg_ffc_status == 0)) {
+					if (chip->tbatt_status == BATTERY_STATUS__COLD_TEMP) {
+						vbatt_full_vol_sw = 3930;
+					} else if (chip->tbatt_status == BATTERY_STATUS__WARM_TEMP) {
+						vbatt_full_vol_sw = 4080;
+					} else {
+                    vbatt_full_vol_sw = 4385;
+					}
+				}
+		#endif
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	if(get_project() == 20682 && is_sala_a_project() == 2){		
+        if ((!chip->authenticate) || (!chip->hmac)) {
+        		vbatt_full_vol_sw = chip->limits.non_standard_vfloat_sw_limit;
+        }
+	} else {
         if (!chip->authenticate) {
         		vbatt_full_vol_sw = chip->limits.non_standard_vfloat_sw_limit;
         }
-
+	}
+#else
+		if (!chip->authenticate) {
+        		vbatt_full_vol_sw = chip->limits.non_standard_vfloat_sw_limit;
+        }
+#endif
 		 if (oppo_short_c_batt_is_prohibit_chg(chip)) {
                 vbatt_full_vol_sw = chip->limits.short_c_bat_vfloat_sw_limit;
         }
@@ -4691,11 +5897,21 @@ static int oppo_chg_check_hw_full(struct oppo_chg_chip *chip)
                 ret_hw = 0;
                 return false;
         }
-		
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	if(get_project() == 20682 && is_sala_a_project() == 2){		
+		if ((!chip->authenticate) || (!chip->hmac)) {
+        		vbatt_full_vol_hw = chip->limits.non_standard_vfloat_mv + chip->limits.non_normal_vterm_hw_inc;
+        }
+	} else {
 		if (!chip->authenticate) {
         		vbatt_full_vol_hw = chip->limits.non_standard_vfloat_mv + chip->limits.non_normal_vterm_hw_inc;
         }
-
+	}
+#else
+		if (!chip->authenticate) {
+        		vbatt_full_vol_hw = chip->limits.non_standard_vfloat_mv + chip->limits.non_normal_vterm_hw_inc;
+        }
+#endif
 		if (oppo_short_c_batt_is_prohibit_chg(chip)) {
                 vbatt_full_vol_hw = chip->limits.short_c_bat_vfloat_mv + chip->limits.non_normal_vterm_hw_inc;
         }
@@ -4726,6 +5942,15 @@ static void oppo_chg_ffc_variable_reset(struct oppo_chg_chip *chip)
 	chip->chg_ctrl_by_lcd = chip->chg_ctrl_by_lcd_default;
 	chip->chg_ctrl_by_vooc = chip->chg_ctrl_by_vooc_default;
 	chip->limits.iterm_ma = chip->limits.default_iterm_ma;
+	#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+	/* wangtao@BSP.BaseDrv.CHG.Basic, 2020/07/06, modify cold iterm current */
+	if(get_project() == 20682 && is_sala_a_project() != 2){
+		if ((chip->tbatt_status == BATTERY_STATUS__COLD_TEMP)||(chip->tbatt_status == BATTERY_STATUS__COOL_TEMP)||(chip->tbatt_status == BATTERY_STATUS__LITTLE_COLD_TEMP))
+			chip->limits.iterm_ma = 250;
+		else
+			chip->limits.iterm_ma = chip->limits.default_iterm_ma;
+	}
+	#endif
 	chip->limits.normal_vfloat_sw_limit = chip->limits.default_normal_vfloat_sw_limit;
 	chip->limits.temp_normal_vfloat_mv = chip->limits.default_temp_normal_vfloat_mv;
 	chip->limits.normal_vfloat_over_sw_limit = chip->limits.default_normal_vfloat_over_sw_limit;
@@ -4874,12 +6099,28 @@ static void oppo_chg_check_status_full(struct oppo_chg_chip *chip)
                         && (fastchg_present_wait_count <= FULL_DELAY_COUNTS)) {
                         is_batt_full = 0;
                         fastchg_present_wait_count++;
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+						if(get_project() == 20682){
+							if(chip->fastchg_to_ffc == false)
+								chip->waiting_for_ffc = true;
+							if (fastchg_present_wait_count == FULL_DELAY_COUNTS)
+								chip->waiting_for_ffc = false;
+						}
+#endif
                         if (fastchg_present_wait_count == FULL_DELAY_COUNTS && chip->chg_ops->get_charging_enable() == false
                                 && chip->charging_state != CHARGING_STATUS_FULL && chip->charging_state != CHARGING_STATUS_FAIL) {
 							if (chip->ffc_support && chip->ffc_temp_status != FFC_TEMP_STATUS__HIGH
 									&& chip->ffc_temp_status != FFC_TEMP_STATUS__LOW) {
 								if (chip->vbatt_num == 2) {
-									oppo_chg_turn_on_ffc2(chip);
+									#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+									/*wangtao@ODM.HQ.BSP.CHG 2020/05/27 modify for vooc ffc*/
+									if (is_sala_a_project() == 2)
+										oppo_chg_turn_on_ffc1(chip);
+									else
+										oppo_chg_turn_on_ffc2(chip);
+									#else
+										oppo_chg_turn_on_ffc2(chip);
+									#endif
 								} else {
 									oppo_chg_turn_on_ffc1(chip);
 								}
@@ -4897,6 +6138,11 @@ static void oppo_chg_check_status_full(struct oppo_chg_chip *chip)
 				return ;
 
         if ((is_batt_full == 1) || (chip->charging_state == CHARGING_STATUS_FULL) || oppo_chg_check_vbatt_is_full_by_sw(chip)) {
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+				if(get_project() == 20682){
+					chip->waiting_for_ffc = false;
+				}
+#endif
                 oppo_chg_full_action(chip);
                 if (chip->tbatt_status == BATTERY_STATUS__LITTLE_COLD_TEMP || chip->tbatt_status == BATTERY_STATUS__COOL_TEMP
                                 || chip->tbatt_status == BATTERY_STATUS__LITTLE_COOL_TEMP || chip->tbatt_status == BATTERY_STATUS__NORMAL) {
@@ -4944,12 +6190,12 @@ static void oppo_chg_print_log(struct oppo_chg_chip *chip)
 {
 /* wenbin.liu@SW.Bsp.Driver, 2016/02/29  Add for log tag*/
         charger_xlog_printk(CHG_LOG_CRTI, " CHGR[ %d / %d / %d / %d / %d ], BAT[ %d / %d / %d / %d / %d / %d ], GAUGE[ %d / %d / %d / %d / %d / %d / %d / %d ], "
-                "STATUS[ 0x%x / %d / %d / %d / %d / 0x%x ], OTHER[ %d / %d / %d / %d / %d/ %d ]\n",
+                "STATUS[ 0x%x / %d / %d / %d / %d / 0x%x ], OTHER[ %d / %d / %d / %d / %d/ %d /%d ]\n",
         chip->charger_exist, chip->charger_type, chip->charger_volt, chip->prop_status, chip->boot_mode,
         chip->batt_exist, chip->batt_full, chip->chging_on, chip->in_rechging, chip->charging_state, chip->total_time,
         chip->temperature, chip->batt_volt, chip->batt_volt_min, chip->icharging, chip->soc, chip->ui_soc, chip->soc_load, chip->batt_rm,
         chip->vbatt_over, chip->chging_over_time, chip->vchg_status, chip->tbatt_status, chip->stop_voter, chip->notify_code,
-        chip->otg_switch, chip->mmi_chg, chip->boot_reason, chip->boot_mode, chip->chargerid_volt, chip->chargerid_volt_got);
+        chip->otg_switch, chip->mmi_chg, chip->boot_reason, chip->boot_mode, chip->chargerid_volt, chip->chargerid_volt_got,chip->otg_online);
 
 
 #ifdef CONFIG_OPPO_EMMC_LOG
@@ -5007,10 +6253,26 @@ static void oppo_chg_other_thing(struct oppo_chg_chip *chip)
 		if (oppo_vooc_get_fastchg_started() == false) {
                 chip->chg_ops->kick_wdt();
                 chip->chg_ops->dump_registers();
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+ 			if (is_project(OPPO_20671)) {
+					if(chip->is_double_charger_support){
+						chip->sub_chg_ops->kick_wdt();
+                		chip->sub_chg_ops->dump_registers();
+					}
+				}
+#endif
         }
         if (chip->charger_exist) {
                 chip->total_time += OPPO_CHG_UPDATE_INTERVAL_SEC;
         }
+#ifdef ODM_HQ_EDIT
+//wangtao@ODM_HQ.BSP.CHG, 2020/06/03, Modify for otg
+		if(chip->otg_switch == false)
+			oppo_set_otg_switch_status(false);
+		if(chip->temperature >= 440)
+			vooc_high_temp = 1;
+#endif
         oppo_chg_print_log(chip);
         oppo_chg_critical_log(chip);
 }
@@ -5087,7 +6349,16 @@ static void oppo_chg_ibatt_check_and_set(struct oppo_chg_chip *chip)
                 current_limit = chip->batt_capacity_mah * 15 / 100;
                 threshold = 50;
         } else if (chip->tbatt_status == BATTERY_STATUS__WARM_TEMP) {
-                recharge_volt = chip->limits.temp_warm_vfloat_mv - chip->limits.recharge_mv;
+				#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+				/*wangtao@ODM.HQ.BSP.CHG 2020/11/11 modify for wrarm cv vlotage*/
+				if (is_sala_a_project() == 2) {
+					recharge_volt = chip->limits.temp_warm_vfloat_mv - chip->limits.recharge_mv;
+				}else {
+					recharge_volt = chip->limits.temp_warm_vfloat_mv - 95;
+				}
+				#else
+				recharge_volt = chip->limits.temp_warm_vfloat_mv - chip->limits.recharge_mv;
+				#endif
                 current_init = chip->limits.temp_warm_fastchg_current_ma;
                 current_limit = chip->batt_capacity_mah * 25 / 100;
                 threshold = 50;
@@ -5280,7 +6551,14 @@ static void oppo_chg_qc_config(struct oppo_chg_chip *chip)
 	if (!chip->chg_ops->set_qc_config || !chip->chg_ops->get_charger_subtype)
 		return;
 	chg_err("chip->charger_type[%d], subtype[%d]\n", chip->charger_type, chip->chg_ops->get_charger_subtype());
-	if (qc_chging == false &&chip->chg_ops->get_charger_subtype() == CHARGER_SUBTYPE_QC) {
+
+	if (chip->charger_volt > 7500) {
+		qc_chging = true;
+	} else {
+		qc_chging = false;
+	}
+	
+	if (qc_chging == false &&chip->chg_ops->get_charger_subtype() == CHARGER_SUBTYPE_QC && !chip->camera_on) {
 		qc_chging = true;
 		ret = chip->chg_ops->set_qc_config();
 		if (ret >= 0) {
@@ -5305,11 +6583,48 @@ static void oppo_chg_update_work(struct work_struct *work)
         struct delayed_work *dwork = to_delayed_work(work);
         struct oppo_chg_chip *chip = container_of(dwork, struct oppo_chg_chip, update_work);
 
-        oppo_charger_detect_check(chip);
+        #if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        //Hongbin.Chen@ODM_LQ.BSP.CHG,	2020/08/19 ,Modify precharge voltage for pd/qc current little
+        static int pdqc_volt_3500 = false;
+        #endif
+
+#ifdef CONFIG_OPPO_CHARGER_MTK
+	if(chip->vbatt_num == 2){
+		if(!oppo_chg_get_otg_online())
+			oppo_charger_detect_check(chip);
+	}else{
+		oppo_charger_detect_check(chip);
+	}
+#else
+	oppo_charger_detect_check(chip);	
+#endif
 
         oppo_chg_get_battery_data(chip);
 
         if (chip->charger_exist) {
+				#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+				//wangtao@ODM_HQ.BSP.CHG, 2020/06/25, svooc disable mt6360 charge
+				if (is_sala_a_project() == 2) {
+					oppo_mt6360_disable_charging();
+					oppo_mt6360_suspend_charger();
+				}
+				#endif
+
+                #if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+                /*Hongbin.Chen@ODM_LQ.BSP.CHG,	2020/08/19 ,Modify precharge voltage for pd/qc current little start*/
+                if (is_sala_a_project() == 2) {
+                    if (pdqc_volt_3500 == false && set_prechg_tag == 1 && chip->batt_volt > 3500) {
+                        oppo_chg_suspend_charger();
+                        mp2650_set_prechg_voltage_threshold();
+                        oppo_chg_unsuspend_charger();
+                        pdqc_volt_3500 = true;
+                        chg_err("chip->batt_volt = %d, set_prechg_tag =%d, pdqc_volt_3500 =%d\n",
+					            chip->batt_volt, set_prechg_tag, pdqc_volt_3500);
+                    }
+                }
+                /*Hongbin.Chen@ODM_LQ.BSP.CHG,	2020/08/19 ,Modify precharge voltage for pd/qc current little end*/
+                #endif
+        
                 oppo_chg_aicl_check(chip);
                 oppo_chg_protection_check(chip);
                 oppo_chg_check_status_full(chip);
@@ -5317,6 +6632,16 @@ static void oppo_chg_update_work(struct work_struct *work)
                 oppo_chg_get_chargerid_voltage(chip);
                 oppo_chg_fast_switch_check(chip);
                 oppo_chg_chargerid_switch_check(chip);
+        }else {
+            #if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+            //Hongbin.Chen@ODM_LQ.BSP.CHG,	2020/08/19 ,Modify precharge voltage for pd/qc current little
+            if (is_sala_a_project() == 2) {
+                if (pdqc_volt_3500 == true) {
+                    pdqc_volt_3500 = false;
+                    chg_err("pdqc_volt_3500 =%d\n", pdqc_volt_3500);
+                }
+            }
+            #endif
         }
         oppo_chg_pd_config(chip);
         oppo_chg_qc_config(chip);
@@ -5326,7 +6651,11 @@ static void oppo_chg_update_work(struct work_struct *work)
 
         /* oppo_chg_short_c_battery_check(chip); */
         wake_up_process(chip->shortc_thread);
-
+#ifdef CONFIG_OPPO_HQ_CHARGER
+/*wangtao@ODM.HQ.BSP.CHG 2020/05/08 modify flashlight_temp*/
+		if(get_project() == 20682)
+		oppo_flashlight_temp_check(chip);
+#endif
         oppo_chg_battery_update_status(chip);
 
         oppo_chg_kpoc_power_off_check(chip);
@@ -5368,6 +6697,20 @@ void oppo_chg_disable_charge(void)
                 g_charger_chip->chg_ops->charging_disable();
         }
 }
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*baodongmei@ODM.HQ.BSP.CHG 2020/06/26 Add for sala_A PD */
+void oppo_chg_suspend_charger(void)
+{
+	if (!g_charger_chip) {
+		return;
+	}
+	if (oppo_vooc_get_allow_reading() == true) {
+		pr_err("%s: \n", __func__);
+		g_charger_chip->chg_ops->charger_suspend();
+	}
+}
+#endif
 
 void oppo_chg_unsuspend_charger(void)
 {
@@ -5515,6 +6858,15 @@ bool get_otg_switch(void)
         }
 }
 
+int get_vbatt_num(void)
+{
+	if (!g_charger_chip) {
+		return 0;
+	} else {
+		return g_charger_chip->vbatt_num;
+	}
+}
+
 bool oppo_chg_get_otg_online(void)
 {
         if (!g_charger_chip) {
@@ -5624,9 +6976,10 @@ void oppo_smart_charge_by_cool_down(struct oppo_chg_chip *chip, int val)
 	} else if (val & SMART_VOOC_CHARGER_CURRENT_BIT1) {
 		if (oppo_vooc_get_vooc_multistep_adjust_current_support() == false)
 			chip->cool_down = 1;
-		else
+		else if(is_project(19661))
 			chip->cool_down = 3;
-			//chip->cool_down = 2;
+		else
+			chip->cool_down = 2;
 	} else if (val & SMART_VOOC_CHARGER_CURRENT_BIT2) {
 		if (oppo_vooc_get_vooc_multistep_adjust_current_support() == false)
 			chip->cool_down = 1;
@@ -5649,35 +7002,59 @@ void oppo_smart_charge_by_cool_down(struct oppo_chg_chip *chip, int val)
 			   chip->cool_down = 6;
 	}
 
+	/*add for 9V2A cool_down*/
+	if (val & SMART_NORMAL_CHARGER_9V1500mA) {                                   //9V1.5A
+		chip->limits.input_current_charger_ma = OPPO_CHG_1500_CHARGING_CURRENT;
+		chip->limits.pd_input_current_charger_ma = OPPO_CHG_1500_CHARGING_CURRENT;
+		chip->limits.qc_input_current_charger_ma = OPPO_CHG_1500_CHARGING_CURRENT;
+		chip->cool_down_done = true;
+		chip->cool_down_force_5v = false;
+	}
+
+	if (val & SMART_NORMAL_CHARGER_2000MA) {                                   //5V2A
+		chip->limits.input_current_charger_ma = OPPO_CHG_2000_CHARGING_CURRENT;
+		chip->limits.pd_input_current_charger_ma = OPPO_CHG_2000_CHARGING_CURRENT;
+		chip->limits.qc_input_current_charger_ma = OPPO_CHG_2000_CHARGING_CURRENT;
+		chip->cool_down_done = true;
+		chip->cool_down_force_5v = true;
+	}
+
+	/*9V2A end */
+	
 	if (val & SMART_NORMAL_CHARGER_1500MA) {
 		chip->limits.input_current_charger_ma = OPPO_CHG_1500_CHARGING_CURRENT;
 		chip->limits.pd_input_current_charger_ma = OPPO_CHG_1500_CHARGING_CURRENT;
 		chip->limits.qc_input_current_charger_ma = OPPO_CHG_1500_CHARGING_CURRENT;
 		chip->cool_down_done = true;
+		chip->cool_down_force_5v = true;
 	}
 	if (val & SMART_NORMAL_CHARGER_1200MA) {
 		chip->limits.input_current_charger_ma = OPPO_CHG_1200_CHARGING_CURRENT;
 		chip->limits.pd_input_current_charger_ma = OPPO_CHG_1200_CHARGING_CURRENT;
 		chip->limits.qc_input_current_charger_ma = OPPO_CHG_1200_CHARGING_CURRENT;
 		chip->cool_down_done = true;
+		chip->cool_down_force_5v = true;
 	}
 	if (val & SMART_NORMAL_CHARGER_900MA) {
 		chip->limits.input_current_charger_ma = OPPO_CHG_900_CHARGING_CURRENT;
 		chip->limits.pd_input_current_charger_ma = OPPO_CHG_900_CHARGING_CURRENT;
 		chip->limits.qc_input_current_charger_ma = OPPO_CHG_900_CHARGING_CURRENT;
 		chip->cool_down_done = true;
+		chip->cool_down_force_5v = true;
 	}
 	if (val & SMART_NORMAL_CHARGER_500MA) {
 		chip->limits.input_current_charger_ma = OPPO_CHG_500_CHARGING_CURRENT;
 		chip->limits.pd_input_current_charger_ma = OPPO_CHG_500_CHARGING_CURRENT;
 		chip->limits.qc_input_current_charger_ma = OPPO_CHG_500_CHARGING_CURRENT;
 		chip->cool_down_done = true;
+		chip->cool_down_force_5v = true;
 	}
 	if (val & SMART_COMPATIBLE_VOOC_CHARGER_CURRENT_BIT0) {
 		chip->limits.input_current_vooc_ma_high = OPPO_CHG_1800_CHARGING_CURRENT;
 		chip->limits.input_current_vooc_ma_warm = OPPO_CHG_1800_CHARGING_CURRENT;
 		chip->limits.input_current_vooc_ma_normal = OPPO_CHG_1800_CHARGING_CURRENT;
 		chip->cool_down_done = true;
+		chip->cool_down_force_5v = true;
 	}
 	if (!val) {
 		chip->cool_down = 0;
@@ -5688,6 +7065,7 @@ void oppo_smart_charge_by_cool_down(struct oppo_chg_chip *chip, int val)
 		chip->limits.pd_input_current_charger_ma = chip->limits.default_pd_input_current_charger_ma;
 		chip->limits.qc_input_current_charger_ma = chip->limits.default_qc_input_current_charger_ma;
 		chip->cool_down_done = true;
+		chip->cool_down_force_5v = false;
 	}
 	charger_xlog_printk(CHG_LOG_CRTI, "val->intval = [%04x], set cool_down = [%d].\n", val, chip->cool_down);
 }
@@ -5824,3 +7202,37 @@ void oppo_chg_set_input_current_without_aicl(int current_ma)
     }
 }
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+void oppo_chg_config_charger_vsys_threshold(int val)
+{
+    if (!g_charger_chip) {
+        return ;
+    } else {
+        if(g_charger_chip->chg_ops->set_charger_vsys_threshold && oppo_vooc_get_allow_reading() == true) {
+            g_charger_chip->chg_ops->set_charger_vsys_threshold(val);
+            chg_err("set val[%d]\n", val);
+        }
+    }
+}
+
+void oppo_chg_enable_burst_mode(bool enable)
+{
+    if (!g_charger_chip) {
+        return ;
+    } else {
+        if(g_charger_chip->chg_ops->enable_burst_mode && oppo_vooc_get_allow_reading() == true) {
+            g_charger_chip->chg_ops->enable_burst_mode(enable);
+            chg_err("set val[%d]\n", enable);
+        }
+    }
+}
+#endif
+
+int oppo_get_chg_unwakelock(void)
+{
+	if (!g_charger_chip) {
+                return 0;
+	} else {
+		return g_charger_chip->unwakelock_chg;
+	}
+}

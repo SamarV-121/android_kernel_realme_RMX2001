@@ -58,6 +58,8 @@
 #include <soc/oppo/device_info.h>
 #endif
 #include "oppo_vooc_fw.h"
+#include <soc/oppo/oppo_project.h>
+extern unsigned int is_project(OPPO_PROJECT project );
 
 #ifdef CONFIG_OPPO_CHARGER_MTK
 #define I2C_MASK_FLAG	(0x00ff)
@@ -71,7 +73,13 @@
 #define BYTES_TO_WRITE                               16
 #define FW_CHECK_FAIL                                0
 #define FW_CHECK_SUCCESS                             1
-static struct oppo_vooc_chip *the_chip = NULL;
+//static struct oppo_vooc_chip *the_chip = NULL;
+struct oppo_n76e_device {
+	struct i2c_client *client;
+	struct device *dev;
+};
+
+static struct oppo_n76e_device *n76e_chip = NULL;
 
 #ifdef CONFIG_OPPO_CHARGER_MTK
 #define GTP_SUPPORT_I2C_DMA   			0
@@ -206,6 +214,8 @@ static bool n76e_fw_check_frontline(struct oppo_vooc_chip *chip)
 	int fw_line = 0;
 	int total_line = 0;
 
+	chip->client = n76e_chip->client;
+
 	if (!chip->firmware_data) {
 		chg_err("n76e_fw_data Null, Return\n");
 		return FW_CHECK_FAIL;
@@ -250,6 +260,8 @@ static bool n76e_fw_check_lastline(struct oppo_vooc_chip *chip)
 	int rc = 0;
 	int total_line = 0;
 
+	chip->client = n76e_chip->client;
+
 	if (!chip->firmware_data) {
 		chg_err("n76e_fw_data Null, Return\n");
 		return FW_CHECK_FAIL;
@@ -292,6 +304,8 @@ static int n76e_fw_write(struct oppo_vooc_chip *chip, const unsigned char *data_
 	unsigned char temp_buf[1] = {0};
 	unsigned char addr_buf[2] = {0x00, 0x00};
 	int rc = 0;
+
+	chip->client = n76e_chip->client;
 
 	if (!chip->firmware_data) {
 		chg_err("n76e_fw_data Null, Return\n");
@@ -339,6 +353,8 @@ static int n76e_fw_update(struct oppo_vooc_chip *chip)
 	int rc = 0;
 	unsigned int addr = 0x0000;
 	int download_again = 0;
+
+	chip->client = n76e_chip->client;
 
 	if (!chip->firmware_data) {
 		chg_err("n76e_fw_data Null, Return\n");
@@ -423,6 +439,8 @@ static int n76e_get_fw_verion_from_ic(struct oppo_vooc_chip *chip)
 	int rc = 0;
 	int update_result = 0;
 
+	chip->client = n76e_chip->client;
+
 //	if (!chip->firmware_data) {
 //		chg_err("Stm8s_fw_data Null, Return\n");
 //		return FW_CHECK_FAIL;
@@ -469,6 +487,7 @@ static void n76e_fw_check_then_recover(struct oppo_vooc_chip *chip)
 {
         int update_result = 0;
 
+	chip->client = n76e_chip->client;
         if (!chip->firmware_data) {
                 chg_err("n76e_fw_data Null, Return\n");
                 return;
@@ -501,9 +520,62 @@ static void n76e_fw_check_then_recover(struct oppo_vooc_chip *chip)
         }
 }
 
+static bool n76e_mcu_is_online(struct oppo_vooc_chip *chip)
+{
+        unsigned char value = 0;
+        int rc = 0;
+        bool is_online = true;
+
+	chip->client = n76e_chip->client;
+
+        rc = oppo_vooc_i2c_read(chip->client, 0x01, 1, &value);
+        if (rc < 0) {
+                chg_err("n76e read register 0x01 fail, rc = %d\n", rc);
+                is_online = false;
+        } else {
+		if (value == 0x0) {
+			is_online = true;
+        		chg_err("n76e detected, register 0x01: 0x%x\n", value);
+		}
+	}
+
+        return is_online;
+}
+
+int n76e_get_firmware(struct oppo_vooc_chip *chip)
+{
+	if (!chip)
+		return -1;
+
+	if (chip->batt_type_4400mv) {
+		chip->firmware_data = n76e_fw_data_4400;
+		chip->fw_data_count = sizeof(n76e_fw_data_4400);
+		chip->fw_data_version = n76e_fw_data_4400[chip->fw_data_count - 4];
+	} else {
+		chip->firmware_data = n76e_fw_data_4400;
+		chip->fw_data_count = sizeof(n76e_fw_data_4400);
+		chip->fw_data_version = n76e_fw_data_4400[chip->fw_data_count - 4];
+	}
+
+	if (chip->vooc_fw_type == VOOC_FW_TYPE_N76E_4400_AVOID_OVER_TEMP_NTC61C) {
+		chip->firmware_data = n76e_fw_data_4400_ntc61c;
+		chip->fw_data_count = sizeof(n76e_fw_data_4400_ntc61c);
+		chip->fw_data_version = n76e_fw_data_4400_ntc61c[chip->fw_data_count - 4];
+	} else if (chip->vooc_fw_type == VOOC_FW_TYPE_N76E_4400_VOOC_FFC_15C) {
+		chip->firmware_data = n76e_fw_data_4400_vooc_ffc_15c;
+		chip->fw_data_count = sizeof(n76e_fw_data_4400_vooc_ffc_15c);
+		chip->fw_data_version = n76e_fw_data_4400_vooc_ffc_15c[chip->fw_data_count - 4];
+	} else if (chip->vooc_fw_type == VOOC_FW_TYPE_N76E_4400_VOOC_FFC_15C_FV4450) {
+		chip->firmware_data = n76e_fw_data_4400_vooc_ffc_15c_fv4450;
+		chip->fw_data_count = sizeof(n76e_fw_data_4400_vooc_ffc_15c_fv4450);
+		chip->fw_data_version = n76e_fw_data_4400_vooc_ffc_15c_fv4450[chip->fw_data_count - 4];
+	}
+
+	return 0;
+}
 struct oppo_vooc_operations oppo_n76e_ops = {
                 .fw_update = n76e_fw_update,
-                .fw_check_then_recover = n76e_fw_check_then_recover,
+                .fw_check_then_recover = (int (*)(struct oppo_vooc_chip *chip))n76e_fw_check_then_recover,
                 .set_switch_mode = opchg_set_switch_mode,
                 .eint_regist = oppo_vooc_eint_register,
                 .eint_unregist = oppo_vooc_eint_unregister,
@@ -514,6 +586,7 @@ struct oppo_vooc_operations oppo_n76e_ops = {
                 .get_gpio_ap_data = opchg_get_gpio_ap_data,
                 .read_ap_data = opchg_read_ap_data,
                 .reply_mcu_data = opchg_reply_mcu_data,
+		.reply_mcu_data_4bits = opchg_reply_mcu_data_4bits,
                 .reset_fastchg_after_usbout = reset_fastchg_after_usbout,
                 .switch_fast_chg = switch_fast_chg,
                 .reset_mcu = opchg_set_reset_active,
@@ -524,6 +597,8 @@ struct oppo_vooc_operations oppo_n76e_ops = {
 				.get_fw_version		= n76e_get_fw_verion_from_ic,
 				.get_clk_gpio_num = opchg_get_clk_gpio_num,
 				.get_data_gpio_num = opchg_get_data_gpio_num,
+		.get_firmware = n76e_get_firmware,
+		.get_mcu_online = n76e_mcu_is_online,
 };
 
 static void register_vooc_devinfo(void)
@@ -543,6 +618,7 @@ static void register_vooc_devinfo(void)
 
 static void n76e_shutdown(struct i2c_client *client)
 {
+#if 0
         if (!the_chip) {
                 return;
         }
@@ -555,8 +631,10 @@ static void n76e_shutdown(struct i2c_client *client)
         }
         msleep(80);
         return;
+#endif
 }
 
+#if 0
 static ssize_t vooc_fw_check_read(struct file *filp, char __user *buff, size_t count, loff_t *off)
 {
         char page[256] = {0};
@@ -597,9 +675,10 @@ static int init_proc_vooc_fw_check(void)
         return 0;
 }
 
+#endif
 static int n76e_driver_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
-        struct oppo_vooc_chip *chip;
+	struct oppo_n76e_device *chip;
 
         chip = devm_kzalloc(&client->dev, sizeof(*chip), GFP_KERNEL);
         if (!chip) {
@@ -623,6 +702,7 @@ static int n76e_driver_probe(struct i2c_client *client, const struct i2c_device_
         memset(gpDMABuf_va, 0, GTP_DMA_MAX_TRANSACTION_LENGTH);
 #endif
 #endif
+#if 0
         if(get_vooc_mcu_type(chip) != OPPO_VOOC_MCU_HWID_N76E){
                 chg_err("It is not n76e\n");
                 return -ENOMEM;
@@ -673,11 +753,12 @@ static int n76e_driver_probe(struct i2c_client *client, const struct i2c_device_
 		}
 
         oppo_vooc_init(chip);
+#endif
         register_vooc_devinfo();
-        init_proc_vooc_fw_check();
-        the_chip = chip;
-        chg_debug("n76e success\n");
-        return 0;
+	//init_proc_vooc_fw_check();
+	n76e_chip = chip;
+	chg_debug("n76e success\n");
+	return 0;
 }
 
 /**********************************************************
@@ -712,12 +793,22 @@ static int __init n76e_subsys_init(void)
         int ret = 0;
         chg_debug(" init start\n");
         init_hw_version();
-		
+		#ifdef ODM_HQ_EDIT
+		/* wangtao@ODM.HQ.BSP.System, for charge,20200306 begin */
+		if(is_project(19661) || is_project(20682)) {
+			if (i2c_add_driver(&n76e_i2c_driver) != 0) {
+                chg_err(" failed to register n76e i2c driver.\n");
+			} else {
+					chg_debug(" Success to register n76e i2c driver.\n");
+				}
+			}
+		#else
         if (i2c_add_driver(&n76e_i2c_driver) != 0) {
                 chg_err(" failed to register n76e i2c driver.\n");
         } else {
                 chg_debug(" Success to register n76e i2c driver.\n");
         }
+		#endif
         return ret;
 }
 /*

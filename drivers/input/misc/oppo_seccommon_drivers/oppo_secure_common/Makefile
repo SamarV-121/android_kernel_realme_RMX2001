@@ -25,6 +25,11 @@ DEFS_PLATFORM = -DCONFIG_OPPO_BSP_SECCOM_PLATFORM=6771
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/masp/asfv2/asf_inc
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/masp/asfv2/asf_export_inc
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/masp/asfv2/module
+else ifeq ($(shell echo $(TARGET_PRODUCT) | sed -e 's/_1.*//g'),full_oppo6762)
+DEFS_PLATFORM = -DCONFIG_OPPO_BSP_SECCOM_PLATFORM=6762
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/masp/asfv2/asf_inc
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/masp/asfv2/asf_export_inc
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/masp/asfv2/module
 else ifeq ($(shell echo $(TARGET_PRODUCT) | sed -e 's/_1.*//g'),full_oppo6779)
 DEFS_PLATFORM = -DCONFIG_OPPO_BSP_SECCOM_PLATFORM=6779
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/masp/asfv2/asf_inc
@@ -52,6 +57,14 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/masp/asfv2/asf_export_inc
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/masp/asfv2/module
 else
 DEFS_PLATFORM = -DCONFIG_OPPO_BSP_SECCOM_PLATFORM=0
+endif
+
+$(warning CONFIG_MTK_PLATFORM = $(CONFIG_MTK_PLATFORM))
+ifeq ($(strip $(CONFIG_MTK_PLATFORM)),"mt6771")
+DEFS_PLATFORM = -DCONFIG_OPPO_BSP_SECCOM_PLATFORM=6771
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/masp/asfv2/asf_inc
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/masp/asfv2/asf_export_inc
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/masp/asfv2/module
 endif
 
 ifneq ($(TARGET_PRODUCT),qssi)

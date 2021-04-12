@@ -52,6 +52,11 @@
 /*Guoqiang.jiang@PSW.MM.Display.LCD.Stability, 2018/05/11, add for mipi clk change*/
 #include <soc/oppo/oppo_project.h>
 #endif /* VENDOR_EDIT */
+
+#ifdef CONFIG_SET_LCD_BIAS_ODM_HQ
+#include "../../../lcd_bias/lcd_bias.h"
+#endif //CONFIG_SET_LCD_BIAS_ODM_HQ
+
 /*****************************************************************************/
 enum {
 	PAD_D2P_V = 0,
@@ -3433,7 +3438,7 @@ int DSI_Send_ROI(enum DISP_MODULE_ENUM module, void *handle, unsigned int x,
 
 static void lcm_set_reset_pin(UINT32 value)
 {
-#if 1
+#ifndef ODM_HQ_EDIT
 	DSI_OUTREG32(NULL, DISP_REG_CONFIG_MMSYS_LCM_RST_B, value);
 #else
 #if !defined(CONFIG_MTK_LEGACY)
@@ -3601,6 +3606,13 @@ unsigned int DSI_dcs_read_lcm_reg_v2_wrapper_DSIDUAL(UINT8 cmd, UINT8 *buffer,
 	return DSI_dcs_read_lcm_reg_v2(DISP_MODULE_DSIDUAL, NULL, cmd, buffer,
 				       buffer_size);
 }
+
+#ifdef CONFIG_SET_LCD_BIAS_ODM_HQ
+static void lcm_set_lcd_bias_en(unsigned int en, unsigned int seq, unsigned int value)
+{
+	lcd_bias_set_vspn(en, seq, value);
+}
+#endif //CONFIG_SET_LCD_BIAS_ODM_HQ
 
 //#ifndef VENDOR_EDIT
 /* LiPing-m@PSW.MM.Display.LCD.Machine, 2018/04/23, Add for porting 17331 lcd driver */
@@ -3821,6 +3833,13 @@ int ddp_dsi_set_lcm_utils(enum DISP_MODULE_ENUM module, struct LCM_DRIVER *lcm_d
 	utils->set_gpio_pull_enable = (int (*)(unsigned int, unsigned char))
 							mt_set_gpio_pull_enable;
 #else
+
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+#ifdef CONFIG_SET_LCD_BIAS_ODM_HQ
+	utils->set_lcd_bias_en = lcm_set_lcd_bias_en;
+#endif //CONFIG_SET_LCD_BIAS_ODM_HQ
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, end. */
+
 	utils->set_gpio_lcd_enp_bias = lcd_enp_bias_setting;
 #endif
 #endif

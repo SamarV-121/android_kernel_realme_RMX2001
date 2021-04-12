@@ -437,6 +437,14 @@ int do_primary_display_switch_mode(int sess_mode, unsigned int session,
 int primary_display_check_test(void);
 void _primary_path_switch_dst_lock(void);
 void _primary_path_switch_dst_unlock(void);
+#ifdef ODM_HQ_EDIT
+/*
+* Yongpeng.Yi@PSW.MM.Display.LCD.Machine, 2018/02/27,
+* add for face fill light node
+*/
+void ffl_set_init(void);
+void ffl_set_enable(unsigned int enable);
+#endif /* ODM_HQ_EDIT */
 
 /* AOD */
 enum lcm_power_state primary_display_set_power_state(

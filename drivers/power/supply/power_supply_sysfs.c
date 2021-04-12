@@ -204,6 +204,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(notify_code),
 	POWER_SUPPLY_ATTR(cool_down),              //zhangchao@ODM.HQ.Charger 2019/12/04 modified for limit charging current in vooc when calling
 	POWER_SUPPLY_ATTR(charger_ic),
+	POWER_SUPPLY_ATTR(hmac),
 	#endif /* VENDOR_EDIT */
 
 	POWER_SUPPLY_ATTR(status),
@@ -326,6 +327,7 @@ static struct device_attribute power_supply_attrs[] = {
 	/* Qiao.Hu@BSP.BaseDrv.CHG.Basic, 2017/12/09, Add for ship mode */
 	POWER_SUPPLY_ATTR(ship_mode),
 	#endif /* CONFIG_OPPO_SHIP_MODE_SUPPORT */
+	POWER_SUPPLY_ATTR(flashlight_temp),
 	/* Properties of type `const char *' */
 	#ifdef VENDOR_EDIT
 	//tongfeng.huang@PSW.BSP.CHG, 2018/02/05, Add for battery info collect
@@ -369,6 +371,7 @@ static struct device_attribute power_supply_attrs[] = {
 /* zhangchao@ODM.HQ.Charger 2019/09/4 modified for bring up charging */
 	POWER_SUPPLY_ATTR(typec_sbu_voltage),
 	POWER_SUPPLY_ATTR(water_detect_feature),
+	POWER_SUPPLY_ATTR(fast_chg_type),
 #endif /*ODM_HQ_EDIT*/
 
 	POWER_SUPPLY_ATTR(model_name),

@@ -27,6 +27,8 @@ typedef enum{
 	IMGSENSOR_MODE_CUSTOM1,
 	IMGSENSOR_MODE_CUSTOM2,
 	IMGSENSOR_MODE_CUSTOM3,
+	IMGSENSOR_MODE_CUSTOM4,
+	IMGSENSOR_MODE_CUSTOM5,
 } IMGSENSOR_MODE;
 
 typedef struct imgsensor_mode_struct {
@@ -100,6 +102,8 @@ typedef struct imgsensor_info_struct {
 	imgsensor_mode_struct custom1;
 	imgsensor_mode_struct custom2;
 	imgsensor_mode_struct custom3;
+	imgsensor_mode_struct custom4;
+	imgsensor_mode_struct custom5;
 
 	kal_uint8  ae_shut_delay_frame;	//shutter delay frame for AE cycle
 	kal_uint8  ae_sensor_gain_delay_frame;	//sensor gain delay frame for AE cycle
@@ -116,6 +120,8 @@ typedef struct imgsensor_info_struct {
 	kal_uint8  custom1_delay_frame;
 	kal_uint8  custom2_delay_frame;
 	kal_uint8  custom3_delay_frame;
+	kal_uint8  custom4_delay_frame;
+	kal_uint8  custom5_delay_frame;
 	kal_uint8  frame_time_delay_frame;
 
 	kal_uint8  margin;				//sensor framelength & shutter margin

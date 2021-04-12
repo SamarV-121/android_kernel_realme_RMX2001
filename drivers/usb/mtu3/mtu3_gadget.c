@@ -19,6 +19,7 @@
 #include "mtu3.h"
 #include "mtu3_dr.h"
 #include <linux/usb/composite.h>
+#include <mt-plat/mtk_boot_common.h>
 
 void mtu3_req_complete(struct mtu3_ep *mep,
 		     struct usb_request *req, int status)
@@ -597,6 +598,9 @@ static int mtu3_gadget_pullup(struct usb_gadget *gadget, int is_on)
 	if (is_usb_rdy() == false && is_on)
 		set_usb_rdy();
 
+	if(get_boot_mode() == META_BOOT)
+	spin_unlock_irqrestore(&mtu->lock, flags);
+
 	/* Trigger connection when force on*/
 	if (mtu3_cable_mode == CABLE_MODE_FORCEON) {
 		dev_info(mtu->dev, "%s CABLE_MODE_FORCEON\n", __func__);
@@ -604,6 +608,7 @@ static int mtu3_gadget_pullup(struct usb_gadget *gadget, int is_on)
 			MTU3_VBUS_VALID);
 	}
 
+	if(get_boot_mode() != META_BOOT)
 	spin_unlock_irqrestore(&mtu->lock, flags);
 
 	return 0;

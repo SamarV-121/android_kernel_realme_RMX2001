@@ -291,6 +291,12 @@ static int mt6370_fled_set_mode(struct rt_fled_dev *info,
 	int ret = 0;
 	u8 val, mask;
 
+	#ifdef ODM_HQ_EDIT
+	/*Jun.Wei@RM.BSP.CHG.Basic, 2018/12/11, exit Hz mode for flash light*/
+	mt6370_pmu_reg_clr_bit(fi->chip, MT6370_PMU_REG_CHGCTRL1, 0x04);
+	printk("[%s]exit Hz mode for setting flash light\n", __func__);
+	#endif
+
 	mutex_lock(&fled_lock);
 	switch (mode) {
 	case FLASHLIGHT_MODE_TORCH:

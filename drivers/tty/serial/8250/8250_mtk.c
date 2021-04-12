@@ -30,6 +30,14 @@
 #include <linux/tty_flip.h>
 #include <linux/delay.h>
 
+#if defined(ODM_HQ_EDIT) && (defined(TARGET_WATERMELON_Q_PROJECT)||defined(CONFIG_MACH_MT6785))
+/*mapenglong@ODM.HQ.BSP.CHG, 2020/05/07 disable uart for user*/
+#include <asm/setup.h>
+#include <linux/pinctrl/devinfo.h>
+#include <linux/pinctrl/consumer.h>
+#include <mt-plat/mtk_boot_common.h>
+#endif
+#include <mt-plat/mtk_boot.h>
 #include "8250.h"
 
 #define MTK_UART_HIGHS		0x09	/* Highspeed register */
@@ -140,6 +148,14 @@ enum {
 	MTK_UART_FC_SW,/*MTK SW Flow Control, differs from Linux Flow Control */
 	MTK_UART_FC_HW,		/*HW Flow Control */
 };
+
+#if defined(ODM_HQ_EDIT) && (defined(TARGET_WATERMELON_Q_PROJECT)||defined(CONFIG_MACH_MT6785))
+/*mapenglong@ODM.HQ.BSP.CHG, 2020/05/07 disable uart for user*/
+static struct pinctrl * pinctrl;
+static struct pinctrl_state * pinctrl_rx_low;
+static struct pinctrl_state * pinctrl_tx_low;
+extern int printk_force_uart;
+#endif
 
 #ifdef CONFIG_SERIAL_8250_DMA
 static void mtk8250_rx_dma(struct uart_8250_port *up);
@@ -574,6 +590,35 @@ static int mtk8250_probe_of(struct platform_device *pdev, struct uart_port *p,
 }
 #endif
 
+#if defined(ODM_HQ_EDIT) && (defined(TARGET_WATERMELON_Q_PROJECT)||defined(CONFIG_MACH_MT6785))
+/*mapenglong@ODM.HQ.BSP.CHG, 2020/05/07 disable uart for user*/
+static int disable_uart(struct device *dev){
+	pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(pinctrl)){
+		pr_err("uart---pinctrl fail\n");
+		return -1;
+	}
+	pinctrl_rx_low = pinctrl_lookup_state(pinctrl,"state_uart0_rx_output0");
+	if (IS_ERR(pinctrl_rx_low)){
+		pr_err("uart---pinctrl_rx_init fail\n");
+		return -1;
+	}
+	pinctrl_tx_low = pinctrl_lookup_state(pinctrl,"state_uart0_tx_output0");
+	if (IS_ERR(pinctrl_tx_low)){
+		pr_err("uart---pinctrl_tx_init fail\n");
+		return -1;
+	}
+
+#ifdef OPPO_TARGET_BUILD_USER
+	if(!printk_force_uart){
+		pinctrl_select_state(pinctrl,pinctrl_rx_low);
+		pinctrl_select_state(pinctrl,pinctrl_tx_low);
+	}
+#endif
+	return 0;
+}
+#endif
+
 static int mtk8250_probe(struct platform_device *pdev)
 {
 	struct uart_8250_port uart = {};
@@ -581,6 +626,19 @@ static int mtk8250_probe(struct platform_device *pdev)
 	struct resource *irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	struct mtk8250_data *data;
 	int err;
+#ifdef ODM_HQ_EDIT
+/*wangtao@ODM.HQ.BSP.CHG, 2020/05/028 open uart for user in ftm*/
+	int boot_mode = get_boot_mode();
+#endif
+#if defined(ODM_HQ_EDIT) && (defined(TARGET_WATERMELON_Q_PROJECT)||defined(CONFIG_MACH_MT6785))
+/*mapenglong@ODM.HQ.BSP.CHG, 2020/05/07 disable uart for user*/
+	if (boot_mode != FACTORY_BOOT){
+		if(disable_uart(&pdev->dev)){
+			pr_err("uart---disable uart fail\n");
+			return -EINVAL;
+		}
+	}
+#endif
 
 	if (!regs || !irq) {
 		dev_err(&pdev->dev, "no registers/irq defined\n");

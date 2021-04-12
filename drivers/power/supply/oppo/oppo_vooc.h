@@ -30,11 +30,19 @@
 
 #define OPPO_VOOC_MCU_HWID_STM8S	0
 #define OPPO_VOOC_MCU_HWID_N76E		1
+#define OPPO_VOOC_ASIC_HWID_RK826	2
+#define OPPO_VOOC_ASIC_HWID_OP10	3
 
 enum {
         VOOC_CHARGER_MODE,
         HEADPHONE_MODE,
         NORMAL_CHARGER_MODE,
+};
+
+enum {
+	FW_ERROR_DATA_MODE,
+	FW_NO_CHECK_MODE,
+	FW_CHECK_MODE,
 };
 
 enum {
@@ -63,10 +71,25 @@ enum {
 	BAT_TEMP_LOW0,
 	BAT_TEMP_LOW1,
 	BAT_TEMP_LOW2,
+/*hongzhenglong@ODM.HQ.BSP.CHG, 2020/07/07, add a new temperature judgement for sala*/
+	BAT_TEMP_LOW3,
+/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc--begin*/
+	BAT_TEMP_LITTLE_COOL,
+	BAT_TEMP_LITTLE_COOL_LOW,
+	BAT_TEMP_COOL,
+	BAT_TEMP_EXIT,
 };
 
+enum {
+	FASTCHG_TEMP_RANGE_INIT = 0,
+	FASTCHG_TEMP_RANGE_NORMAL,
+	FASTCHG_TEMP_RANGE_LITTLE_COOL,
+	FASTCHG_TEMP_RANGE_COOL,
+};
+/*Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc--end*/
 struct vooc_gpio_control {
         int                         switch1_gpio;
+	int switch1_ctr1_gpio;
         int                         switch2_gpio;
         int                         switch3_gpio;
         int                         reset_gpio;
@@ -80,6 +103,8 @@ struct vooc_gpio_control {
         struct pinctrl_state        *gpio_switch1_sleep_switch2_sleep;
         struct pinctrl_state        *gpio_switch1_act_switch2_sleep;
         struct pinctrl_state        *gpio_switch1_sleep_switch2_act;
+	struct pinctrl_state *gpio_switch1_ctr1_act;
+	struct pinctrl_state *gpio_switch1_ctr1_sleep;
 
         struct pinctrl_state        *gpio_clock_active;
         struct pinctrl_state        *gpio_clock_sleep;
@@ -99,6 +124,7 @@ struct oppo_vooc_chip {
         struct delayed_work              fastchg_work;
         struct delayed_work              delay_reset_mcu_work;
         struct delayed_work              check_charger_out_work;
+	struct delayed_work oppo_vooc_init_work;
         struct work_struct              vooc_watchdog_work;
         struct timer_list                watchdog;
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0))
@@ -141,16 +167,23 @@ struct oppo_vooc_chip {
         bool 	vooc_fw_update_newmethod;
         char 	*fw_path;
         struct mutex pinctrl_mutex;
-        int					vooc_low_temp;
-        int					vooc_high_temp;
-        int					vooc_low_soc;
-        int					vooc_high_soc;
-        int                 fast_chg_type;
-		
-        bool                disable_adapter_output; // 0--vooc adapter output normal,  1--disable vooc adapter output
-        int                 set_vooc_current_limit;///0--no limit;  1--max current limit 2A
+//Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc
+	int vooc_temp_cur_range;
+	int vooc_little_cool_temp;
+	int vooc_cool_temp;
+	int vooc_little_cool_to_normal_temp;
+	int vooc_normal_to_little_cool_current;
+	int vooc_low_temp;
+	int vooc_high_temp;
+	int vooc_low_soc;
+	int vooc_high_soc;
+	int fast_chg_type;
+	bool disable_adapter_output;// 0--vooc adapter output normal,  1--disable vooc adapter output
+	int set_vooc_current_limit;///0--no limit;  1--max current limit 2A
 	bool vooc_multistep_adjust_current_support;
 	int vooc_multistep_initial_batt_temp;
+	int vooc_strategy_cool_current;
+	int vooc_strategy_little_cool_current;
 	int vooc_strategy_normal_current;
 	int vooc_strategy1_batt_high_temp0;
 	int vooc_strategy1_batt_high_temp1;
@@ -158,6 +191,8 @@ struct oppo_vooc_chip {
 	int vooc_strategy1_batt_low_temp2;
 	int vooc_strategy1_batt_low_temp1;
 	int vooc_strategy1_batt_low_temp0;
+//hongzhenglong@ODM.HQ.BSP.CHG, 2020/07/07, modified for vooc
+	int vooc_strategy1_batt_low_temp3;
 	int vooc_strategy1_high_current0;
 	int vooc_strategy1_high_current1;
 	int vooc_strategy1_high_current2;
@@ -175,13 +210,18 @@ struct oppo_vooc_chip {
 	int vooc_strategy2_high2_current;
 	int vooc_strategy2_high3_current;
 	int fastchg_batt_temp_status;
+//Lisa@ODM.HQ.BSP.CHG, 2020/06/22, modified for svooc
+	int vooc_batt_over_high_temp;
+	int vooc_batt_over_low_temp;
+	int vooc_over_high_or_low_current;
+	int vooc_strategy_change_count;
 };
 #define MAX_FW_NAME_LENGTH        60
 #define MAX_DEVICE_VERSION_LENGTH 16
 #define MAX_DEVICE_MANU_LENGTH    60
 struct oppo_vooc_operations {
         int (*fw_update)(struct oppo_vooc_chip *chip);
-        void (*fw_check_then_recover)(struct oppo_vooc_chip *chip);
+        int (*fw_check_then_recover)(struct oppo_vooc_chip *chip);
         void (*eint_regist)(struct oppo_vooc_chip *chip);
         void (*eint_unregist)(struct oppo_vooc_chip *chip);
         void (*set_data_active)(struct oppo_vooc_chip *chip);
@@ -197,6 +237,8 @@ struct oppo_vooc_operations {
         void (*reset_fastchg_after_usbout)(struct oppo_vooc_chip *chip);
         void (*switch_fast_chg)(struct oppo_vooc_chip *chip);
         void (*reset_mcu)(struct oppo_vooc_chip *chip);
+	void (*set_mcu_sleep)(struct oppo_vooc_chip *chip);
+	void (*set_vooc_chargerid_switch_val)(struct oppo_vooc_chip *chip, int value);
         bool (*is_power_off_charging)(struct oppo_vooc_chip *chip);
         int (*get_reset_gpio_val)(struct oppo_vooc_chip *chip);
         int (*get_switch_gpio_val)(struct oppo_vooc_chip *chip);
@@ -204,6 +246,8 @@ struct oppo_vooc_operations {
 		int (*get_fw_version)(struct oppo_vooc_chip *chip);
 		int (*get_clk_gpio_num)(struct oppo_vooc_chip *chip);
 		int (*get_data_gpio_num)(struct oppo_vooc_chip *chip);
+	int (*get_firmware)(struct oppo_vooc_chip *chip);
+	bool (*get_mcu_online)(struct oppo_vooc_chip *chip);
 };
 
 void oppo_vooc_init(struct oppo_vooc_chip *chip);
@@ -234,6 +278,8 @@ bool oppo_vooc_get_btb_temp_over(void);
 void oppo_vooc_reset_fastchg_after_usbout(void);
 void oppo_vooc_switch_fast_chg(void);
 void oppo_vooc_reset_mcu(void);
+void oppo_vooc_set_mcu_sleep(void);
+void oppo_vooc_set_vooc_chargerid_switch_val(int value);
 void oppo_vooc_set_ap_clk_high(void);
 int oppo_vooc_get_vooc_switch_val(void);
 bool oppo_vooc_check_chip_is_null(void);
@@ -248,6 +294,6 @@ void oppo_vooc_set_adapter_update_report_status(int report);
 int oppo_vooc_get_fast_chg_type(void);
 void oppo_vooc_set_disable_adapter_output(bool disable);
 void oppo_vooc_set_vooc_max_current_limit(int current_level);
-
+bool get_rk826_update_status(void);
 extern int get_vooc_mcu_type(struct oppo_vooc_chip *chip);
 #endif /* _OPPO_VOOC_H */

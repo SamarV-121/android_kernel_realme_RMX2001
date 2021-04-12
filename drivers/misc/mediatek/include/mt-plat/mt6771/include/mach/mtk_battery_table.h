@@ -136,9 +136,9 @@ int g_FG_PSEUDO1_OFFSET[TOTAL_BATTERY_NUMBER] = {0, 0, 0, 0};
 /* pmic_min_vol by temp ,control by MULTI_TEMP_GAUGE0=1, 34000=3.4v */
 int g_PMIC_MIN_VOL[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	/*bat1,   bat2,   bat3,    bat4*/
-	{33500, 33500, 33500, 33500},/*T0*/
-	{33500, 33500, 33500, 33500},/*T1*/
-	{33500, 33500, 33500, 33500},/*T2*/
+	{34000, 34000, 34000, 34000},/*T0*/
+	{34000, 34000, 34000, 34000},/*T1*/
+	{34000, 34000, 34000, 34000},/*T2*/
 	{32200, 32200, 32200, 32200},/*T3*/
 	{31000, 31000, 31000, 31000},/*T4*/
 	{33001, 33006, 33009, 33004},/*T5*/
@@ -166,10 +166,10 @@ int g_PON_SYS_IBOOT[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 /* Q_MAX_SYS_VOLTAGE by temp ,control by MULTI_TEMP_GAUGE0=1, */
 int g_QMAX_SYS_VOL[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	/*bat1,   bat2,   bat3,    bat4*/
-	{33500, 33500, 33500, 33500},/*T0*/
-	{33500, 33500, 33500, 33500},/*T1*/
-	{33500, 33500, 33500, 33500},/*T2*/
-	{32900, 32900, 32900, 32900},/*T3*/
+	{34000, 34000, 34000, 34000},/*T0*/
+	{34000, 34000, 34000, 34000},/*T1*/
+	{34000, 34000, 34000, 34000},/*T2*/
+	{33400, 33400, 33400, 33400},/*T3*/
 	{32800, 32800, 32800, 32800},/*T4*/
 	{33500, 33500, 33500, 33500},/*T5*/
 	{33500, 33500, 33500, 33500},/*T6*/
@@ -200,7 +200,7 @@ int g_temperature[MAX_TABLE] = {
 #define BAT_NTC_47 0
 
 #if (BAT_NTC_10 == 1)
-#ifndef VENDOR_EDIT
+#if !defined(VENDOR_EDIT) || defined(TARGET_WATERMELON_Q_PROJECT)
 /* Yichun.Chen  PSW.BSP.CHG  2019-03-04  for NTC pull up R */
 #define RBAT_PULL_UP_R             24000
 #else
@@ -239,12 +239,12 @@ struct FUELGAUGE_TEMPERATURE Fg_Temperature_Table[27] = {
 		{50, 4161},
 		{55, 3535},
 		{60, 3014},
-		{65, 2586},
-		{70, 2228},
-		{75, 1925},
-		{80, 1669},
-		{85, 1452},
-		{90, 1268}
+		{65, 2559},
+		{70, 2144},
+		{75, 1912},
+		{80, 1662},
+		{85, 1451},
+		{90, 1272},
 };
 #endif
 

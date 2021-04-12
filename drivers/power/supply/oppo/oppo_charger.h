@@ -83,13 +83,23 @@
 #define OPCHG_PWROFF_HIGH_BATT_TEMP		770
 #define OPCHG_PWROFF_EMERGENCY_BATT_TEMP	850
 
+#ifdef CONFIG_MACH_MT6768
+//wangtao@ODM_HQ.BSP.CHG, 2020/03/18, Modify for subcharger
+#define OPCHG_INPUT_CURRENT_LIMIT_CHARGER_MA	3600
+#else
 #define OPCHG_INPUT_CURRENT_LIMIT_CHARGER_MA	2000
+#endif
 #define OPCHG_INPUT_CURRENT_LIMIT_USB_MA	500
 #define OPCHG_INPUT_CURRENT_LIMIT_CDP_MA	1500
 #define OPCHG_INPUT_CURRENT_LIMIT_LED_MA	1200
 #define OPCHG_INPUT_CURRENT_LIMIT_CAMERA_MA	1000
 #define OPCHG_INPUT_CURRENT_LIMIT_CALLING_MA	1200
+#ifdef CONFIG_OPPO_HQ_EULER_CHARGER
+//Junbo.Guo@ODM_WT.BSP.CHG, 2019/11/11, Modify for QC
+#define OPCHG_FAST_CHG_MAX_MA			3600
+#else
 #define OPCHG_FAST_CHG_MAX_MA			2000
+#endif
 
 #define FEATURE_PRINT_CHGR_LOG
 #define FEATURE_PRINT_BAT_LOG
@@ -118,12 +128,14 @@
 #define NOTIFY_SHORT_C_BAT_DYNAMIC_ERR_CODE4	18
 #define NOTIFY_SHORT_C_BAT_DYNAMIC_ERR_CODE5	19
 #define	NOTIFY_CHARGER_TERMINAL			20
+#define	NOTIFY_FLASHLIGHT_OVER_TEMP			21
 
 #define OPPO_CHG_500_CHARGING_CURRENT	500
 #define OPPO_CHG_900_CHARGING_CURRENT	900
 #define OPPO_CHG_1200_CHARGING_CURRENT	1200
 #define OPPO_CHG_1500_CHARGING_CURRENT	1500
 #define OPPO_CHG_1800_CHARGING_CURRENT	1800
+#define OPPO_CHG_2000_CHARGING_CURRENT	2000
 
 #define SMART_VOOC_CHARGER_CURRENT_BIT0 	0X01
 #define SMART_VOOC_CHARGER_CURRENT_BIT1 	0X02
@@ -140,6 +152,8 @@
 #define SMART_NORMAL_CHARGER_900MA	0X2000
 #define SMART_NORMAL_CHARGER_1200MA	0X4000
 #define SMART_NORMAL_CHARGER_1500MA	0X8000
+#define SMART_NORMAL_CHARGER_2000MA     0X400
+#define SMART_NORMAL_CHARGER_9V1500mA	0X800
 
 #define chg_debug(fmt, ...) \
         printk(KERN_NOTICE "[OPPO_CHG][%s]"fmt, __func__, ##__VA_ARGS__)
@@ -208,7 +222,8 @@ typedef enum {
         CRITICAL_LOG_CHARGING_OVER_TIME,
         CRITICAL_LOG_VOOC_WATCHDOG,
         CRITICAL_LOG_VOOC_BAD_CONNECTED,
-        CRITICAL_LOG_VOOC_BTB
+		CRITICAL_LOG_VOOC_BTB,
+		CRITICAL_LOG_VOOC_FW_UPDATE_ERR,
 }OPPO_CHG_CRITICAL_LOG;
 
 typedef enum {
@@ -223,7 +238,32 @@ typedef enum {
         CHARGER_SUBTYPE_FASTCHG_SVOOC,
         CHARGER_SUBTYPE_PD,
         CHARGER_SUBTYPE_QC,
+//#ifdef ODM_HQ_EDIT
+//Junbo.Guo@ODM_WT.BSP.CHG, 2019/11/11, Modify for pe20
+        CHARGER_SUBTYPE_PE20,
+//#endif
 }OPPO_CHARGER_SUBTYPE;
+
+#ifdef ODM_HQ_EDIT
+//Sidong.Zhao@ODM_WT.BSP.CHG, 2019/11/27, ap thermal machine
+typedef enum {
+        AP_TEMP_BELOW_T0 = 0,
+        AP_TEMP_T0_TO_T1,
+        AP_TEMP_T1_TO_T2,
+        AP_TEMP_T2_TO_T3,
+        AP_TEMP_ABOVE_T3
+}OPPO_CHG_AP_TEMP_STAT;
+
+typedef enum {
+        BATT_TEMP_EXTEND_BELOW_T0 = 0,
+        BATT_TEMP_EXTEND_T0_TO_T1,
+        BATT_TEMP_EXTEND_T1_TO_T2,
+        BATT_TEMP_EXTEND_T2_TO_T3,
+        BATT_TEMP_EXTEND_T3_TO_T4,
+        BATT_TEMP_EXTEND_T4_TO_T5,
+        BATT_TEMP_EXTEND_ABOVE_T5
+}OPPO_CHG_BATT_TEMP_EXTEND_STAT;
+#endif /*ODM_WT_EDIT*/
 
 typedef enum {
         VOOC_TEMP_STATUS__NORMAL = 0,                      /*<=34c*/
@@ -253,7 +293,9 @@ struct oppo_chg_limits {
         int input_current_camera_ma;
         int input_current_calling_ma;
         int input_current_led_ma;
-
+	int input_current_vooc_led_ma_high;
+	int input_current_vooc_led_ma_warm;
+	int input_current_vooc_led_ma_normal;
         int vooc_high_bat_decidegc;                /*>=45C*/
         int input_current_vooc_ma_high;
 	int default_input_current_vooc_ma_high;
@@ -323,7 +365,57 @@ struct oppo_chg_limits {
         int charger_lv_thr;
         int vbatt_full_thr;
         int vbatt_hv_thr;
+#ifdef ODM_HQ_EDIT
+/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/11,add charge parameter*/
+		int temp_cold_usbchg_current_ma;/*-2-0*/
+		int temp_little_cold_usbchg_current_ma_high;/*0-5*/
+		int temp_little_cold_usbchg_current_ma_low;
+		int temp_little_cold_usbchg_current_ma;
+		int temp_cool_usbchg_current_ma_high;/*5-12*/
+		int temp_cool_usbchg_current_ma_low;
+		int temp_little_cool_usbchg_current_ma;/*12-16*/
+		int temp_normal_usbchg_current_ma;/*16-44*/
+		int temp_warm_usbchg_current_ma;/*44-53*/
+#endif
 
+#ifdef ODM_HQ_EDIT
+		//Junbo.Guo@ODM_WT.BSP.CHG, 2019/11/11, Modify for pe20
+		int pe20_temp_normal_fastchg_current_ma;
+		int pe20_temp_little_cool_fastchg_current_ma;
+		int pe20_temp_little_cold_fastchg_current_ma_high;
+		int pe20_temp_little_cold_fastchg_current_ma_low;
+		int pe20_temp_cool_fastchg_current_ma_high;
+		int pe20_temp_cool_fastchg_current_ma_low;
+		int pe20_temp_warm_fastchg_current_ma;
+		int pe20_input_current_charger_ma;
+#endif
+
+#ifdef ODM_HQ_EDIT
+/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/27,AP thermal machine*/
+	int ap_temp_t0;
+	int ap_temp_t0_minus_x;
+	int ap_temp_t1;
+	int ap_temp_t1_minus_x;
+	int ap_temp_t2;
+	int ap_temp_t2_minus_x;
+	int ap_temp_t3;
+	int ap_temp_t3_minus_x;
+
+	int ap_temp_below_t0_ichg;
+	int ap_temp_t0_to_t1_ichg;
+	int ap_temp_t1_to_t2_ichg;
+	int ap_temp_t2_to_t3_ichg;
+	int ap_temp_above_t3_ichg;
+
+	int	batt_temp_extend_t0_to_t1_ichg;
+	int	batt_temp_extend_t1_to_t2_ichg_part1;
+	int	batt_temp_extend_t1_to_t2_ichg_part2;
+	int	batt_temp_extend_t2_to_t3_ichg;
+	int	batt_temp_extend_t3_to_t4_ichg;
+	int	batt_temp_extend_t4_to_t5_ichg;
+
+	int charge_current_calling_ma;
+#endif /*ODM_WT_EDIT*/
         int vfloat_step_mv;  
         int vfloat_sw_set;
         int vfloat_over_counts;
@@ -365,7 +457,10 @@ struct oppo_chg_limits {
         int non_normal_vterm_hw_inc;
 
         int vbatt_pdqc_to_5v_thr;
-		
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+        /*baodongmei@ODM.HQ.BSP.CHG 2020/06/26 Add for sala_A PD */
+        int vbatt_pdqc_to_9v_thr;
+#endif
         int ff1_normal_fastchg_ma;
         int ff1_warm_fastchg_ma;
         int ff1_exit_step_ma;					  /*<=35C,700ma*/
@@ -514,6 +609,11 @@ struct oppo_chg_chip {
         struct i2c_client        *client;
         struct device           *dev;
         const struct oppo_chg_operations *chg_ops;
+#ifdef ODM_HQ_EDIT
+//Junbo.Guo@ODM_WT.BSP.CHG, 2019/11/11, Modify for subcharger 
+		const struct oppo_chg_operations *sub_chg_ops;
+		bool  is_double_charger_support;
+#endif
 
         struct power_supply        *ac_psy;
 
@@ -569,6 +669,9 @@ struct oppo_chg_chip {
         int                 smooth_soc;
         int                 soc_load;
         bool                authenticate;
+		#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		bool 				hmac;
+		#endif
         int                 batt_fcc;
         int                 batt_cc;
         int                 batt_soh;
@@ -594,6 +697,10 @@ struct oppo_chg_chip {
         int                 notify_flag;
         /* zhangchao@ODM.HQ.Charger 2019/12/04 modified for limit charging current in vooc when calling */
 	int cool_down;
+#ifdef ODM_HQ_EDIT
+/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/14,add for thermal detection*/
+        int                ap_temp;
+#endif /*ODM_WT_EDIT*/
 
 	bool                led_on;
 	bool                led_on_change;
@@ -641,6 +748,9 @@ struct oppo_chg_chip {
         int                 dod0_counts;
 		bool				ffc_support;
 		bool				fastchg_to_ffc;
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+		bool				waiting_for_ffc;
+#endif
 		int					fastchg_ffc_status;
 		int 				ffc_temp_status;
 		bool                allow_swtich_to_fastchg;
@@ -652,7 +762,26 @@ struct oppo_chg_chip {
 	 int			usbtemp_volt_r;
 	 int			usb_temp_l;
 	 int			usb_temp_r;
+	 #ifdef ODM_HQ_EDIT
+	 //wangtao@ODM_HQ.BSP.CHG, 2020/04/17, add flashlight ntc temp
+	 int			flashlight_volt;
+	 int			flashlight_temp;
+	 #endif
         struct task_struct *tbatt_pwroff_task;
+#ifdef ODM_HQ_EDIT
+//Junbo.Guo@ODM_WT.BSP.CHG, 2019/11/11, Modify for pe20
+	struct task_struct		  *FAST_charger_thread;
+	struct timespec ptime[2];
+	bool pd_chging;
+	bool qc_chging;
+#endif
+#ifdef ODM_HQ_EDIT
+//Sidong.Zhao@ODM_WT.BSP.CHG, 2019/11/27, ap thermal machine
+	OPPO_CHG_AP_TEMP_STAT ap_sm;
+	OPPO_CHG_BATT_TEMP_EXTEND_STAT jeita_sm;
+#endif /*ODM_WT_EDIT*/
+	struct thermal_zone_device *tzd;
+	bool cool_down_force_5v;
 };
 
 
@@ -718,6 +847,19 @@ struct oppo_chg_operations {
 	int (*set_qc_config)(void);
 	int (*enable_qc_detect)(void);
 	int (*input_current_write_without_aicl)(int current_ma);
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+    int (*set_charger_vsys_threshold)(int val);
+    int (*enable_burst_mode)(bool enable);
+#endif
+#ifdef ODM_HQ_EDIT
+//Junbo.Guo@ODM_WT.BSP.CHG, 2019/11/11, Modify for pe20
+	int (*oppo_chg_get_pe20_type)(void);
+	int (*oppo_chg_pe20_setup)(void);
+	int (*oppo_chg_reset_pe20)(void);
+	int (*oppo_chg_set_high_vbus)(bool en);
+	int (*oppo_chg_set_hz_mode)(bool en);
+	int (*enable_shipmode)(bool en);
+#endif
 };
 
 
@@ -775,6 +917,11 @@ void oppo_chg_kick_wdt(void);
 void oppo_chg_disable_charge(void);
 void oppo_chg_unsuspend_charger(void);
 
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/*baodongmei@ODM.HQ.BSP.CHG 2020/06/26 Add for sala_A PD */
+void oppo_chg_suspend_charger(void);
+#endif
+
 int oppo_chg_get_chg_type(void);
 
 int oppo_chg_get_notify_flag(void);
@@ -804,6 +951,12 @@ void oppo_chg_set_chargerid_switch_val(int value);
 void oppo_chg_turn_on_charging(struct oppo_chg_chip *chip);
 int oppo_chg_get_cool_down_status(void);
 void oppo_smart_charge_by_cool_down(struct oppo_chg_chip *chip, int val);
+
+#ifdef ODM_HQ_EDIT
+/*Sidong.Zhao@ODM_WT.BSP.CHG 2019/11/15,declear function*/
+	void oppo_chg_turn_off_charging(struct oppo_chg_chip *chip);
+#endif /*ODM_WT_EDIT*/
+
 void oppo_chg_clear_chargerid_info(void);
 /* zhangchao@ODM.HQ.Charger 2019/12/04 modified for limit charging current in vooc when calling */
 int oppo_chg_get_cool_down_status(void);
@@ -818,4 +971,12 @@ void oppo_chg_set_allow_switch_to_fastchg(bool allow);
 int oppo_tbatt_power_off_task_init(struct oppo_chg_chip *chip);
 void oppo_tbatt_power_off_task_wakeup(void);
 void oppo_chg_set_input_current_without_aicl(int current_ma);
+int oppo_get_chg_unwakelock(void);
+extern int get_vbatt_num(void);
+
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+void oppo_chg_config_charger_vsys_threshold(int val);
+void oppo_chg_enable_burst_mode(bool enable);
+#endif
+
 #endif /*_OPPO_CHARGER_H_*/

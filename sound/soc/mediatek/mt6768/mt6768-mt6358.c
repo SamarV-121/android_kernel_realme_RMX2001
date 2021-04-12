@@ -39,6 +39,22 @@ static const struct soc_enum mt6768_spk_type_enum[] = {
 			    mt6768_spk_i2s_type_str),
 };
 
+#ifdef ODM_HQ_EDIT
+/*sunjingtao@ODM.HQ.Multimedia.Audio 2020/03/04 modified for speaker bringup */
+static struct mtk_base_afe *g_afe = NULL;
+
+int mt6768_machine_driver_set_g_afe(struct mtk_base_afe *afe)
+{
+	pr_err("[WENDELL]%s enter", __func__);
+
+	if(g_afe == NULL)
+		g_afe = afe;
+
+	return 0;
+}
+#endif /* ODM_HQ_EDIT */
+
+
 static int mt6768_spk_type_get(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
@@ -81,9 +97,30 @@ static int mt6768_mt6358_spk_amp_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		/* spk amp on control */
+#ifdef ODM_HQ_EDIT
+/*sunjingtao@ODM.HQ.Multimedia.Audio 2020/03/04 modified for speaker bringup */
+#define EXTAMP_WARM_UP_TIME        (25)	/* unit is ms */
+		pr_err("[WENDELL] %s() ON+\n", __func__);
+		if(g_afe != NULL)
+			mt6768_afe_gpio_extamp_select(g_afe, false, 3);
+		/*udelay(1000); */
+		usleep_range(1 * 1000, 20 * 1000);
+		if(g_afe != NULL)
+			mt6768_afe_gpio_extamp_select(g_afe, true, 3);
+		msleep(EXTAMP_WARM_UP_TIME);
+		pr_err("[WENDELL] %s() ON-\n", __func__);
+#endif /* ODM_HQ_EDIT */
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* spk amp off control */
+#ifdef ODM_HQ_EDIT
+/*sunjingtao@ODM.HQ.Multimedia.Audio 2020/03/04 modified for speaker bringup */
+		pr_err("[WENDELL] %s(), OFF+\n", __func__);
+		if(g_afe != NULL)
+			mt6768_afe_gpio_extamp_select(g_afe, false, 3);
+		udelay(500);
+		pr_err("[WENDELL] %s(), OFF-\n", __func__);
+#endif /* ODM_HQ_EDIT */
 		break;
 	default:
 		break;

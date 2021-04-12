@@ -373,10 +373,6 @@ static char fw_path_para[256];
 static const char * const fw_path[] = {
 	"/data/misc/firmware/active/",
 	fw_path_para,
-	#ifdef ODM_HQ_EDIT
-	//fanxiongnan@ODM.HQ_Multimedia.Audio 2019/10/09 added for aw87339 bringup
-	"/vendor/firmware",
-	#endif /* ODM_HQ_EDIT */
 	"/lib/firmware/updates/" UTS_RELEASE,
 	"/lib/firmware/updates",
 	"/lib/firmware/" UTS_RELEASE,

@@ -52,6 +52,8 @@ typedef int (*cust_set_brightness) (int level);
 #ifdef ODM_HQ_EDIT
 /* Liyan@ODM.HQ.Multimedia.LCM 2019/08/20 modified for 2048 steps backlight */
 #define MT_LED_INTERNAL_LEVEL_BIT_CNT 11
+/* Longyajun@ODM.HQ.Multimedia.LCM 2020/05/06 modified for 4095 steps backlight */
+#define MT_LED_INTERNAL_LEVEL_BIT_CNT_SALA 12
 #else /* ODM_HQ_EDIT */
 #define MT_LED_INTERNAL_LEVEL_BIT_CNT 10
 #endif /* ODM_HQ_EDIT */

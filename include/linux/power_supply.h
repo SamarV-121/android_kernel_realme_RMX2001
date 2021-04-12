@@ -110,6 +110,7 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_BATTERY_NOTIFY_CODE,
 	POWER_SUPPLY_PROP_ICHG_COOL_DOWN,        //zhangchao@ODM.HQ.Charger 2019/12/04 modified for limit charging current in vooc when calling 
 	POWER_SUPPLY_PROP_CHARGER_IC,
+	POWER_SUPPLY_PROP_HMAC,
 	POWER_SUPPLY_PROP_STATUS,
 	#endif /* VENDOR_EDIT */
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
@@ -232,6 +233,7 @@ enum power_supply_property {
 	/* Qiao.Hu@BSP.BaseDrv.CHG.Basic, 2017/12/09, Add for ship mode */
 	POWER_SUPPLY_PROP_SHIP_MODE,
 	#endif /* VENDOR_EDIT */
+	POWER_SUPPLY_PROP_FLASHLIGHT_TEMP,
 	#ifdef VENDOR_EDIT
 	//tongfeng.huang@PSW.BSP.CHG, 2018/02/05, Add for battery info collect
 	#ifdef CONFIG_OPPO_SHORT_C_BATT_CHECK
@@ -271,9 +273,13 @@ enum power_supply_property {
 #endif
 
 #ifdef ODM_HQ_EDIT
+	
 /* zhangchao@ODM.HQ.Charger 2019/09/4 modified for bring up charging */
 	POWER_SUPPLY_PROP_TYPEC_SBU_VOLTAGE,
 	POWER_SUPPLY_PROP_WATER_DETECT_FEATURE,
+	POWER_SUPPLY_PROP_FAST_CHG_TYPE,
+	POWER_SUPPLY_PROP_BAT_ID_VOLT,
+	POWER_SUPPLY_PROP_BAT_TYPE,
 #endif /*ODM_HQ_EDIT*/
 
 	/* Properties of type `const char *' */
@@ -296,6 +302,10 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_PD_DRP,		/* PD Dual Role Port */
 	POWER_SUPPLY_TYPE_APPLE_BRICK_ID,	/* Apple Charging Method */
 	POWER_SUPPLY_TYPE_WIRELESS,		/* Wireless Charger */
+#if defined(ODM_HQ_EDIT) && defined(CONFIG_MACH_MT6785)
+/* baodongmei@BSP.BaseDrv.CHG.Basic, 2020/07/07 add QC config for sala A*/
+        POWER_SUPPLY_TYPE_USB_HVDCP,
+#endif
 };
 
 enum power_supply_notifier_events {

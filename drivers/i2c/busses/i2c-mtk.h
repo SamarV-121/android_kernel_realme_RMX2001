@@ -104,6 +104,10 @@
 #define I2C_CONTROL_DIR_CHANGE	(0x1 << 4)
 #define I2C_CONTROL_ACKERR_DET_EN	(0x1 << 5)
 #define I2C_CONTROL_TRANSFER_LEN_CHANGE (0x1 << 6)
+#ifdef CONFIG_MACH_MT6768
+/* zuoqiquan@ODM.BSP.Sensor  2020/03/12 ,fix MT6768 nfc i2c error */
+#define I2C_CONTROL_IRQ_SEL     (0x1 << 7)
+#endif /*CONFIG_MACH_MT6768*/
 #define I2C_CONTROL_DMAACK_EN	(0x1 << 8)
 #define I2C_CONTROL_ASYNC_MODE	(0x1 << 9)
 #define I2C_CONTROL_WRAPPER		(0x1 << 0)
@@ -326,6 +330,13 @@ struct mtk_i2c_compatible {
 	/* for constraint of SAMPLE_CNT_DIV and STEP_CNT_DIV of mt6765 */
 	/* 1, has-a-constraint; 0, no constraint */
 	unsigned char cnt_constraint;
+#ifdef CONFIG_MACH_MT6768
+/* zuoqiquan@ODM.BSP.Sensor  2020/03/12 ,fix MT6768 nfc i2c error */
+	/* only for MT6768 */
+	/* this option control defined when nack error or ack error occurs */
+	/* 0 : disable, 1 : enable*/
+	unsigned char control_irq_sel;
+#endif /*CONFIG_MACH_MT6768*/
 	u16 ext_time_config;
 	char clk_compatible[128];
 	u16 clk_sta_offset[I2C_MAX_CHANNEL];/* I2C clock status register */

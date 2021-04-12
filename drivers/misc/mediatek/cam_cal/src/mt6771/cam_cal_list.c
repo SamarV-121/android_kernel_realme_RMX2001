@@ -61,6 +61,17 @@ struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
 	{IMX214_SENSOR_ID, 0xA0, Common_read_region},
 	{IMX214_MONO_SENSOR_ID, 0xA0, Common_read_region},
 	#endif
+
+#ifdef ODM_HQ_EDIT
+/* Jian.Li@ODM.Camra.Drv 20200225 add for OTP Bringup */
+	{S5K3L6_MAIN_TS_SENSOR_ID, 0xA2, Common_read_region},
+	{S5K3L6_MAIN_QT_SENSOR_ID, 0xA2, Common_read_region},
+	{S5K3L6_SUB_LY_SENSOR_ID, 0xA4, Common_read_region},
+	{S5K3L6_SUB_QT_SENSOR_ID, 0xA4, Common_read_region},
+	{GC13C33_SENSOR_ID, 0xA4, Common_read_region},
+	{GC2375_JK_SENSOR_ID, 0xA0, Common_read_region},
+	{SP2509_HL_SENSOR_ID, 0xA0, Common_read_region},
+#endif /* end of ODM_HQ_EDIT */
 	/*  ADD before this line */
 	{0, 0, 0}	/*end of list */
 };

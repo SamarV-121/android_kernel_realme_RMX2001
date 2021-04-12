@@ -283,12 +283,15 @@ int lastbus_timeout_dump(void)
 	if (infra | peri) {
 		infra_timeout_dump();
 		peri_timeout_dump();
+	} else {
+		pr_info("\nNO lastbus timeout!!\n");
 	}
 
 	spin_unlock_irqrestore(&lastbus_spin_lock, flags);
 
 	return infra | peri;
 }
+EXPORT_SYMBOL(lastbus_timeout_dump);
 
 static int __init plt_lastbus_init(void)
 {

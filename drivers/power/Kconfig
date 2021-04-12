@@ -13,6 +13,15 @@ config OPPO_HQ_CHARGER
 	  Set No to disable OPPO_HQ_CHARGER features
 	  smart battery.
 
+config OPPO_HQ_EULER_CHARGER
+	bool "OPPO_CHARGER"
+	default n
+	help
+	  Set Yes to support OPPO_HQ_EULER_CHARGER features
+	  smart battery.
+	  Set No to disable OPPO_HQ_EULER_CHARGER features
+	  smart battery.
+
 config OPPO_CHARGER_MT6370_TYPEC
 	bool "OPPO_CHARGER"
 	default n

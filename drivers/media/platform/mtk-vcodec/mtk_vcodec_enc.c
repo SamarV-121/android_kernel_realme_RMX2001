@@ -1016,6 +1016,8 @@ static int vidioc_venc_s_fmt_cap(struct file *file, void *priv,
 		if (ret) {
 			mtk_v4l2_err("venc_if_init failed=%d, codec type=%x",
 				     ret, q_data->fmt->fourcc);
+			ctx->state = MTK_STATE_ABORT;
+			mtk_venc_queue_error_event(ctx);
 			return -EBUSY;
 		}
 		ctx->state = MTK_STATE_INIT;
@@ -1232,6 +1234,11 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 
 	// Check if need to proceed cache operations
 	vq = v4l2_m2m_get_vq(ctx->m2m_ctx, buf->type);
+	if (buf->index >= vq->num_buffers) {
+		mtk_v4l2_err("[%d] buffer index %d out of range %d",
+			ctx->id, buf->index, vq->num_buffers);
+		return -EINVAL;
+	}
 	vb = vq->bufs[buf->index];
 	vb2_v4l2 = container_of(vb, struct vb2_v4l2_buffer, vb2_buf);
 	mtkbuf = container_of(vb2_v4l2, struct mtk_video_enc_buf, vb);
@@ -1555,7 +1562,7 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 	/* Once state turn into MTK_STATE_ABORT, we need stop_streaming
 	  * to clear it
 	  */
-	if (ctx->state == MTK_STATE_ABORT) {
+	if (ctx->state == MTK_STATE_ABORT || ctx->state == MTK_STATE_FREE) {
 		ret = -EIO;
 		goto err_set_param;
 	}
@@ -1656,7 +1663,6 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 		return;
 	}
 
-	ctx->state = MTK_STATE_FREE;
 }
 
 static const struct vb2_ops mtk_venc_vb2_ops = {
@@ -2293,7 +2299,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 		0, V4L2_MPEG_VIDEO_MPEG4_PROFILE_SIMPLE);
 	v4l2_ctrl_new_std_menu(handler, ops, V4L2_CID_MPEG_VIDEO_H264_LEVEL,
 		V4L2_MPEG_VIDEO_H264_LEVEL_4_2,
-		0, V4L2_MPEG_VIDEO_H264_LEVEL_4_0);
+		0, V4L2_MPEG_VIDEO_H264_LEVEL_1_0);
 	v4l2_ctrl_new_std_menu(handler, ops,
 		V4L2_CID_MPEG_VIDEO_H265_TIER_LEVEL,
 		V4L2_MPEG_VIDEO_H265_LEVEL_MAIN_TIER_LEVEL_4,

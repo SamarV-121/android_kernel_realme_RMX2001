@@ -18,12 +18,23 @@
 	};
 };
 
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+#ifdef CONFIG_MACH_MT6771
+&i2c3 {
+	i2c_lcd_bias@3e {
+		compatible = "mediatek,i2c_lcd_bias";
+		reg = <0x3e>;
+	};
+};
+#else
 &i2c6 {
 	i2c_lcd_bias@3e {
 		compatible = "mediatek,i2c_lcd_bias";
 		reg = <0x3e>;
 	};
 };
+#endif
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, end. */
 
 &lcd_bias {
 	pinctrl-names = "default", "lcd_bias_gpio_enp0", "lcd_bias_gpio_enp1", "lcd_bias_gpio_enn0", "lcd_bias_gpio_enn1";
@@ -54,7 +65,13 @@
 
 	lcd_bias_pins_enn0: lcd_bias_gpio_enn0 {
 		pins_cmd_dat {
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+#ifdef CONFIG_MACH_MT6771
+			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+#else
 			pinmux = <PINMUX_GPIO202__FUNC_GPIO202>;
+#endif
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, end. */
 			slew-rate = <1>;
 			output-low;
 		};
@@ -62,7 +79,13 @@
 
 	lcd_bias_pins_enn1: lcd_bias_gpio_enn1 {
 		pins_cmd_dat {
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, begin. */
+#ifdef CONFIG_MACH_MT6771
+			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+#else
 			pinmux = <PINMUX_GPIO202__FUNC_GPIO202>;
+#endif
+/* liunianliang@ODM.BSP.System 2020/02/17, modify for oppo6771 LCD driver, end. */
 			slew-rate = <1>;
 			output-high;
 		};

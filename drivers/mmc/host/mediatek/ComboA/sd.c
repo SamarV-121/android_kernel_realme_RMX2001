@@ -4074,7 +4074,7 @@ static void msdc_ops_request_legacy(struct mmc_host *mmc,
 #endif
 		/* Retry legacy data read pass, clear autok pass flag */
 		if ((host->need_tune & TUNE_LEGACY_DATA_READ) &&
-			mrq->cmd->data) {
+			mrq->cmd->data && host->err_cmd == mrq->cmd->opcode) {
 			host->need_tune &= ~TUNE_LEGACY_DATA_READ;
 			host->need_tune &= ~TUNE_AUTOK_PASS;
 			host->reautok_times = 0;
@@ -4082,7 +4082,7 @@ static void msdc_ops_request_legacy(struct mmc_host *mmc,
 		}
 		/* Retry legacy data write pass, clear autok pass flag */
 		if ((host->need_tune & TUNE_LEGACY_DATA_WRITE) &&
-			mrq->cmd->data) {
+			mrq->cmd->data && host->err_cmd == mrq->cmd->opcode) {
 			host->need_tune &= ~TUNE_LEGACY_DATA_WRITE;
 			host->need_tune &= ~TUNE_AUTOK_PASS;
 			host->reautok_times = 0;

@@ -23,6 +23,61 @@
  *     mediatek\custom\common\hal\imgsensor\src\sensorlist.cpp
  */
 struct IMGSENSOR_INIT_FUNC_LIST kdSensorList[MAX_NUM_OF_SUPPORT_SENSOR] = {
+#ifdef ODM_HQ_EDIT
+    /* Lijian@ODM.Camera.Drv 20190827 for snesor bringup */
+#if defined(OV12A10_MIPI_RAW)
+	{OV12A10_SENSOR_ID,
+	SENSOR_DRVNAME_OV12A10_MIPI_RAW,
+	OV12A10_MIPI_RAW_SensorInit},
+#endif
+#if defined(OV13B10_MIPI_RAW)
+	{OV13B10_SENSOR_ID,
+	SENSOR_DRVNAME_OV13B10_MIPI_RAW,
+	OV13B10_MIPI_RAW_SensorInit},
+#endif
+#if defined(S5KGM1SP_MIPI_RAW)
+	{S5KGM1SP_SENSOR_ID,
+	SENSOR_DRVNAME_S5KGM1SP_MIPI_RAW,
+	S5KGM1SP_MIPI_RAW_SensorInit},
+#endif
+#if defined(S5K4H7_MIPI_RAW)
+	{S5K4H7_SENSOR_ID,
+	SENSOR_DRVNAME_S5K4H7_MIPI_RAW,
+	S5K4H7_MIPI_RAW_SensorInit},
+#endif
+#if defined(OV8856_MIPI_RAW)
+	{OV8856_SENSOR_ID,
+	SENSOR_DRVNAME_OV8856_MIPI_RAW,
+	OV8856_MIPI_RAW_SensorInit},
+#endif
+#if defined(GC2375H_MIPI_RAW)
+	{GC2375H_SENSOR_ID,
+	SENSOR_DRVNAME_GC2375H_MIPI_RAW,
+	GC2375H_MIPI_RAW_SensorInit},
+#endif
+#if defined(GC02M0_MIPI_MONO)
+	{GC02M0_SENSOR_ID,
+	SENSOR_DRVNAME_GC02M0_MIPI_MONO,
+	GC02M0_MIPI_MONO_SensorInit},
+#endif
+#if defined(GC2375H_MIPI_MONO)
+	{GC2375H_JK_SENSOR_ID,
+	SENSOR_DRVNAME_GC2375H_MIPI_MONO,
+	GC2375H_MIPI_MONO_SensorInit},
+#endif
+#if defined(GC02M1_MIPI_MONO)
+	{GC02M1_SENSOR_ID,
+	SENSOR_DRVNAME_GC02M1_MIPI_MONO,
+	GC02M1_MIPI_MONO_SensorInit},
+#endif
+#if defined(OV02B10_MIPI_RAW)
+	{OV02B10_SENSOR_ID,
+	SENSOR_DRVNAME_OV02B10_MIPI_RAW,
+	OV02B10_MIPI_RAW_SensorInit},
+#endif
+
+
+#else
 	/*IMX*/
 #if defined(IMX519_MIPI_RAW)
 	{IMX519_SENSOR_ID,
@@ -720,6 +775,7 @@ struct IMGSENSOR_INIT_FUNC_LIST kdSensorList[MAX_NUM_OF_SUPPORT_SENSOR] = {
 		OV8856_MIPI_RAW_SensorInit},
 #endif
 
+#endif /*ODM_HQ_EDIT*/
 	/*  ADD sensor driver before this line */
 	{0, {0}, NULL}, /* end of list */
 };

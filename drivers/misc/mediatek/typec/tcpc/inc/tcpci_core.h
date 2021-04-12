@@ -483,6 +483,10 @@ struct tcpc_device {
 	u8 pd_inited_flag:1; /* MTK Only */
 
 	/* TypeC Shield Protection */
+#if defined(VENDOR_EDIT) && defined(CONFIG_MACH_MT6785)
+/* Jianchao.Shi@BSP.CHG.Basic, 2019/04/15, sjc Add for do not enable polling when in WD */
+	bool wd_already;
+#endif
 #ifdef CONFIG_WATER_DETECTION
 	int usbid_calib;
 #endif /* CONFIG_WATER_DETECTION */
