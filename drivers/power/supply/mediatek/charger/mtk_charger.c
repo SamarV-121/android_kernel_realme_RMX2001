@@ -1227,6 +1227,7 @@ static int mtk_charger_plug_out(struct charger_manager *info)
 	return 0;
 }
 
+#ifdef MTK_CHARGER_THREADING
 static bool mtk_is_charger_on(struct charger_manager *info)
 {
 	enum charger_type chr_type;
@@ -1264,6 +1265,7 @@ static void charger_update_data(struct charger_manager *info)
 {
 	info->battery_temp = battery_get_bat_temperature();
 }
+#endif
 
 static int mtk_chgstat_notify(struct charger_manager *info)
 {
@@ -1394,6 +1396,7 @@ static void mtk_battery_notify_check(struct charger_manager *info)
 	}
 }
 
+#ifdef MTK_CHARGER_THREADING
 static void check_battery_exist(struct charger_manager *info)
 {
 	unsigned int i = 0;
@@ -1445,6 +1448,7 @@ static void check_dynamic_mivr(struct charger_manager *info)
 		}
 	}
 }
+#endif
 
 static void mtk_chg_get_tchg(struct charger_manager *info)
 {
@@ -1478,6 +1482,7 @@ static void mtk_chg_get_tchg(struct charger_manager *info)
 	}
 }
 
+#ifdef MTK_CHARGER_THREADING
 static void charger_check_status(struct charger_manager *info)
 {
 	bool charging = true;
@@ -1590,6 +1595,7 @@ static void kpoc_power_off_check(struct charger_manager *info)
 		}
 	}
 }
+#endif
 
 #ifdef CONFIG_PM
 static int charger_pm_event(struct notifier_block *notifier,
@@ -1682,69 +1688,6 @@ static void mtk_charger_init_timer(struct charger_manager *info)
 	if (register_pm_notifier(&charger_pm_notifier_func))
 		chr_err("%s: register pm failed\n", __func__);
 #endif /* CONFIG_PM */
-}
-
-static int charger_routine_thread(void *arg)
-{
-	struct charger_manager *info = arg;
-	unsigned long flags;
-	bool is_charger_on;
-	int bat_current, chg_current;
-
-	while (1) {
-		wait_event(info->wait_que,
-			(info->charger_thread_timeout == true));
-
-		mutex_lock(&info->charger_lock);
-		spin_lock_irqsave(&info->slock, flags);
-		if (!info->charger_wakelock.active)
-			__pm_stay_awake(&info->charger_wakelock);
-		spin_unlock_irqrestore(&info->slock, flags);
-
-		info->charger_thread_timeout = false;
-		bat_current = battery_get_bat_current();
-		chg_current = pmic_get_charging_current();
-		chr_err("Vbat=%d,Ibat=%d,I=%d,VChr=%d,T=%d,Soc=%d:%d,CT:%d:%d hv:%d pd:%d:%d\n",
-			battery_get_bat_voltage(), bat_current, chg_current,
-			battery_get_vbus(), battery_get_bat_temperature(),
-			battery_get_soc(), battery_get_uisoc(),
-			mt_get_charger_type(), info->chr_type,
-			info->enable_hv_charging, info->pd_type,
-			info->pd_reset);
-
-		if (info->pd_reset == true) {
-			mtk_pe40_plugout_reset(info);
-			info->pd_reset = false;
-		}
-
-		is_charger_on = mtk_is_charger_on(info);
-
-		if (info->charger_thread_polling == true)
-			mtk_charger_start_timer(info);
-
-		charger_update_data(info);
-		check_battery_exist(info);
-		check_dynamic_mivr(info);
-		charger_check_status(info);
-		kpoc_power_off_check(info);
-
-		if (is_disable_charger() == false) {
-			if (is_charger_on == true) {
-				if (info->do_algorithm)
-					info->do_algorithm(info);
-			}
-		} else
-			chr_debug("disable charging\n");
-
-		spin_lock_irqsave(&info->slock, flags);
-		__pm_relax(&info->charger_wakelock);
-		spin_unlock_irqrestore(&info->slock, flags);
-		chr_debug("%s end , %d\n",
-			__func__, info->charger_thread_timeout);
-		mutex_unlock(&info->charger_lock);
-	}
-
-	return 0;
 }
 
 static int mtk_charger_parse_dt(struct charger_manager *info,
@@ -3072,8 +3015,6 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	info->sw_jeita.error_recovery_flag = true;
 
 	mtk_charger_init_timer(info);
-
-	kthread_run(charger_routine_thread, info, "charger_thread");
 
 	if (info->chg1_dev != NULL && info->do_event != NULL) {
 		info->chg1_nb.notifier_call = info->do_event;
