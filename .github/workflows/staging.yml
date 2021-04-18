@@ -3,7 +3,8 @@ name: Build STAGING Kernel
 on:
   push:
     branches:
-      - staging
+      - fuse-staging
+  workflow_dispatch:
 
 jobs:
   gcc:
