@@ -5525,18 +5525,8 @@ static struct spi_driver tp_spi_driver = {
 
 static int32_t __init nvt_driver_init(void)
 {
-	int ret = -1;
     TPD_INFO("%s is called\n", __func__);
-	
-    ret = gpio_get_value(359);
-    TPD_INFO("ret: %d\n", ret);
-    if(ret == 0) {
-            TPD_INFO("this is CPHY NT36672C LCD\n");
-    }
-    else {
-            TPD_INFO("ret = %d, this is not CPHY NT36672C LCD\n", ret);
-            return 0;
-    }
+
     if (!tp_judge_ic_match(TPD_DEVICE))
             return -1;
 	get_oem_verified_boot_state();
