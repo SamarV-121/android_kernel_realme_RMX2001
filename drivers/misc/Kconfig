@@ -527,6 +527,14 @@ config MEMORY_STATE_TIME
 	help
 	  Memory time statistics exported to /sys/kernel/memory_state_time
 
+#ifdef ODM_HQ_EDIT
+#sunjingtao@ODM.BSP.System  2019/9/7 add for board id
+config GET_BOARD_ID
+	bool "Provide Proc Interface To get board id"
+	help
+	Provide a interface for geting board id
+#endif
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -539,4 +547,7 @@ source "drivers/misc/mic/Kconfig"
 source "drivers/misc/genwqe/Kconfig"
 source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
+source "drivers/misc/mediatek/Kconfig"
+#sunjingtao@ODM.BSP.System  2019/9/7 add for devinfo
+source "drivers/misc/hqdevinfo/Kconfig"
 endmenu

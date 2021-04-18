@@ -25,9 +25,21 @@ obj-$(CONFIG_INPUT_JOYSTICK)	+= joystick/
 obj-$(CONFIG_INPUT_TABLET)	+= tablet/
 obj-$(CONFIG_INPUT_TOUCHSCREEN)	+= touchscreen/
 obj-$(CONFIG_INPUT_MISC)	+= misc/
+obj-$(CONFIG_MTK_FINGERPRINT_SUPPORT)  += fingerprint/
 
 obj-$(CONFIG_INPUT_APMPOWER)	+= apm-power.o
 obj-$(CONFIG_INPUT_KEYRESET)	+= keyreset.o
 obj-$(CONFIG_INPUT_KEYCOMBO)	+= keycombo.o
 
 obj-$(CONFIG_RMI4_CORE)		+= rmi4/
+
+#ifdef VENDOR_EDIT
+#Long.Liu@BSP.Fingerprint.Basic,2018/9/25,Add for oppo secure common
+obj-y          += misc/oppo_seccommon_drivers/
+#endif //VENDOR_EDIT
+
+#ifdef VENDOR_EDIT
+#Long.Liu@BSP.Fingerprint.Basic,2018/9/25,Add for Fingerprint Driver
+obj-$(CONFIG_OPPO_FINGERPRINT)          += oppo_fp_drivers/
+#endif //VENDOR_EDIT
+

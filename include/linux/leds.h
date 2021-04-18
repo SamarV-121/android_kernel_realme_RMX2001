@@ -20,11 +20,17 @@
 #include <linux/spinlock.h>
 #include <linux/timer.h>
 #include <linux/workqueue.h>
+#ifdef VENDOR_EDIT
+/*Yongpeng.Yi@PSW.MultiMedia.Display.Machine, 2017/12/8,modify for multibits backlight.*/
+#include <soc/oppo/oppo_project.h>
+#endif
 
 struct device;
 /*
  * LED Core
  */
+#ifndef VENDOR_EDIT
+/*Yongpeng.Yi@PSW.MultiMedia.Display.Machine, 2017/12/8,modify for multibits backlight.*/
 
 enum led_brightness {
 	LED_OFF		= 0,
@@ -32,7 +38,27 @@ enum led_brightness {
 	LED_HALF	= 127,
 	LED_FULL	= 255,
 };
-
+#else
+enum led_brightness {
+	LED_OFF		= 0,
+};
+#define TEN_BITS (((get_project() == 17197) || (get_project() == 17199) \
+				|| (get_project() == 19531) || (get_project() == 19391)) ? 1 : 0)
+#define ELEVEN_BITS (((get_project() == 19661) || (get_project() == 17331) || (get_project() == 17332) \
+				|| (get_project() == 17335) || (get_project() == 17337) \
+				|| ((get_project() >= 17061) && (get_project() <= 17067)) \
+				|| ((get_project() >= 17175) && (get_project() <= 17178)) \
+				|| ((get_project() >= 18311) && (get_project() <= 18318)) \
+				|| ((get_project() >= 18011) && (get_project() <= 18012)) \
+				|| ((get_project() >= 18531) && (get_project() <= 18539)) \
+				|| ((get_project() >= 18551) && (get_project() <= 18559)) \
+				|| ((get_project() >= 18561) && (get_project() <= 18569)) \
+				|| ((get_project() >= 18161) && (get_project() <= 18169)) \
+				|| ((get_project() >= 18151) && (get_project() <= 18159)) \
+				|| (get_project() == 17339) || (get_project() == 17340)) ? 1 : 0)
+#define LED_HALF (ELEVEN_BITS ? 1023 : (TEN_BITS ? 511 : 127))
+#define LED_FULL (ELEVEN_BITS ? 2047 : (TEN_BITS ? 1023 : 255))
+#endif /* VENDOR_EDIT */
 struct led_classdev {
 	const char		*name;
 	enum led_brightness	 brightness;

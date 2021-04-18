@@ -240,6 +240,7 @@ static struct attribute *ext4_feat_attrs[] = {
 	NULL,
 };
 
+extern unsigned int sysctl_ext4_async_discard_enable;
 static void *calc_ptr(struct ext4_attr *a, struct ext4_sb_info *sbi)
 {
 	switch (a->attr_ptr) {

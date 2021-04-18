@@ -27,6 +27,9 @@
 #include <linux/notifier.h>
 #include <linux/suspend.h>
 
+//Yongyao.Song@PSW.NW.PWR.1053636, 2017/08/01, add for modem wake up source
+#define MODEM_WAKEUP_SRC_NUM 10
+//Yongyao.Song@PSW.NW.PWR add end
 
 #define MAX_WAKEUP_REASON_IRQS 32
 static int irq_list[MAX_WAKEUP_REASON_IRQS];
@@ -40,7 +43,52 @@ static ktime_t last_monotime; /* monotonic time before last suspend */
 static ktime_t curr_monotime; /* monotonic time after last suspend */
 static ktime_t last_stime; /* monotonic boottime offset before last suspend */
 static ktime_t curr_stime; /* monotonic boottime offset after last suspend */
+#ifdef ODM_HQ_EDIT
+//zuoqiquan@ODM.HQ.BSP 2020/01/17 Add for print wakeup source
+extern u64 alarm_count;
+extern u64 wakeup_source_count_rtc;
+#endif /*ODM_HQ_EDIT*/
 
+
+#ifdef ODM_HQ_EDIT
+//zuoqiquan@ODM.HQ.BSP 2020/01/17 Add for print wakeup source
+static ssize_t ap_resume_reason_stastics_show(struct kobject *kobj, struct kobj_attribute *attr,
+		char *buf)
+{
+	int buf_offset = 0;
+
+	buf_offset += sprintf(buf + buf_offset,"INT_RTC");
+	buf_offset += sprintf(buf + buf_offset,  "%s",":");
+	buf_offset += sprintf(buf + buf_offset,  "%lld \n",wakeup_source_count_rtc);
+	printk(KERN_WARNING "%s wakeup %lld times\n","INT_RTC",wakeup_source_count_rtc);
+
+	return buf_offset;
+}
+//Nanwei.Deng@BSP.Power.Basic, 2018/11/19,  Add for clean wake up source  according to
+//echo reset >   /sys/kernel/wakeup_reasons/wakeup_stastisc_reset
+static ssize_t  wakeup_stastisc_reset_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	char reset_string[]="reset";
+	if(!((count == strlen(reset_string)) || ((count == strlen(reset_string) + 1) && (buf[count-1] == '\n')))) {
+		return count;
+       }
+
+	if (strncmp(buf, reset_string, strlen(reset_string)) != 0) {
+		return count;
+       }
+
+	return count;
+}
+//Yongyao.Song@PSW.NW.PWR add end
+static struct kobj_attribute ap_resume_reason_stastics = __ATTR_RO(ap_resume_reason_stastics);
+//Wenxian.Zhen@BSP.Power.Basic, 2018/11/17, Add for  clean wake up source  according to echo reset >   /sys/kernel/wakeup_reasons/wakeup_stastisc_reset
+static struct kobj_attribute wakeup_stastisc_reset_sys =
+	__ATTR(wakeup_stastisc_reset, S_IWUSR|S_IRUGO, NULL, wakeup_stastisc_reset_store);
+#endif /*ODM_HQ_EDIT*/
+
+//Yongyao.Song@PSW.NW.PWR.1053636, 2017/08/01, add for modem wake up source
+//Yongyao.Song@PSW.NW.PWR add end
 static ssize_t last_resume_reason_show(struct kobject *kobj, struct kobj_attribute *attr,
 		char *buf)
 {
@@ -97,7 +145,14 @@ static struct kobj_attribute suspend_time = __ATTR_RO(last_suspend_time);
 
 static struct attribute *attrs[] = {
 	&resume_reason.attr,
+    //Yongyao.Song@PSW.NW.PWR.1053636, 2017/08/01, add for modem wake up source
+    //Yongyao.Song@PSW.NW.PWR add end
 	&suspend_time.attr,
+#ifdef ODM_HQ_EDIT
+//zuoqiquan@ODM.HQ.BSP 2020/01/17 Add for print wakeup source
+	&ap_resume_reason_stastics.attr,    //Nanwei.Deng@BSP.Power.Basic, 2018/11/19, add for analysis power coumption.
+	&wakeup_stastisc_reset_sys.attr,    //Nanwei.Deng@BSP.Power.Basic, 2018/11/19, add for analysis power coumption.
+#endif /*ODM_HQ_EDIT*/
 	NULL,
 };
 static struct attribute_group attr_group = {

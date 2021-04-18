@@ -272,6 +272,36 @@ else
 scripts/Kbuild.include: ;
 include scripts/Kbuild.include
 
+#ifdef VENDOR_EDIT
+#Jianchao.Shi@PSW.BSP.CHG.Basic, 2019/05/09, sjc Add for 806 high/low temp aging test
+ifeq ($(OPPO_HIGH_TEMP_VERSION),true)
+KBUILD_CFLAGS += -DCONFIG_HIGH_TEMP_VERSION
+KBUILD_CPPFLAGS += -DCONFIG_HIGH_TEMP_VERSION
+endif
+#endif /* VENDOR_EDIT */
+
+
+
+#ifdef VENDOR_EDIT
+#fanhui@PhoneSW.BSP, 2016-05-18, add for DeathHealer only used in release
+ifneq ($(filter user,$(TARGET_BUILD_VARIANT)),)
+KBUILD_CFLAGS += -DOPPO_RELEASE_FLAG
+KBUILD_CPPFLAGS += -DOPPO_RELEASE_FLAG
+endif
+#endif /* VENDOR_EDIT */
+
+
+#ifdef  VENDOR_EDIT
+#ye.zhang@Sensor.config,2016-09-09, add for CTSI support external storage or not
+ifneq ($(OPPO_BUILD_CUSTOMIZE),)
+$(info @@@@@@@@@@@ OPPO_BUILD_CUSTOMIZE is $(OPPO_BUILD_CUSTOMIZE))
+KBUILD_CFLAGS += -DMOUNT_EXSTORAGE_IF
+KBUILD_CPPFLAGS += -DMOUNT_EXSTORAGE_IF
+CFLAGS_KERNEL += -DMOUNT_EXSTORAGE_IF
+CFLAGS_MODULE += -DMOUNT_EXSTORAGE_IF
+endif
+#endif//VENDOR_EDIT
+
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)
 KERNELRELEASE = $(shell cat include/config/kernel.release 2> /dev/null)
 KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(SUBLEVEL)))$(EXTRAVERSION)
@@ -412,6 +442,7 @@ LINUXINCLUDE    := \
 		-I$(srctree)/arch/$(hdr-arch)/include \
 		-I$(objtree)/arch/$(hdr-arch)/include/generated \
 		$(if $(KBUILD_SRC), -I$(srctree)/include) \
+		-I$(srctree)/drivers/misc/mediatek/include \
 		-I$(objtree)/include \
 		$(USERINCLUDE)
 
@@ -427,8 +458,36 @@ KBUILD_CFLAGS_KERNEL :=
 KBUILD_AFLAGS_MODULE  := -DMODULE
 KBUILD_CFLAGS_MODULE  := -DMODULE
 KBUILD_LDFLAGS_MODULE := -T $(srctree)/scripts/module-common.lds
+
 GCC_PLUGINS_CFLAGS :=
 CLANG_FLAGS :=
+
+#ifdef  VENDOR_EDIT
+#LiPing-m@PSW.MM.Display.LCD.Machine, 2017/11/03, Add for VENDOR_EDIT macro in kernel
+KBUILD_CFLAGS +=   -DVENDOR_EDIT
+KBUILD_CPPFLAGS += -DVENDOR_EDIT
+CFLAGS_KERNEL +=   -DVENDOR_EDIT
+CFLAGS_MODULE +=   -DVENDOR_EDIT
+#endif /* VENDOR_EDIT */
+
+#ifdef VENDOR_EDIT
+#zhouhengguo@PSW.BSP.Kernel.Stablity, 2019/11/05, add daily build
+ifneq ($(TARGET_BUILD_VARIANT), user)
+KBUILD_CFLAGS   += -DOPPO_TARGET_BUILD_DAILY
+KBUILD_CPPFLAGS += -DOPPO_TARGET_BUILD_DAILY
+CFLAGS_KERNEL   += -DOPPO_TARGET_BUILD_DAILY
+CFLAGS_MODULE   += -DOPPO_TARGET_BUILD_DAILY
+endif
+#endif /*VENDOR_EDIT*/
+
+#ifdef VENDOR_EDIT
+#//Liang.Zhang@PSW.TECH.Bootup, 2018/10/19, Add for kernel monitor whole bootup
+#ifdef HANG_OPPO_ALL
+KBUILD_CFLAGS +=   -DHANG_OPPO_ALL
+KBUILD_CPPFLAGS += -DHANG_OPPO_ALL
+CFLAGS_KERNEL +=   -DHANG_OPPO_ALL
+CFLAGS_MODULE +=   -DHANG_OPPO_ALL
+#ifdef VENDOR_EDIT
 
 export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
 export CPP AR NM STRIP OBJCOPY OBJDUMP HOSTLDFLAGS HOST_LOADLIBES
@@ -754,6 +813,21 @@ KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
 endif
 
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-const-variable)
+
+ifdef ODM_HQ_EDIT
+# wangtao@ODM_HQ.BSP.Kernel.Boot,2019/10/24,Add for ODM_HQ_EDIT macro for kernel usage
+KBUILD_CFLAGS += $(MTK_CDEFS)
+endif
+ifdef CONFIG_ODM_HQ_EDIT
+# wangtao@ODM_HQ.BSP.Kernel.Boot,2019/10/24,Add for ODM_HQ_EDIT macro for kernel usage
+$(warning *****CONFIG_ODM_HQ_EDIT is defined****)
+KBUILD_CFLAGS   += -DODM_HQ_EDIT
+KBUILD_CPPFLAGS += -DODM_HQ_EDIT
+CFLAGS_KERNEL   += -DODM_HQ_EDIT
+CFLAGS_MODULE   += -DODM_HQ_EDIT
+export ODM_HQ_EDIT=yes
+endif
+
 ifdef CONFIG_FRAME_POINTER
 KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
 else

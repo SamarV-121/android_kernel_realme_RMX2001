@@ -648,7 +648,7 @@ static int ext4_ioctl_check_project(struct inode *inode, struct fsxattr *fa)
 
 	return 0;
 }
-
+extern unsigned int sysctl_ext4_async_discard_enable;
 long ext4_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct inode *inode = file_inode(filp);
@@ -974,7 +974,6 @@ resizefs_out:
 		struct request_queue *q = bdev_get_queue(sb->s_bdev);
 		struct fstrim_range range;
 		int ret = 0;
-
 		if (!capable(CAP_SYS_ADMIN))
 			return -EPERM;
 

@@ -786,7 +786,19 @@ static int sd_setup_unmap_cmnd(struct scsi_cmnd *cmd)
 
 	cmd->allowed = SD_MAX_RETRIES;
 	cmd->transfersize = data_len;
-	rq->timeout = SD_TIMEOUT;
+
+	/*
+	 * MTK PATCH: extend the time out value of discard
+	 *
+	 * The time of executed unmap command related to the state of UFS.
+	 * From Toshiba and SK-Hynix evaluation, it will take about 60 seconds
+	 * when host execute to unmap UFS 128GB all area.
+	 *
+	 * Therefore, we proposed to modify time out of unmap from 30s
+	 * to 100s.(included safety margin).
+	 */
+	rq->timeout = SD_DISCARD_TIMEOUT;
+
 	scsi_req(rq)->resid_len = data_len;
 
 	return scsi_init_io(cmd);
@@ -2104,13 +2116,27 @@ sd_spinup_disk(struct scsi_disk *sdkp)
 			 * doesn't have any media in it, don't bother
 			 * with any more polling.
 			 */
+#ifdef VENDOR_EDIT
+/* Jianchao.Shi@BSP.CHG.Basic, 2018/06/05, sjc Modify for OTG */
+			if (retries > 25) {
+				if (media_not_present(sdkp, &sshdr))
+					return;
+			}
+#else
 			if (media_not_present(sdkp, &sshdr))
 				return;
+#endif
 
 			if (the_result)
 				sense_valid = scsi_sense_valid(&sshdr);
 			retries++;
+#ifdef VENDOR_EDIT
+/* Jianchao.Shi@BSP.CHG.Basic, 2018/06/05, sjc Modify for OTG */
+		} while (retries < 30 &&
+
+#else
 		} while (retries < 3 && 
+#endif
 			 (!scsi_status_is_good(the_result) ||
 			  ((driver_byte(the_result) & DRIVER_SENSE) &&
 			  sense_valid && sshdr.sense_key == UNIT_ATTENTION)));
@@ -3076,52 +3102,6 @@ static void sd_read_security(struct scsi_disk *sdkp, unsigned char *buffer)
  * unless the reported value is unreasonably small, large, not a
  * multiple of the physical block size, or simply garbage.
  */
-static bool sd_validate_opt_xfer_size(struct scsi_disk *sdkp,
-				      unsigned int dev_max)
-{
-	struct scsi_device *sdp = sdkp->device;
-	unsigned int opt_xfer_bytes =
-		logical_to_bytes(sdp, sdkp->opt_xfer_blocks);
-
-	if (sdkp->opt_xfer_blocks == 0)
-		return false;
-
-	if (sdkp->opt_xfer_blocks > dev_max) {
-		sd_first_printk(KERN_WARNING, sdkp,
-				"Optimal transfer size %u logical blocks " \
-				"> dev_max (%u logical blocks)\n",
-				sdkp->opt_xfer_blocks, dev_max);
-		return false;
-	}
-
-	if (sdkp->opt_xfer_blocks > SD_DEF_XFER_BLOCKS) {
-		sd_first_printk(KERN_WARNING, sdkp,
-				"Optimal transfer size %u logical blocks " \
-				"> sd driver limit (%u logical blocks)\n",
-				sdkp->opt_xfer_blocks, SD_DEF_XFER_BLOCKS);
-		return false;
-	}
-
-	if (opt_xfer_bytes < PAGE_SIZE) {
-		sd_first_printk(KERN_WARNING, sdkp,
-				"Optimal transfer size %u bytes < " \
-				"PAGE_SIZE (%u bytes)\n",
-				opt_xfer_bytes, (unsigned int)PAGE_SIZE);
-		return false;
-	}
-
-	if (opt_xfer_bytes & (sdkp->physical_block_size - 1)) {
-		sd_first_printk(KERN_WARNING, sdkp,
-				"Optimal transfer size %u bytes not a " \
-				"multiple of physical block size (%u bytes)\n",
-				opt_xfer_bytes, sdkp->physical_block_size);
-		return false;
-	}
-
-	sd_first_printk(KERN_INFO, sdkp, "Optimal transfer size %u bytes\n",
-			opt_xfer_bytes);
-	return true;
-}
 
 /**
  *	sd_revalidate_disk - called the first time a new disk is seen,
@@ -3192,10 +3172,18 @@ static int sd_revalidate_disk(struct gendisk *disk)
 	dev_max = min_not_zero(dev_max, sdkp->max_xfer_blocks);
 	q->limits.max_dev_sectors = logical_to_sectors(sdp, dev_max);
 
-	if (sd_validate_opt_xfer_size(sdkp, dev_max)) {
-		q->limits.io_opt = logical_to_bytes(sdp, sdkp->opt_xfer_blocks);
-		rw_max = logical_to_sectors(sdp, sdkp->opt_xfer_blocks);
-	} else
+	/*
+	 * Determine the device's preferred I/O size for reads and writes
+	 * unless the reported value is unreasonably small, large, or
+	 * garbage.
+	 */
+	if (sdkp->opt_xfer_blocks &&
+	    sdkp->opt_xfer_blocks <= dev_max &&
+	    sdkp->opt_xfer_blocks <= SD_DEF_XFER_BLOCKS &&
+	    sdkp->opt_xfer_blocks * sdp->sector_size >= PAGE_SIZE)
+		rw_max = q->limits.io_opt =
+			sdkp->opt_xfer_blocks * sdp->sector_size;
+	else
 		rw_max = min_not_zero(logical_to_sectors(sdp, dev_max),
 				      (sector_t)BLK_DEF_MAX_SECTORS);
 
@@ -3331,6 +3319,17 @@ static void sd_probe_async(void *data, async_cookie_t cookie)
 	}
 
 	blk_pm_runtime_init(sdp->request_queue, dev);
+
+	/*
+	 * MTK PATCH:
+	 * Set autosuspend delay for scsi device with runtime PM enabled.
+	 *
+	 * Note. autosuspend delay default value is -1 for all scsi devices,
+	 *       i.e., disabled by default.
+	 */
+	if (sdp->autosuspend_delay >= 0)
+		pm_runtime_set_autosuspend_delay(dev, sdp->autosuspend_delay);
+
 	device_add_disk(dev, gd);
 	if (sdkp->capacity)
 		sd_dif_config_host(sdkp);

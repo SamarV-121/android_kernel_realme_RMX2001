@@ -1,0 +1,30 @@
+config TOUCHSCREEN_MTK_HIMAX_CHIPSET_SPI
+	bool "Himax SPI support"
+	default n
+	help
+	  Say Y here if you have NT36xxx touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
+config TOUCHSCREEN_MTK_NT36xxx_HOSTDL_SPI
+	bool "Himax SPI support"
+	default n
+	help
+	  Say Y here if you have NT36xxx touch panel.
+
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+ 
+#if TOUCHSCREEN_MTK_HIMAX_CHIPSET_SPI
+source "drivers/input/touchscreen/mediatek/hq_green/hxchipset/Kconfig"
+#endif
+ 
+#if TOUCHSCREEN_MTK_NT36xxx_HOSTDL_SPI
+source "drivers/input/touchscreen/mediatek/hq_green/nvt_driver/Kconfig"
+#endif
+

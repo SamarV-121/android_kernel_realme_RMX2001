@@ -3,6 +3,15 @@
 # Makefile for the linux kernel.
 #
 
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtprof
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sched
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include
+ifneq ($(wildcard $(srctree)/../vendor/mediatek/internal/selinux_warning_enable),)
+ccflags-y += -DMTK_SELINUX_WARNING_ENABLE
+endif
+
 obj-y     = fork.o exec_domain.o panic.o \
 	    cpu.o exit.o softirq.o resource.o \
 	    sysctl.o sysctl_binary.o capability.o ptrace.o user.o \
@@ -14,6 +23,11 @@ obj-y     = fork.o exec_domain.o panic.o \
 
 obj-$(CONFIG_MODULES) += kmod.o
 obj-$(CONFIG_MULTIUSER) += groups.o
+
+#ifdef VENDOR_EDIT
+#yanwu@TECH.Storage.FS, 2019/08/27, add code to flush device cache in panic
+obj-y += panic_flush.o
+#endif
 
 ifdef CONFIG_FUNCTION_TRACER
 # Do not trace internal ftrace files
@@ -35,6 +49,10 @@ CFLAGS_kcov.o := $(call cc-option, -fno-conserve-stack -fno-stack-protector)
 # cond_syscall is currently not LTO compatible
 CFLAGS_sys_ni.o = $(DISABLE_LTO)
 
+#ifdef VENDOR_EDIT
+#Liujie.Xie@TECH.Kernel.Sched, 2019/05/22, add for ui first
+obj-y += oppocfs/
+
 # Don't instrument error handlers
 CFLAGS_cfi.o = $(DISABLE_CFI_CLANG)
 
@@ -45,6 +63,16 @@ obj-y += printk/
 obj-y += irq/
 obj-y += rcu/
 obj-y += livepatch/
+
+#ifdef VENDOR_EDIT
+#Liang.Zhang@PSW.TECH.BOOTUP, 2018/11/16, Add for panic recovery
+#ifdef HANG_OPPO_ALL
+obj-$(CONFIG_HANG_OPPO_ALL) += op_panic_recovery.o
+
+#wangzhenhua@Plf.Framework,2017/07/28, add for kevent action upload,root action upload to user layer
+obj-$(CONFIG_OPPO_KEVENT_UPLOAD) += oppo_kevent_upload.o
+
+
 
 obj-$(CONFIG_CHECKPOINT_RESTORE) += kcmp.o
 obj-$(CONFIG_FREEZER) += freezer.o

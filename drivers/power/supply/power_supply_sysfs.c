@@ -42,12 +42,13 @@ static struct device_attribute power_supply_attrs[];
 
 static const char * const power_supply_type_text[] = {
 	"Unknown", "Battery", "UPS", "Mains", "USB",
-	"USB_DCP", "USB_CDP", "USB_ACA", "USB_C",
+	"USB_DCP", "USB_CDP", "USB_ACA", "Wireless", "USB_C",
 	"USB_PD", "USB_PD_DRP", "BrickID"
 };
 
 static const char * const power_supply_status_text[] = {
-	"Unknown", "Charging", "Discharging", "Not charging", "Full"
+	"Unknown", "Charging", "Discharging", "Not charging", "Full",
+	"Cmd discharging"
 };
 
 static const char * const power_supply_charge_type_text[] = {
@@ -185,6 +186,26 @@ static ssize_t power_supply_store_property(struct device *dev,
 /* Must be in the same order as POWER_SUPPLY_PROP_* */
 static struct device_attribute power_supply_attrs[] = {
 	/* Properties of type `int' */
+	#ifdef VENDOR_EDIT
+	/* Qiao.Hu@BSP.BaseDrv.CHG.Basic, 2017/11/19, Add for charging */
+	POWER_SUPPLY_ATTR(authenticate),
+	POWER_SUPPLY_ATTR(charge_timeout),
+	POWER_SUPPLY_ATTR(battery_request_poweroff),
+	POWER_SUPPLY_ATTR(charge_technology),
+	POWER_SUPPLY_ATTR(fastcharger),
+	POWER_SUPPLY_ATTR(mmi_charging_enable),
+	POWER_SUPPLY_ATTR(stop_charging_enable),
+	POWER_SUPPLY_ATTR(otg_switch),
+	POWER_SUPPLY_ATTR(otg_online),
+	POWER_SUPPLY_ATTR(batt_fcc),
+	POWER_SUPPLY_ATTR(batt_soh),
+	POWER_SUPPLY_ATTR(batt_cc),
+	POWER_SUPPLY_ATTR(batt_rm),
+	POWER_SUPPLY_ATTR(notify_code),
+	POWER_SUPPLY_ATTR(cool_down),              //zhangchao@ODM.HQ.Charger 2019/12/04 modified for limit charging current in vooc when calling
+	POWER_SUPPLY_ATTR(charger_ic),
+	#endif /* VENDOR_EDIT */
+
 	POWER_SUPPLY_ATTR(status),
 	POWER_SUPPLY_ATTR(charge_type),
 	POWER_SUPPLY_ATTR(health),
@@ -254,7 +275,102 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(charge_enabled),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
+#if CONFIG_MTK_GAUGE_VERSION == 10
+	POWER_SUPPLY_ATTR(batt_vol),
+	POWER_SUPPLY_ATTR(batt_temp),
+	/* 20100405 Add for EM */
+	POWER_SUPPLY_ATTR(TemperatureR),
+	POWER_SUPPLY_ATTR(TempBattVoltage),
+	POWER_SUPPLY_ATTR(InstatVolt),
+	POWER_SUPPLY_ATTR(BatteryAverageCurrent),
+	POWER_SUPPLY_ATTR(BatterySenseVoltage),
+	POWER_SUPPLY_ATTR(ISenseVoltage),
+	POWER_SUPPLY_ATTR(ChargerVoltage),
+	/* Dual battery */
+	POWER_SUPPLY_ATTR(status_smb),
+	POWER_SUPPLY_ATTR(capacity_smb),
+	POWER_SUPPLY_ATTR(present_smb),
+	/* ADB CMD Discharging */
+	POWER_SUPPLY_ATTR(adjust_power),
+#endif
+	#ifdef VENDOR_EDIT
+	/* ChaoYing.Chen@EXP.BSP.CHG.basic, 2017/05/16, Add for adapter fwupdate */
+	POWER_SUPPLY_ATTR(adapter_fw_update),
+	#endif /* VENDOR_EDIT */
+
+	#ifdef VENDOR_EDIT
+	/* ChaoYing.Chen@EXP.BSP.CHG.basic, 2017/05/16, Add for capacity node */
+	POWER_SUPPLY_ATTR(internal_capacity),
+	#endif  /* VENDOR_EDIT */
+
+	#ifdef VENDOR_EDIT
+	/* ChaoYing.Chen@EXP.BSP.CHG.basic, 2017/05/16, Add for chargeid voltage */
+	POWER_SUPPLY_ATTR(chargerid_volt),
+	#endif  /* VENDOR_EDIT */
+
+	#ifdef VENDOR_EDIT
+	/* ChaoYing.Chen@EXP.BSP.CHG.basic, 2017/05/16, Add for voocchg_ing */
+	POWER_SUPPLY_ATTR(voocchg_ing),
+	#endif /* VENDOR_EDIT */
+
+	#ifdef VENDOR_EDIT
+	/* ChaoYing.Chen@EXP.BSP.CHG.basic, 2017/05/16, Add for critical log */
+	POWER_SUPPLY_ATTR(primal_type),
+	#endif /* VENDOR_EDIT */
+
+	#ifdef CONFIG_OPPO_CALL_MODE_SUPPORT
+	/* ChaoYing.Chen@EXP.BSP.CHG.basic, 2017/05/16, Add for calling */
+	POWER_SUPPLY_ATTR(call_mode),
+	#endif /* VENDOR_EDIT */
+	#ifdef CONFIG_OPPO_SHIP_MODE_SUPPORT
+	/* Qiao.Hu@BSP.BaseDrv.CHG.Basic, 2017/12/09, Add for ship mode */
+	POWER_SUPPLY_ATTR(ship_mode),
+	#endif /* CONFIG_OPPO_SHIP_MODE_SUPPORT */
 	/* Properties of type `const char *' */
+	#ifdef VENDOR_EDIT
+	//tongfeng.huang@PSW.BSP.CHG, 2018/02/05, Add for battery info collect
+	#ifdef CONFIG_OPPO_SHORT_C_BATT_CHECK
+	#ifdef CONFIG_OPPO_SHORT_USERSPACE
+	POWER_SUPPLY_ATTR(short_c_batt_limit_chg),
+	POWER_SUPPLY_ATTR(short_c_batt_limit_rechg),
+	POWER_SUPPLY_ATTR(input_current_settled),
+	#else
+	POWER_SUPPLY_ATTR(short_c_batt_update_change),
+	POWER_SUPPLY_ATTR(short_c_batt_in_idle),
+	POWER_SUPPLY_ATTR(short_c_batt_cv_status),
+	#endif /*CONFIG_OPPO_SHORT_USERSPACE*/
+	#endif	
+	#ifdef CONFIG_OPPO_SHORT_HW_CHECK
+	POWER_SUPPLY_ATTR(short_c_hw_feature),
+	POWER_SUPPLY_ATTR(short_c_hw_status),
+	#endif
+#ifdef CONFIG_OPPO_SHORT_IC_CHECK
+	POWER_SUPPLY_ATTR(short_ic_otp_status),
+	POWER_SUPPLY_ATTR(short_ic_volt_thresh),
+	POWER_SUPPLY_ATTR(short_ic_otp_value),
+#endif
+	POWER_SUPPLY_ATTR(fast2normal_chg),
+	#endif /*VENDOR_EDIT*/
+
+#ifdef VENDOR_EDIT
+/* Yichun.Chen  PSW.BSP.CHG  2019-05-14  for soc node */
+	POWER_SUPPLY_ATTR(chip_soc),
+	POWER_SUPPLY_ATTR(smooth_soc),
+#endif
+#ifdef VENDOR_EDIT
+/* Jianchao.Shi@BSP.CHG.Basic, 2019/06/15, sjc Add for typec */
+	POWER_SUPPLY_ATTR(typec_cc_orientation),
+	POWER_SUPPLY_ATTR(usb_status),
+	POWER_SUPPLY_ATTR(usbtemp_volt_l),
+	POWER_SUPPLY_ATTR(usbtemp_volt_r),
+#endif
+
+#ifdef ODM_HQ_EDIT
+/* zhangchao@ODM.HQ.Charger 2019/09/4 modified for bring up charging */
+	POWER_SUPPLY_ATTR(typec_sbu_voltage),
+	POWER_SUPPLY_ATTR(water_detect_feature),
+#endif /*ODM_HQ_EDIT*/
+
 	POWER_SUPPLY_ATTR(model_name),
 	POWER_SUPPLY_ATTR(manufacturer),
 	POWER_SUPPLY_ATTR(serial_number),
