@@ -209,20 +209,25 @@ int detect_share_cap_flag(void)
 			cpumask_equal(topology_sibling_cpumask(cpu),
 				  policy->related_cpus)) {
 			share_cap_level = share_cap_thread;
+			cpufreq_cpu_put(policy);
 			continue;
 		}
 
 		if (cpumask_equal(topology_core_cpumask(cpu),
 				  policy->related_cpus)) {
 			share_cap_level = share_cap_core;
+			cpufreq_cpu_put(policy);
 			continue;
 		}
 
 		if (cpumask_equal(cpu_cpu_mask(cpu),
 				  policy->related_cpus)) {
 			share_cap_level = share_cap_die;
+			cpufreq_cpu_put(policy);
 			continue;
 		}
+
+		cpufreq_cpu_put(policy);
 	}
 
 	if (share_cap != share_cap_level) {
@@ -370,11 +375,7 @@ static void update_topology_flags_workfn(struct work_struct *work)
 static u32 capacity_scale;
 static u32 *raw_capacity;
 
-#if defined(CONFIG_MACH_MT6739)
 static int free_raw_capacity(void)
-#else
-static int __init free_raw_capacity(void)
-#endif
 {
 	kfree(raw_capacity);
 	raw_capacity = NULL;

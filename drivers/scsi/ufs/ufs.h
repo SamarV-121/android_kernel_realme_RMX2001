@@ -212,7 +212,7 @@ enum health_desc_param {
        HEALTH_DESC_PARAM_EOL_INFO              = 0x2,
        HEALTH_DESC_PARAM_LIFE_TIME_EST_A       = 0x3,
        HEALTH_DESC_PARAM_LIFE_TIME_EST_B       = 0x4,
-       //HEALTH_DESC_PARAM_VENDOR_PROPINFO	   = 0x5,
+       //HEALTH_DESC_PARAM_VENDOR_PROPINFO        = 0x5,
 };
 #endif
 
@@ -573,6 +573,8 @@ struct ufs_vreg {
 	int max_uV;
 	int min_uA;
 	int max_uA;
+	int fixed_uV;
+	int plus_uV;
 };
 
 /* MTK PATCH */

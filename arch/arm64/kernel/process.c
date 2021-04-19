@@ -58,7 +58,6 @@
 #include <asm/mmu_context.h>
 #include <asm/processor.h>
 #include <asm/stacktrace.h>
-#include <asm/esr.h>
 
 #ifdef CONFIG_CC_STACKPROTECTOR
 #include <linux/stackprotector.h>
@@ -235,24 +234,6 @@ static void show_extra_register_data(struct pt_regs *regs, int nbytes)
 	set_fs(fs);
 }
 
-static unsigned int is_external_abort(void)
-{
-	unsigned int esr_el1 = 0;
-
-	asm volatile ("mrs %0, esr_el1\n\t"
-		      "dsb sy\n\t"
-		      : "=r"(esr_el1) : : "memory");
-
-	if ((ESR_ELx_EC(esr_el1) == ESR_ELx_EC_IABT_LOW) ||
-			(ESR_ELx_EC(esr_el1) == ESR_ELx_EC_IABT_CUR) ||
-			(ESR_ELx_EC(esr_el1) == ESR_ELx_EC_DABT_LOW) ||
-			(ESR_ELx_EC(esr_el1) == ESR_ELx_EC_DABT_CUR))
-		if ((esr_el1 & ESR_ELx_FSC) == ESR_ELx_FSC_EXTABT)
-			return 1;
-
-	return 0;
-}
-
 void __show_regs(struct pt_regs *regs)
 {
 	int i, top_reg;
@@ -269,11 +250,9 @@ void __show_regs(struct pt_regs *regs)
 	}
 
 	show_regs_print_info(KERN_DEFAULT);
-	print_symbol("PC is at %s\n", instruction_pointer(regs));
-	print_symbol("LR is at %s\n", lr);
-	printk("pc : [<%016llx>] lr : [<%016llx>] pstate: %08llx\n",
-	       regs->pc, lr, regs->pstate);
-	printk("sp : %016llx\n", sp);
+	print_symbol("pc : %s\n", regs->pc);
+	print_symbol("lr : %s\n", lr);
+	printk("sp : %016llx pstate : %08llx\n", sp, regs->pstate);
 
 	i = top_reg;
 
@@ -288,7 +267,7 @@ void __show_regs(struct pt_regs *regs)
 
 		pr_cont("\n");
 	}
-	if (!user_mode(regs) && !is_external_abort())
+	if (!user_mode(regs))
 		show_extra_register_data(regs, 128);
 	printk("\n");
 }
@@ -384,7 +363,7 @@ int copy_thread(unsigned long clone_flags, unsigned long stack_start,
 			childregs->pstate |= PSR_UAO_BIT;
 
 		if (arm64_get_ssbd_state() == ARM64_SSBD_FORCE_DISABLE)
-			childregs->pstate |= PSR_SSBS_BIT;
+			set_ssbs_bit(childregs);
 
 		p->thread.cpu_context.x19 = stack_start;
 		p->thread.cpu_context.x20 = stk_sz;
@@ -439,9 +418,16 @@ static void ssbs_thread_switch(struct task_struct *next)
 	if (unlikely(next->flags & PF_KTHREAD))
 		return;
 
+	/*
+	 * If all CPUs implement the SSBS extension, then we just need to
+	 * context-switch the PSTATE field.
+	 */
+	if (cpu_have_feature(cpu_feature(SSBS)))
+		return;
+
 	/* If the mitigation is enabled, then we leave SSBS clear. */
 	if ((arm64_get_ssbd_state() == ARM64_SSBD_FORCE_ENABLE) ||
-			test_tsk_thread_flag(next, TIF_SSBD))
+	    test_tsk_thread_flag(next, TIF_SSBD))
 		return;
 
 	if (compat_user_mode(regs))
@@ -449,6 +435,7 @@ static void ssbs_thread_switch(struct task_struct *next)
 	else if (user_mode(regs))
 		set_ssbs_bit(regs);
 }
+
 /*
  * We store our current task in sp_el0, which is clobbered by userspace. Keep a
  * shadow copy so that we can restore this upon entry from userspace.
@@ -478,6 +465,7 @@ __notrace_funcgraph struct task_struct *__switch_to(struct task_struct *prev,
 	entry_task_switch(next);
 	uao_thread_switch(next);
 	ssbs_thread_switch(next);
+
 	/*
 	 * Complete any pending TLB or cache maintenance on this CPU in case
 	 * the thread migrates to a different CPU.
@@ -545,45 +533,3 @@ void arch_setup_new_exec(void)
 {
 	current->mm->context.flags = is_compat_task() ? MMCF_AARCH32 : 0;
 }
-
-#if defined(VENDOR_EDIT) && defined(CONFIG_ELSA_STUB)
-//zhoumingjun@Swdp.shanghai, 2017/04/19, add process_event_notifier support
-static BLOCKING_NOTIFIER_HEAD(process_event_notifier);
-
-int process_event_register_notifier(struct notifier_block *nb)
-{
-	return blocking_notifier_chain_register(&process_event_notifier, nb);
-}
-EXPORT_SYMBOL(process_event_register_notifier);
-
-int process_event_unregister_notifier(struct notifier_block *nb)
-{
-	return blocking_notifier_chain_unregister(&process_event_notifier, nb);
-}
-EXPORT_SYMBOL(process_event_unregister_notifier);
-
-int process_event_notifier_call_chain(unsigned long action, struct process_event_data *pe_data)
-{
-	return blocking_notifier_call_chain(&process_event_notifier, action, pe_data);
-}
-
-//zhoumingjun@Swdp.shanghai, 2017/07/06, add process_event_notifier_atomic support
-static ATOMIC_NOTIFIER_HEAD(process_event_notifier_atomic);
-
-int process_event_register_notifier_atomic(struct notifier_block *nb)
-{
-	return atomic_notifier_chain_register(&process_event_notifier_atomic, nb);
-}
-EXPORT_SYMBOL(process_event_register_notifier_atomic);
-
-int process_event_unregister_notifier_atomic(struct notifier_block *nb)
-{
-	return atomic_notifier_chain_unregister(&process_event_notifier_atomic, nb);
-}
-EXPORT_SYMBOL(process_event_unregister_notifier_atomic);
-
-int process_event_notifier_call_chain_atomic(unsigned long action, struct process_event_data *pe_data)
-{
-	return atomic_notifier_call_chain(&process_event_notifier_atomic, action, pe_data);
-}
-#endif
