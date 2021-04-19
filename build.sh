@@ -1,6 +1,5 @@
 #!/bin/bash
 
-set -e
 green="\033[01;32m"
 nocol="\033[0m"
 
@@ -31,6 +30,8 @@ function TGsendMsg {
 	MESSAGE_ID=$(curl -s "$TELEGRAM_API/sendMessage" -d "chat_id=$TELEGRAM_CHAT" -d "parse_mode=HTML" -d "disable_web_page_preview=true" -d "text=$*" | jq -r '.result.message_id')
 }
 
+rm -f "$KERNEL_IMAGE"
+
 case "$1" in
 clang)
 	echo -e "${green}Compiling with Clang-9.0.3${nocol}"
@@ -56,8 +57,9 @@ if [ -e "$KERNEL_IMAGE" ]; then
 	cp -f "$DTB" "$AK3_DIR/dtb"
 	cd "$AK3_DIR"
 	zip -r "$ZIPNAME" * -x "*.zip"
+	echo -e "${green}$PWD/$ZIPNAME${nocol}"
 	curl -s "$TELEGRAM_API/sendDocument" -F "reply_to_message_id=$MESSAGE_ID" -F "chat_id=$TELEGRAM_CHAT" -F "document=@$ZIPNAME"
 else
 	curl -s "$TELEGRAM_API/sendDocument" -F "reply_to_message_id=$MESSAGE_ID" -F "chat_id=$TELEGRAM_CHAT" -F "document=@build_$DEVICE.log" -F "caption=Build failed"
-	exit 1
+	return 69
 fi
