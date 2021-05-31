@@ -170,7 +170,8 @@ static int __init update_feature(void)
     pr_err("update_feature, Operator Version [%d]", get_Operator_Version());
     set_fs(KERNEL_DS);
     if (oppoVersion) {
-        if (get_Operator_Version() == OPERATOR_19661_RUSSIA) {
+        if ((get_Operator_Version() == OPERATOR_19661_RUSSIA) ||
+        	(get_Operator_Version() == OPERATOR_19741_ASIA_SIMPLE_INDIA)) {
             proc_symlink(nfc_feature, oppoVersion, feature_src);
         }
     }
