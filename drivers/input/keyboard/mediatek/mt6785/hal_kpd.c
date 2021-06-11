@@ -21,6 +21,12 @@
 #include <hal_kpd.h>
 #include <mt-plat/mtk_boot_common.h>
 
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.Charger 2020/03/09 modified for HW reset sarter*/
+#include <soc/oppo/oppo_project.h>
+extern int g_cphy_dphy_gpio_value;
+#endif /* ODM_HQ_EDIT */
+
 #ifdef CONFIG_MTK_PMIC_NEW_ARCH
 static int kpd_enable_lprst = 1;
 #endif
@@ -54,10 +60,14 @@ void kpd_get_keymap_state(u16 state[])
 void long_press_reboot_function_setting(void)
 {
 #ifdef CONFIG_MTK_PMIC_NEW_ARCH /*for pmic not ready*/
+#ifdef ODM_HQ_EDIT
+if((get_Operator_Version() == 111) || (get_Operator_Version() == 112) || (get_Operator_Version() == 113) || (get_Operator_Version() == 114) || (g_cphy_dphy_gpio_value == 1)) {
+#endif
+
 	if (kpd_enable_lprst && get_boot_mode() == NORMAL_BOOT) {
 		kpd_info("Normal Boot long press reboot selection\n");
 
-#if ((defined (CONFIG_KPD_PMIC_LPRST_TD)) && (!defined (VENDOR_EDIT)))
+#ifdef CONFIG_KPD_PMIC_LPRST_TD
 	kpd_info("Enable normal mode LPRST\n");
 #ifdef CONFIG_ONEKEY_REBOOT_NORMAL_MODE
 		/*POWERKEY*/
@@ -76,7 +86,7 @@ void long_press_reboot_function_setting(void)
 	} else {
 		kpd_info("Other Boot Mode long press reboot selection\n");
 
-#if ((defined (CONFIG_KPD_PMIC_LPRST_TD)) && (!defined (VENDOR_EDIT)))
+#ifdef CONFIG_KPD_PMIC_LPRST_TD
 		kpd_info("Enable other mode LPRST\n");
 
 #ifdef CONFIG_ONEKEY_REBOOT_NORMAL_MODE
@@ -95,6 +105,10 @@ void long_press_reboot_function_setting(void)
 #endif
 
 	}
+#ifdef ODM_HQ_EDIT
+/*zhangchao@ODM.HQ.Charger 2020/03/09 modified for HW reset sarter*/
+}
+#endif
 #endif
 }
 
