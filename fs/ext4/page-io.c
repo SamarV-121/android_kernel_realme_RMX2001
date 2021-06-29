@@ -353,6 +353,7 @@ void ext4_io_submit(struct ext4_io_submit *io)
 				  REQ_SYNC : 0;
 		io->io_bio->bi_write_hint = io->io_end->inode->i_write_hint;
 		bio_set_op_attrs(io->io_bio, REQ_OP_WRITE, io_op_flags);
+		ext4_set_bio_ctx(io->inode, bio);
 		submit_bio(io->io_bio);
 	}
 	io->io_bio = NULL;
@@ -364,6 +365,7 @@ void ext4_io_submit_init(struct ext4_io_submit *io,
 	io->io_wbc = wbc;
 	io->io_bio = NULL;
 	io->io_end = NULL;
+	io->inode = NULL;
 }
 
 static int io_submit_init_bio(struct ext4_io_submit *io,
@@ -400,6 +402,7 @@ submit_and_retry:
 		if (ret)
 			return ret;
 		io->io_bio->bi_write_hint = inode->i_write_hint;
+		io->inode = inode;
 	}
 	ret = bio_add_page(io->io_bio, page, bh->b_size, bh_offset(bh));
 	if (ret != bh->b_size)
@@ -477,21 +480,33 @@ int ext4_bio_write_page(struct ext4_io_submit *io,
 
 	bh = head = page_buffers(page);
 
+	if (fscrypt_is_hw_encrypt(inode))
+		goto submit_buf;
+
 	if (ext4_encrypted_inode(inode) && S_ISREG(inode->i_mode) &&
 	    nr_to_submit) {
 		gfp_t gfp_flags = GFP_NOFS;
 
+		/*
+		 * Since bounce page allocation uses a mempool, we can only use
+		 * a waiting mask (i.e. request guaranteed allocation) on the
+		 * first page of the bio.  Otherwise it can deadlock.
+		 */
+		if (io->io_bio)
+			gfp_flags = GFP_NOWAIT | __GFP_NOWARN;
 	retry_encrypt:
 		data_page = fscrypt_encrypt_page(inode, page, PAGE_SIZE, 0,
 						page->index, gfp_flags);
 		if (IS_ERR(data_page)) {
 			ret = PTR_ERR(data_page);
-			if (ret == -ENOMEM && wbc->sync_mode == WB_SYNC_ALL) {
-				if (io->io_bio) {
+			if (ret == -ENOMEM &&
+			    (io->io_bio || wbc->sync_mode == WB_SYNC_ALL)) {
+				gfp_flags = GFP_NOFS;
+				if (io->io_bio)
 					ext4_io_submit(io);
-					congestion_wait(BLK_RW_ASYNC, HZ/50);
-				}
-				gfp_flags |= __GFP_NOFAIL;
+				else
+					gfp_flags |= __GFP_NOFAIL;
+				congestion_wait(BLK_RW_ASYNC, HZ/50);
 				goto retry_encrypt;
 			}
 			data_page = NULL;
@@ -499,6 +514,7 @@ int ext4_bio_write_page(struct ext4_io_submit *io,
 		}
 	}
 
+submit_buf:
 	/* Now submit buffers to write */
 	do {
 		if (!buffer_async_write(bh))

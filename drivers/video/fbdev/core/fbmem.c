@@ -1209,16 +1209,26 @@ static long do_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		console_unlock();
 		break;
 	case FBIOBLANK:
-		console_lock();
+		#ifndef CONFIG_MACH_MT6768
+		printk("zqq  %s driver enter line:%d\n",__func__,__LINE__);
+		console_lock();  //zuoqiquan close for temp
+		printk("zqq  %s driver enter line:%d\n",__func__,__LINE__);
+		#endif
 		if (!lock_fb_info(info)) {
-			console_unlock();
+			#ifndef CONFIG_MACH_MT6768
+			console_unlock(); //zuoqiquan close for temp
+			#endif
 			return -ENODEV;
 		}
 		info->flags |= FBINFO_MISC_USEREVENT;
 		ret = fb_blank(info, arg);
 		info->flags &= ~FBINFO_MISC_USEREVENT;
 		unlock_fb_info(info);
-		console_unlock();
+		#ifndef CONFIG_MACH_MT6768
+		printk("zqq  %s driver enter line:%d\n",__func__,__LINE__);
+		console_unlock(); //zuoqiquan close for temp
+		printk("zqq  %s driver enter line:%d\n",__func__,__LINE__);
+		#endif
 		break;
 	default:
 		if (!lock_fb_info(info))

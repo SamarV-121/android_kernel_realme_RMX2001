@@ -19,6 +19,11 @@
 #include <asm/page.h>
 #include <asm/pgtable.h>
 #include "internal.h"
+#ifdef VENDOR_EDIT
+/* Huacai.Zhou@PSW.BSP.Kernel.MM, 2018-06-26, add ion total used account*/
+#include <linux/ion.h>
+#include <linux/oppo_ion.h>
+#endif /*VENDOR_EDIT*/
 
 void __attribute__((weak)) arch_report_meminfo(struct seq_file *m)
 {
@@ -154,6 +159,10 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
 	show_val_kb(m, "CmaFree:        ",
 		    global_zone_page_state(NR_FREE_CMA_PAGES));
 #endif
+#if defined(VENDOR_EDIT) && defined(CONFIG_ION)
+	show_val_kb(m, "IonTotalCache:       ", global_zone_page_state(NR_IONCACHE_PAGES));
+	show_val_kb(m, "IonTotalUsed:       ", ion_total() >> PAGE_SHIFT);
+#endif /* VENDOR_EDIT */
 
 	hugetlb_report_meminfo(m);
 

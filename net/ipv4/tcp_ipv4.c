@@ -2491,7 +2491,12 @@ static int __net_init tcp_sk_init(struct net *net)
 	net->ipv4.sysctl_tcp_reordering = TCP_FASTRETRANS_THRESH;
 	net->ipv4.sysctl_tcp_retries1 = TCP_RETR1;
 	net->ipv4.sysctl_tcp_retries2 = TCP_RETR2;
+#ifndef VENDOR_EDIT
+//Yongyao.Song@PSW.NW.DATA.1127822, modify for decrease power
 	net->ipv4.sysctl_tcp_orphan_retries = 0;
+#else
+	net->ipv4.sysctl_tcp_orphan_retries = TCP_ORPHAN_RETRIES;
+#endif /*VENDOR_EDIT*/
 	net->ipv4.sysctl_tcp_fin_timeout = TCP_FIN_TIMEOUT;
 	net->ipv4.sysctl_tcp_notsent_lowat = UINT_MAX;
 	net->ipv4.sysctl_tcp_tw_reuse = 0;
@@ -2504,6 +2509,13 @@ static int __net_init tcp_sk_init(struct net *net)
 	net->ipv4.sysctl_tcp_sack = 1;
 	net->ipv4.sysctl_tcp_window_scaling = 1;
 	net->ipv4.sysctl_tcp_timestamps = 1;
+
+	#ifdef VENDOR_EDIT
+	//Hao.Peng@PSW.CN.WiFi.Network.login.1854960, 2019/03/30,
+	//add for [BUGID],disable tcp random timestamp,some networks limit tcp syn before login
+	net->ipv4.sysctl_tcp_random_timestamp = 1;
+	#endif /* VENDOR_EDIT */
+
 
 	return 0;
 fail:

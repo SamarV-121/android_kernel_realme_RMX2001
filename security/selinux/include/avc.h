@@ -187,5 +187,15 @@ void avc_disable(void);
 DECLARE_PER_CPU(struct avc_cache_stats, avc_cache_stats);
 #endif
 
+#if defined(CONFIG_MTK_SELINUX_AEE_WARNING) &&\
+	defined(MTK_SELINUX_WARNING_ENABLE)
+extern struct sk_buff *audit_get_skb(struct audit_buffer *ab);
+extern void mtk_audit_hook(char *data);
+#endif
+
+#ifdef VENDOR_EDIT
+//Jiemin.Zhu@PSW.Android.SELinux, 2017/11/03, add for security context
+extern int is_oppo_permissive(u32 ssid, u32 tsid, u32 requested);
+#endif /* VENDOR_EDIT */
 #endif /* _SELINUX_AVC_H_ */
 
