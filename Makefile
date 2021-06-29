@@ -845,6 +845,10 @@ CFLAGS_MODULE   += -DTARGET_WATERMELON_Q_PROJECT
 export TARGET_WATERMELON_Q_PROJECT=yes
 endif
 
+ifneq ($(findstring RMX2001, $(TARGET_PRODUCT)),)
+KBUILD_CFLAGS   += -DOPPO_PROJECT_19661
+endif
+
 ifdef CONFIG_FRAME_POINTER
 KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
 else

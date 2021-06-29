@@ -545,7 +545,12 @@ struct dynamic_fps_levels {
 };
 
 /*DynFPS start*/
+
+#ifdef OPPO_PROJECT_19661
+#define MULTI_CONFIG_NUM 2
+#else
 #define MULTI_CONFIG_NUM 3
+#endif
 struct dyn_config_info {
 	unsigned int vsyncFPS;
 	unsigned int vact_timing_fps;/*active timing fps*/
